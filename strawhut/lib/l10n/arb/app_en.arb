@@ -1,0 +1,63 @@
+{
+  "@@locale": "en",
+  "appTitle": "StrawHut",
+  "@appTitle": {
+    "description": "App title"
+  },
+  "newCard": "New Knowledge Card",
+  "@newCard": {
+    "description": "New card button"
+  },
+  "openCard": "Open Knowledge Card",
+  "@openCard": {
+    "description": "Open card button"
+  },
+  "publish": "Publish",
+  "@publish": {
+    "description": "Publish button"
+  },
+  "decrypt": "Decrypt",
+  "@decrypt": {
+    "description": "Decrypt button"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  "title": "Title",
+  "@title": {
+    "description": "Title field"
+  },
+  "publisherAlias": "Publisher Alias",
+  "@publisherAlias": {
+    "description": "Publisher alias field"
+  },
+  "description": "Description",
+  "@description": {
+    "description": "Description field"
+  },
+  "tags": "Tags",
+  "@tags": {
+    "description": "Tags field"
+  },
+  "anonymousMode": "Anonymous Mode",
+  "@anonymousMode": {
+    "description": "Anonymous mode toggle"
+  },
+  "copyKey": "Copy Key",
+  "@copyKey": {
+    "description": "Copy key button"
+  },
+  "exportKeyFile": "Export .key file",
+  "@exportKeyFile": {
+    "description": "Export key file option"
+  },
+  "keyError": "Wrong key or corrupted file",
+  "@keyError": {
+    "description": "Decryption failure message"
+  },
+  "integrityError": "File may have been tampered with",
+  "@integrityError": {
+    "description": "Integrity check failure message"
+  }
+}

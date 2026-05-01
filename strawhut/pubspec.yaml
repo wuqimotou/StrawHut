@@ -1,0 +1,58 @@
+name: strawhut
+description: 去中心化加密知识分享平台
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 富文本编辑器
+  flutter_quill: ^11.5.0
+
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # 加密相关
+  encrypt: ^5.0.3
+  pointycastle: ^3.9.1
+  crypto: ^3.0.6
+
+  # 文件操作
+  file_picker: ^8.1.7
+  file_selector: ^1.0.3
+  path_provider: ^2.1.5
+
+  # 路由导航
+  go_router: ^14.6.2
+
+  # 桌面端拖拽
+  desktop_drop: ^0.5.0
+
+  # JSON 序列化
+  json_annotation: ^4.9.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.3
+  json_serializable: ^6.9.0
+  very_good_analysis: ^7.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  generate: true

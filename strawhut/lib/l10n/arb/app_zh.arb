@@ -1,0 +1,63 @@
+{
+  "@@locale": "zh",
+  "appTitle": "StrawHut",
+  "@appTitle": {
+    "description": "应用标题"
+  },
+  "newCard": "新建知识卡片",
+  "@newCard": {
+    "description": "新建知识卡片按钮"
+  },
+  "openCard": "打开知识卡片",
+  "@openCard": {
+    "description": "打开知识卡片按钮"
+  },
+  "publish": "发布",
+  "@publish": {
+    "description": "发布按钮"
+  },
+  "decrypt": "解密",
+  "@decrypt": {
+    "description": "解密按钮"
+  },
+  "cancel": "取消",
+  "@cancel": {
+    "description": "取消按钮"
+  },
+  "title": "标题",
+  "@title": {
+    "description": "标题字段"
+  },
+  "publisherAlias": "发布者代号",
+  "@publisherAlias": {
+    "description": "发布者代号字段"
+  },
+  "description": "描述",
+  "@description": {
+    "description": "描述字段"
+  },
+  "tags": "标签",
+  "@tags": {
+    "description": "标签字段"
+  },
+  "anonymousMode": "匿名模式",
+  "@anonymousMode": {
+    "description": "匿名模式开关"
+  },
+  "copyKey": "复制密钥",
+  "@copyKey": {
+    "description": "复制密钥按钮"
+  },
+  "exportKeyFile": "导出 .key 文件",
+  "@exportKeyFile": {
+    "description": "导出密钥文件选项"
+  },
+  "keyError": "密钥错误或文件已损坏",
+  "@keyError": {
+    "description": "解密失败提示"
+  },
+  "integrityError": "文件可能被篡改",
+  "@integrityError": {
+    "description": "完整性校验失败提示"
+  }
+}

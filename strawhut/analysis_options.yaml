@@ -1,0 +1,12 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_fields: true
+    avoid_print: true
+    always_declare_return_types: true
+    avoid_relative_lib_imports: true
+    avoid_types_as_parameter_names: true
+    prefer_const_declarations: true
+    avoid_slow_async_io: true
