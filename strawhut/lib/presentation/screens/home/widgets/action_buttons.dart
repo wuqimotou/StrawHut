@@ -40,7 +40,7 @@ class ActionButtons extends StatelessWidget {
             _onCreateNewCard(context);
           },
           icon: const Icon(Icons.add_circle_outline),
-          label: const Text('新建知识卡片'),
+          label: const Text('发布知识卡片'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(fontSize: 16),
@@ -49,13 +49,13 @@ class ActionButtons extends StatelessWidget {
         const SizedBox(height: 16),
         // "打开知识卡片" 按钮
         // 点击后弹出文件选择器，用户可以选择已有的 .straw 文件进行查看
-        OutlinedButton.icon(
+        ElevatedButton.icon(
           onPressed: () {
             _onOpenCard(context);
           },
           icon: const Icon(Icons.folder_open_outlined),
-          label: const Text('打开知识卡片'),
-          style: OutlinedButton.styleFrom(
+          label: const Text('解密知识卡片'),
+          style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(fontSize: 16),
           ),

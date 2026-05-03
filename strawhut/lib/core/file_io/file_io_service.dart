@@ -199,8 +199,8 @@ class FileIOService implements IFileIOService {
     if (!isValidStrawFile(filePath)) {
       throw FileException(
         '无效的文件扩展名：期望 .straw，'
-            '实际为 "${p.extension(filePath)}"。'
-            '请确保选择的是 StrawHut 知识卡片文件。',
+        '实际为 "${p.extension(filePath)}"。'
+        '请确保选择的是 StrawHut 知识卡片文件。',
         code: 'INVALID_EXTENSION',
       );
     }
@@ -394,8 +394,8 @@ class FileIOService implements IFileIOService {
     if (!isValidKeyFile(filePath)) {
       throw FileException(
         '无效的文件扩展名：期望 .key，'
-            '实际为 "${p.extension(filePath)}"。'
-            '请确保选择的是 StrawHut 密钥文件。',
+        '实际为 "${p.extension(filePath)}"。'
+        '请确保选择的是 StrawHut 密钥文件。',
         code: 'INVALID_EXTENSION',
       );
     }

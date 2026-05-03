@@ -33,7 +33,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Use default position, then center after creation
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(kWindowWidth, kWindowHeight);
-  if (!window.Create(L"strawhut", origin, size)) {
+  if (!window.Create(L"StrawHut", origin, size)) {
     return EXIT_FAILURE;
   }
 
