@@ -2,7 +2,7 @@ name: strawhut
 description: 去中心化加密知识分享平台
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 0.1.1+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
