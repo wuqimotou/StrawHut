@@ -1,7 +1,7 @@
 # 🌾 StrawHut
 
-> **让知识在人与人之间安全、自由地传递。**
-> *Let knowledge flow securely and freely between people.*
+> **让知识在人与人之间安全地传递。**
+> *Let knowledge flow securely between people.*
 
 <p align="center">
   <a href="#中文">🇨🇳 中文</a> · <a href="#english">🇬🇧 English</a>
@@ -10,13 +10,14 @@
 ---
 
 <a name="中文"></a>
+
 ## 🇨🇳  StrawHut — 本地知识卡片加密工具
 
 ### 🏠 产品简介
 
 **StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。它将你的知识内容加密为 `.straw` 格式文件，通过独立的 `.key` 密钥文件控制访问权限。软件不依赖任何中心化服务器，所有数据处理均在你的设备上完成。
 
-> 🌟 **愿景**：让知识在人与人之间安全、自由地传递，创作者掌控内容，读者获得价值。
+> 🌟 **愿景**：让知识在人与人之间安全传递，创作者掌控内容，读者获得价值。
 
 ### ✨ 核心特性
 
@@ -184,7 +185,7 @@ StrawHut/
 
 **StrawHut** is a **fully local** knowledge card encryption tool. It encrypts your knowledge content into `.straw` format files, with access controlled through independent `.key` files. The software doesn't rely on any centralized servers — all data processing happens on your device.
 
-> 🌟 **Vision**: Let knowledge flow securely and freely between people. Creators control their content, readers gain value.
+> 🌟 **Vision**: Let knowledge flow securely between people. Creators control their content, readers gain value.
 
 ### ✨ Features
 
@@ -349,4 +350,4 @@ StrawHut/
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v0.1.0 | **最后更新**: 2026-05-03
+> **文档版本**: v0.1.1 | **最后更新**: 2026-05-03
