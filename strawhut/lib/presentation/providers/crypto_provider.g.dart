@@ -6,9 +6,20 @@ part of 'crypto_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cryptoServiceHash() => r'7bf7c109bddbe13ca5ae7a7ef3390c7c728389b0';
+String _$cryptoServiceHash() => r'f040797ca9c5f7f5724597d3b44fbde6c3049fee';
 
-/// See also [cryptoService].
+/// 加密服务 Provider
+///
+/// 提供全局单例的 CryptoService 实例，用于加密/解密操作。
+/// 依赖 IntegrityService，通过 Riverpod 的依赖注入机制自动获取。
+///
+/// 使用方式：
+/// ```dart
+/// final crypto = ref.watch(cryptoServiceProvider);
+/// final key = await crypto.generateKey();
+/// ```
+///
+/// Copied from [cryptoService].
 @ProviderFor(cryptoService)
 final cryptoServiceProvider = AutoDisposeProvider<CryptoService>.internal(
   cryptoService,
@@ -25,7 +36,17 @@ final cryptoServiceProvider = AutoDisposeProvider<CryptoService>.internal(
 typedef CryptoServiceRef = AutoDisposeProviderRef<CryptoService>;
 String _$integrityServiceHash() => r'672377d60eb48c2dbe6e4f1cae2914a5b6a0b9a0';
 
-/// See also [integrityService].
+/// 完整性校验服务 Provider
+///
+/// 提供全局单例的 IntegrityService 实例，用于计算和验证文件哈希。
+///
+/// 使用方式：
+/// ```dart
+/// final integrity = ref.watch(integrityServiceProvider);
+/// final hash = integrity.computeHash(content);
+/// ```
+///
+/// Copied from [integrityService].
 @ProviderFor(integrityService)
 final integrityServiceProvider = AutoDisposeProvider<IntegrityService>.internal(
   integrityService,
@@ -42,7 +63,17 @@ final integrityServiceProvider = AutoDisposeProvider<IntegrityService>.internal(
 typedef IntegrityServiceRef = AutoDisposeProviderRef<IntegrityService>;
 String _$fileIOServiceHash() => r'e42071dad168f29d522e44822b1c06198b0c8d09';
 
-/// See also [fileIOService].
+/// 文件 I/O 服务 Provider
+///
+/// 提供全局单例的 FileIOService 实例，用于文件读取和写入操作。
+///
+/// 使用方式：
+/// ```dart
+/// final fileIO = ref.watch(fileIOServiceProvider);
+/// final strawFile = await fileIO.readStrawFile(filePath);
+/// ```
+///
+/// Copied from [fileIOService].
 @ProviderFor(fileIOService)
 final fileIOServiceProvider = AutoDisposeProvider<FileIOService>.internal(
   fileIOService,
@@ -59,7 +90,17 @@ final fileIOServiceProvider = AutoDisposeProvider<FileIOService>.internal(
 typedef FileIOServiceRef = AutoDisposeProviderRef<FileIOService>;
 String _$draftManagerHash() => r'97df6e51ea03664f201a940df82f78dcf57e76f0';
 
-/// See also [draftManager].
+/// 草稿管理器 Provider
+///
+/// 提供全局单例的 DraftManager 实例，用于内存草稿的保存和加载。
+///
+/// 使用方式：
+/// ```dart
+/// final draftManager = ref.watch(draftManagerProvider);
+/// draftManager.saveToDraft(deltaJson);
+/// ```
+///
+/// Copied from [draftManager].
 @ProviderFor(draftManager)
 final draftManagerProvider = AutoDisposeProvider<DraftManager>.internal(
   draftManager,

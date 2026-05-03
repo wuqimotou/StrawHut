@@ -10,3 +10,4 @@ linter:
     avoid_types_as_parameter_names: true
     prefer_const_declarations: true
     avoid_slow_async_io: true
+    constant_identifier_names: false

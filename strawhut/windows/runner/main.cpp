@@ -25,11 +25,30 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
+
+  // Window size (portrait phone ratio)
+  const int kWindowWidth = 400;
+  const int kWindowHeight = 800;
+
+  // Use default position, then center after creation
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
+  Win32Window::Size size(kWindowWidth, kWindowHeight);
   if (!window.Create(L"strawhut", origin, size)) {
     return EXIT_FAILURE;
   }
+
+  // Center the window on screen after creation
+  HWND hwnd = window.GetHandle();
+  RECT windowRect;
+  GetWindowRect(hwnd, &windowRect);
+  const int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+  const int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+  const int windowWidth = windowRect.right - windowRect.left;
+  const int windowHeight = windowRect.bottom - windowRect.top;
+  const int centerX = (screenWidth - windowWidth) / 2;
+  const int centerY = (screenHeight - windowHeight) / 2;
+  SetWindowPos(hwnd, nullptr, centerX, centerY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+
   window.SetQuitOnClose(true);
 
   ::MSG msg;

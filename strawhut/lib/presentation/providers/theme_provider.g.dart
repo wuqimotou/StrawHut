@@ -8,7 +8,27 @@ part of 'theme_provider.dart';
 
 String _$appThemeModeHash() => r'4ac6c3738fb0d9e445d45e981d29eac78e524e5e';
 
-/// See also [AppThemeMode].
+/// 应用主题模式 Provider
+///
+/// 管理全局的亮色/暗色主题切换状态。
+///
+/// 架构位置：应用层 → Riverpod Provider
+/// 状态类型：ThemeMode（system、light、dark）
+/// 默认值：ThemeMode.system（跟随系统）
+///
+/// 使用场景：
+/// - 设置页面提供主题切换选项
+/// - MaterialApp.themeMode 绑定此 Provider
+///
+/// 使用示例：
+/// ```dart
+/// // 切换主题
+/// ref.read(appThemeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+/// // 监听主题
+/// final themeMode = ref.watch(appThemeModeProvider);
+/// ```
+///
+/// Copied from [AppThemeMode].
 @ProviderFor(AppThemeMode)
 final appThemeModeProvider =
     AutoDisposeNotifierProvider<AppThemeMode, ThemeMode>.internal(
