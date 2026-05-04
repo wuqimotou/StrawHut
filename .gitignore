@@ -1,0 +1,14 @@
+# PRD文档
+prd/
+
+# 说明文件
+项目架构说明.md
+
+# IDE和系统文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
