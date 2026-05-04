@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart' as file_picker;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:strawhut/core/utils/image_service.dart';
 
 /// 自定义 Quill 编辑器工具栏
 ///
@@ -322,12 +323,21 @@ class _QuillToolbarState extends State<QuillToolbar> {
 
   /// 从文件选择器选择图片
   Future<void> _pickImageFromFile(BuildContext context) async {
-    // 使用 file_picker 选择图片文件
     try {
       final result = await _pickFile();
       if (result != null && result.files.single.path != null) {
-        // 将本地文件路径作为图片 URL 插入
-        _insertImageEmbed(result.files.single.path!);
+        final filePath = result.files.single.path!;
+        final base64DataUrl =
+            await ImageService.compressAndEncodeImage(filePath);
+        if (ImageService.isImageSizeExceeded(base64DataUrl.length)) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('图片过大（压缩后仍超过 2MB），请使用更小的图片')),
+            );
+          }
+          return;
+        }
+        _insertImageEmbed(base64DataUrl);
       }
     } catch (e) {
       if (context.mounted) {

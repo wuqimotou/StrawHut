@@ -116,7 +116,7 @@ class _DropZoneState extends State<DropZone> {
             const SizedBox(height: 8),
             // 提示文字：引导用户拖入 .straw 文件
             Text(
-              '或将 .straw 文件拖拽至此',
+              '或将 .straw / .png 文件拖拽至此',
               style: TextStyle(
                 color: _isDragging ? Colors.blue : Colors.grey[600],
                 fontSize: 14,
@@ -152,7 +152,7 @@ class _DropZoneState extends State<DropZone> {
     // 用户可以一次拖入多个文件，但我们只处理第一个知识卡片文件
     String? validFilePath;
     for (final filePath in files) {
-      if (_isValidStrawFile(filePath)) {
+      if (_isValidCardFile(filePath)) {
         validFilePath = filePath;
         break;
       }
@@ -161,7 +161,7 @@ class _DropZoneState extends State<DropZone> {
     // 如果没有找到有效的 .straw 文件
     // 向用户显示错误提示
     if (validFilePath == null) {
-      _showErrorSnackBar(context, '请拖入有效的 .straw 知识卡片文件');
+      _showErrorSnackBar(context, '请拖入有效的 .straw 或 .png 知识卡片文件');
       return;
     }
 
@@ -177,11 +177,9 @@ class _DropZoneState extends State<DropZone> {
   ///
   /// 参数：[filePath] - 文件完整路径
   /// 返回：true 表示是 .straw 文件，false 表示不是
-  bool _isValidStrawFile(String filePath) {
-    // 使用 path 包提取扩展名
+  bool _isValidCardFile(String filePath) {
     final extension = p.extension(filePath);
-    // 不区分大小写匹配 .straw 扩展名
-    return extension.toLowerCase() == FileExtensions.straw;
+    return extension.toLowerCase() == FileExtensions.straw || extension.toLowerCase() == FileExtensions.png;
   }
 
   /// 显示错误 SnackBar

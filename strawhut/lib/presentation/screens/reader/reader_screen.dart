@@ -118,23 +118,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     // 使用 CurrentCard Provider 加载文件
     try {
-      await ref.read(currentCardProvider.notifier).loadFile(filePath);
+      final strawFile =
+          await ref.read(currentCardProvider.notifier).loadFile(filePath);
 
-      // 检查加载结果
       if (mounted) {
-        final cardState = ref.read(currentCardProvider);
-        final strawFile = cardState.valueOrNull;
-        if (cardState.hasError) {
-          setState(() {
-            _status = ReaderStatus.error;
-            _errorMessage = '文件加载失败：${cardState.error}';
-          });
-        } else if (strawFile != null) {
+        if (strawFile != null) {
           setState(() {
             _strawFile = strawFile;
             _status = ReaderStatus.metaOnly;
           });
-          // 文件加载成功后，自动弹出解密对话框
           _showDecryptDialog();
         } else {
           setState(() {

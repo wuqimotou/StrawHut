@@ -33,6 +33,8 @@ class FileExtensions {
   /// 文件格式为 JSON，结构参见 KeyFile 模型。
   static const String key = '.key';
 
+  static const String png = '.png';
+
   /// .json 文件扩展名
   ///
   /// 通用 JSON 文件扩展名，可能用于：

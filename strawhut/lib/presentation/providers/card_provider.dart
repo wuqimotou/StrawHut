@@ -47,13 +47,19 @@ class CurrentCard extends _$CurrentCard {
   /// 4. 失败 → 更新 state 为 AsyncValue.error(e, st)
   ///
   /// 参数：[filePath] - .straw 文件的完整路径
-  Future<void> loadFile(String filePath) async {
+  Future<StrawFile?> loadFile(String filePath) async {
     state = const AsyncValue.loading();
     try {
-      final file = await ref.read(fileIOServiceProvider).readStrawFile(filePath);
+      final extension = filePath.split('.').last.toLowerCase();
+      final fileIOService = ref.read(fileIOServiceProvider);
+      final file = extension == 'png'
+          ? await fileIOService.readStrawPng(filePath)
+          : await fileIOService.readStrawFile(filePath);
       state = AsyncValue.data(file);
+      return file;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      return null;
     }
   }
 }

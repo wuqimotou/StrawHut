@@ -17,17 +17,20 @@
 
 **StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。它将你的知识内容加密为 `.straw` 格式文件，通过独立的 `.key` 密钥文件控制访问权限。软件不依赖任何中心化服务器，所有数据处理均在你的设备上完成。
 
+**✨ 重磅特性：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。
+
 > 🌟 **愿景**：让知识在人与人之间安全传递，创作者掌控内容，读者获得价值。
 
 ### ✨ 核心特性
 
 | 特性 | 说明 |
 |------|------|
-| 🔒 **端到端加密** | AES-256-GCM 强加密，知识内容在本地即被加密 |
+| 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享 |
+| 🔒 **端到端加密** | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
 | 🏠 **纯本地运行** | 无服务器、无网络请求，数据永不离开你的设备 |
 | 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储 |
 | 🕶️ **匿名发布** | 一键切换匿名模式，完全保护创作者身份 |
-| 📄 **知识卡片化** | 结构化的 `.straw` 文件格式，便于知识独立传播 |
+| 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
 | 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
 | 🧹 **零痕迹** | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空 |
 
@@ -49,22 +52,71 @@
 └─────────────────────────────────────────────────┘
 ```
 
-### 🔐 加密流程图
+### 🖼️ PNG 知识卡片 — 图片即知识
+
+发布知识卡片时，你可以选择将加密内容嵌入 PNG 图片。生成的图片外观是一张精心设计的封面：
+
+```
+┌─────────────────────────────────────────┐
+│  STRAWHUT                               │
+│  ━━━━                                   │
+│                                         │
+│              ┌ 🔒 已加密 ┐              │
+│                                         │
+│           网络安全入门指南                │
+│                                         │
+│      [安全] [入门] [笔记]                │
+│      一份关于网络安全基础的...            │
+│                                         │
+│           作者：Anonymous                │
+│           2026.05.04                    │
+└─────────────────────────────────────────┘
+```
+
+**它仍然是一张合法的 PNG 图片** — 任何图片查看器都能正常显示封面。但封面之下，完整的加密知识内容被隐藏在 PNG 元数据中。
+
+**分享与接收：**
+
+```
+创作者                                    读者
+  │                                       │
+  ├── 📝 富文本编辑器撰写知识              │
+  ├── 🚀 点击发布 → 选择 .png 格式         │
+  ├── 🎨 自定义封面或自动生成              │
+  ├── 📦 内容加密 → 嵌入 PNG 元数据       │
+  ├── 💾 保存为 .png 图片                  │
+  │                                       │
+  ═══════ [ .png 图片通过任意渠道传播 ] ════════
+           (微信 / 朋友圈 / 相册 / AirDrop / ...)
+  │                                       │
+  │                          📥 接收到 .png 图片
+  │                          📂 用 StrawHut 打开图片
+  │                          🔓 输入密钥或上传 .key 文件
+  │                          ✅ 完整性校验通过
+  │                          📖 阅读知识内容
+```
+
+**⚠️ 重要提示：** 以图片形式分享时务必发送**原图**，社交平台压缩图片会丢失元数据中的加密内容。
+
+### 🔐 加密流程对比
 
 ```
 创作者                                    读者
   │                                       │
   ├── 📝 富文本编辑器撰写知识内容           │
   ├── 🚀 点击发布按钮                       │
+  ├── 📋 选择导出格式                       │
+  │   ├── .straw 文件 → 标准加密文件        │
+  │   └── .png 图片 → 封面+加密元数据       │
   ├── 🎲 系统自动生成随机密钥               │
   ├── 📦 内容加密 + SHA-256 完整性校验     │
-  ├── 💾 导出 .straw 文件                   │
+  ├── 💾 导出 .straw 或 .png 文件           │
   ├── 🔑 (可选) 导出 .key 密钥文件          │
   │                                       │
-  ═══════ [ .straw 文件通过任意渠道传播 ] ════════
-           (微信 / 邮件 / 云盘 / U盘 / ... )
+  ═══════ [ 文件通过任意渠道传播 ] ════════
+           (微信 / 邮件 / 云盘 / U盘 / ...)
   │                                       │
-  │                          📥 接收到 .straw 文件
+  │                          📥 接收到 .straw 或 .png 文件
   │                          📂 用 StrawHut 打开
   │                          🔓 输入密钥或上传 .key 文件
   │                          ✅ 完整性校验通过
@@ -89,12 +141,13 @@
 └──────────────────────────────────────────────────────┘
 ```
 
-| 技术栈 | 说明 |
+| **技术栈** | 说明 |
 |--------|------|
 | **Flutter** | 跨平台 UI 框架，一套代码多端运行 |
 | **flutter_quill** | 富文本编辑器，支持所见即所得编辑 |
 | **Riverpod** | 状态管理，响应式数据流 |
 | **encrypt** | AES-256-GCM 加密实现 |
+| **image** | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
 | **file_selector** | 跨平台文件选择器 |
 | **go_router** | 声明式路由导航 |
 
@@ -159,7 +212,7 @@ flutter build windows --release
 StrawHut/
 ├── strawhut/             # Flutter 应用主目录
 │   ├── lib/
-│   │   ├── core/         # 核心服务层（加密、文件、验证...）
+│   │   ├── core/         # 核心服务层（加密、文件、验证、图片...）
 │   │   ├── data/         # 数据模型与仓库
 │   │   ├── presentation/ # UI 层（页面、对话框、状态管理）
 │   │   ├── p2p/          # P2P 扩展预留（当前未实现）
@@ -185,17 +238,20 @@ StrawHut/
 
 **StrawHut** is a **fully local** knowledge card encryption tool. It encrypts your knowledge content into `.straw` format files, with access controlled through independent `.key` files. The software doesn't rely on any centralized servers — all data processing happens on your device.
 
+**✨ Key Feature: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Images can be shared via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing.
+
 > 🌟 **Vision**: Let knowledge flow securely between people. Creators control their content, readers gain value.
 
 ### ✨ Features
 
 | Feature | Description |
 |---------|-------------|
+| 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
 | 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, content encrypted locally |
 | 🏠 **Purely Local** | No servers, no network requests — data never leaves your device |
 | 🗝️ **Key Is Permission** | System generates strong random keys, stored in separate key files |
 | 🕶️ **Anonymous Publishing** | One-click anonymous mode, fully protects creator identity |
-| 📄 **Knowledge Cards** | Structured `.straw` format for independent knowledge sharing |
+| 📄 **Dual Format Export** | Support `.straw` files and `.png` images, choose by scenario |
 | 🛡️ **Integrity Verification** | SHA-256 hash verification to prevent tampering |
 | 🧹 **Zero Traces** | No cards, keys, or drafts stored — memory fully cleared on exit |
 
@@ -217,6 +273,52 @@ StrawHut/
 └─────────────────────────────────────────────────┘
 ```
 
+### 🖼️ PNG Knowledge Card — Image Is Knowledge
+
+When publishing a knowledge card, you can choose to embed encrypted content into a PNG image. The generated image looks like a carefully designed cover:
+
+```
+┌─────────────────────────────────────────┐
+│  STRAWHUT                               │
+│  ━━━━                                   │
+│                                         │
+│              ┌ 🔒 Encrypted ┐           │
+│                                         │
+│        Getting Started with Security     │
+│                                         │
+│      [Security] [Basics] [Notes]        │
+│      A guide about network security...   │
+│                                         │
+│           Author: Anonymous              │
+│           2026.05.04                     │
+└─────────────────────────────────────────┘
+```
+
+**It's still a valid PNG image** — any image viewer can display the cover. But beneath the cover, the full encrypted knowledge content is hidden in the PNG metadata.
+
+**Sharing & Receiving:**
+
+```
+Creator                                   Reader
+  │                                       │
+  ├── 📝 Write knowledge in rich text     │
+  ├── 🚀 Publish → choose .png format     │
+  ├── 🎨 Custom or auto-generated cover   │
+  ├── 📦 Content encrypted → PNG metadata │
+  ├── 💾 Save as .png image               │
+  │                                       │
+  ════ [ .png image shared via any channel ] ════
+            (WeChat / Moments / Photos / AirDrop / ...)
+  │                                       │
+  │                          📥 Received .png image
+  │                          📂 Open with StrawHut
+  │                          🔓 Enter key or upload .key
+  │                          ✅ Integrity check passed
+  │                          📖 Read knowledge content
+```
+
+**⚠️ Important:** When sharing as an image, always send the **original image**. Social media compression will strip the metadata containing encrypted content.
+
 ### 🔐 Encryption Flow
 
 ```
@@ -224,15 +326,18 @@ Creator                                   Reader
   │                                       │
   ├── 📝 Write knowledge in rich text     │
   ├── 🚀 Click Publish button              │
+  ├── 📋 Choose export format               │
+  │   ├── .straw file → standard format     │
+  │   └── .png image → cover + metadata     │
   ├── 🎲 System auto-generates random key  │
   ├── 📦 Content encrypted + SHA-256 hash │
-  ├── 💾 Export .straw file                │
+  ├── 💾 Export .straw or .png file         │
   ├── 🔑 (Optional) Export .key file       │
   │                                       │
-  ════════ [ .straw file shared via any channel ] ════════
+  ════════ [ File shared via any channel ] ════════
             (WeChat / Email / Cloud Drive / USB / ... )
   │                                       │
-  │                          📥 Received .straw file
+  │                          📥 Received .straw or .png file
   │                          📂 Open with StrawHut
   │                          🔓 Enter key or upload .key file
   │                          ✅ Integrity check passed
@@ -350,4 +455,4 @@ StrawHut/
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v0.1.1 | **最后更新**: 2026-05-03
+> **文档版本**: v0.2.0 | **最后更新**: 2026-05-04

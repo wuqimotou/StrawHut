@@ -76,6 +76,10 @@ class FileRepository {
     return _fileIOService.readStrawFile(filePath);
   }
 
+  Future<StrawFile> loadStrawPng(String filePath) async {
+    return _fileIOService.readStrawPng(filePath);
+  }
+
   /// 将 StrawFile 对象保存为 .straw 知识卡片文件
   ///
   /// 功能说明：

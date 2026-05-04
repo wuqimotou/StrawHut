@@ -1,10 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:strawhut/core/utils/cover_image_service.dart';
+import 'package:strawhut/core/utils/image_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
@@ -86,6 +90,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   /// 是否导出 .key 文件
   bool _exportKeyFile = false;
 
+  String _exportFormat = 'straw';
+
+  Uint8List? _customCoverBytes;
+
   @override
   void dispose() {
     super.dispose();
@@ -126,6 +134,32 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       if (editorContent.isEmpty) {
         _showError('编辑器内容为空，无法发布');
         return;
+      }
+
+      if (ImageService.isTotalContentExceeded(editorContent)) {
+        final shouldProceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('内容过大提示'),
+            content: const Text('当前卡片内容超过 10MB，可能影响加密/解密性能。是否继续发布？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('继续发布'),
+              ),
+            ],
+          ),
+        );
+        if (shouldProceed != true) {
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
       }
 
       // 步骤 2：生成密钥
@@ -180,28 +214,62 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         ),
       );
 
-      // 步骤 8：选择保存路径
-      final savePath = await FilePicker.platform.saveFile(
-        dialogTitle: '保存知识卡片',
-        fileName: '${meta.title}.straw',
-        type: FileType.custom,
-        allowedExtensions: ['straw'],
-      );
+      String savePath;
 
-      if (savePath == null) {
-        // 用户取消保存，清理敏感数据并恢复状态
-        cryptoService.clearSensitiveData();
-        setState(() {
-          _isLoading = false;
-        });
-        return;
+      if (_exportFormat == 'png') {
+        final pngBytes = await CoverImageService.createStrawPng(
+          strawJson: strawFile.assembleToJson(),
+          title: meta.title,
+          publisherAlias: publisherAlias,
+          publishDate: meta.publishDate,
+          tags: meta.tags,
+          description: meta.description,
+          isAnonymous: isAnonymous,
+          customImageBytes: _customCoverBytes,
+        );
+
+        final pngSavePath = await FilePicker.platform.saveFile(
+          dialogTitle: '保存知识卡片图片',
+          fileName: '${meta.title}.png',
+          type: FileType.custom,
+          allowedExtensions: ['png'],
+        );
+
+        if (pngSavePath == null) {
+          cryptoService.clearSensitiveData();
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+
+        final file = File(pngSavePath);
+        await file.writeAsBytes(pngBytes);
+
+        savePath = pngSavePath;
+      } else {
+        final strawSavePath = await FilePicker.platform.saveFile(
+          dialogTitle: '保存知识卡片',
+          fileName: '${meta.title}.straw',
+          type: FileType.custom,
+          allowedExtensions: ['straw'],
+        );
+
+        if (strawSavePath == null) {
+          cryptoService.clearSensitiveData();
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+
+        await fileIOService.writeStrawFile(
+          content: strawFile.assembleToJson(),
+          targetPath: strawSavePath,
+        );
+
+        savePath = strawSavePath;
       }
-
-      // 步骤 9：写入 .straw 文件
-      await fileIOService.writeStrawFile(
-        content: strawFile.assembleToJson(),
-        targetPath: savePath,
-      );
 
       // 步骤 10：如果勾选了导出选项，则导出 .key 文件
       if (_exportKeyFile) {
@@ -303,6 +371,22 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     ).join();
   }
 
+  Future<void> _pickCoverImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
+      final bytes = await file.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _customCoverBytes = bytes;
+        });
+      }
+    }
+  }
+
   /// 显示错误提示
   ///
   /// 参数：[message] - 错误消息内容
@@ -352,6 +436,72 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
               // 表单变化回调（当前无需特殊处理）
               onChanged: () {},
             ),
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text('导出格式：', style: TextStyle(fontWeight: FontWeight.w600)),
+            RadioListTile<String>(
+              title: const Text('.straw 文件'),
+              subtitle: const Text('标准加密知识卡片文件，适合桌面端',
+                  style: TextStyle(fontSize: 12)),
+              value: 'straw',
+              groupValue: _exportFormat,
+              onChanged: (value) =>
+                  setState(() => _exportFormat = value ?? 'straw'),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+            ),
+            RadioListTile<String>(
+              title: const Text('.png 图片'),
+              subtitle: const Text('封面图内嵌加密数据，适合移动端分享',
+                  style: TextStyle(fontSize: 12)),
+              value: 'png',
+              groupValue: _exportFormat,
+              onChanged: (value) =>
+                  setState(() => _exportFormat = value ?? 'straw'),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+            ),
+            if (_exportFormat == 'png') ...[
+              const SizedBox(height: 8),
+              const Divider(),
+              const SizedBox(height: 4),
+              const Text('封面图片：',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ChoiceChip(
+                    label: const Text('使用元信息生成'),
+                    selected: _customCoverBytes == null,
+                    onSelected: (_) => setState(() => _customCoverBytes = null),
+                  ),
+                  const SizedBox(height: 4),
+                  ChoiceChip(
+                    label: const Text('上传自定义图片'),
+                    selected: _customCoverBytes != null,
+                    onSelected: (_) => _pickCoverImage(),
+                  ),
+                ],
+              ),
+              if (_customCoverBytes != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(_customCoverBytes!, fit: BoxFit.cover),
+                  ),
+                ),
+              ],
+            ],
             const SizedBox(height: 8),
             const Divider(),
             // 导出密钥文件选项
@@ -418,6 +568,30 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
               _savedFilePath ?? '未知',
               style: const TextStyle(fontSize: 12),
             ),
+            if (_exportFormat == 'png') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '分享提示：请务必以"原图"方式发送图片，否则图片压缩会导致数据丢失，接收方将无法解密。',
+                        style: TextStyle(fontSize: 13, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // 使用 KeyDisplay 组件替换内联密钥显示代码

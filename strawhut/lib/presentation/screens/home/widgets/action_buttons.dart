@@ -98,7 +98,7 @@ class ActionButtons extends StatelessWidget {
     // 这确保用户只能看到和选择 StrawHut 知识卡片文件
     const typeGroup = XTypeGroup(
       label: 'StrawHut 知识卡片',
-      extensions: <String>[FileExtensions.straw],
+      extensions: <String>[FileExtensions.straw, FileExtensions.png],
     );
 
     // 打开文件选择对话框

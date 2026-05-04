@@ -6,7 +6,7 @@ part of 'card_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentCardHash() => r'cfdb4695bdcd39c15ada71b020f4d26d9d41100f';
+String _$currentCardHash() => r'844cf75fe70f08b1932eacdb4492bdeef9cd06cb';
 
 /// 当前加载的知识卡片 Provider
 ///

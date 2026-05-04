@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:strawhut/core/errors/file_exception.dart';
 import 'package:strawhut/core/file_io/file_extensions.dart';
+import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/validation/format_validator.dart';
 import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
@@ -80,6 +82,22 @@ abstract class IFileIOService {
   /// 检查文件扩展名是否为 .key。
   /// 返回 true 表示扩展名正确，但不保证文件格式有效。
   bool isValidKeyFile(String filePath);
+
+  /// 读取内嵌 .straw 数据的 PNG 图片
+  ///
+  /// 流程：
+  /// 1. 验证文件扩展名是否为 .png
+  /// 2. 读取文件为字节数据
+  /// 3. 调用 CoverImageService.extractStrawData 提取嵌入的 .straw JSON
+  /// 4. 解析 JSON 并验证格式
+  /// 5. 反序列化为 StrawFile 对象并返回
+  Future<StrawFile> readStrawPng(String filePath);
+
+  /// 验证文件是否为有效的 .png 文件
+  ///
+  /// 检查文件扩展名是否为 .png。
+  /// 返回 true 表示扩展名正确，但不保证文件格式有效。
+  bool isValidPngFile(String filePath);
 }
 
 /// 文件 I/O 服务实现
@@ -154,13 +172,80 @@ class FileIOService implements IFileIOService {
   /// 返回：true 表示扩展名为 .key（不区分大小写），false 表示扩展名不匹配
   @override
   bool isValidKeyFile(String filePath) {
-    // 使用 path 包提取文件扩展名
     final extension = p.extension(filePath);
-
-    // 不区分大小写匹配 .key 扩展名
-    // 兼容 Windows/macOS 文件系统（不区分大小写）
-    // .key 是我们定义的密钥文件标准扩展名
     return extension.toLowerCase() == FileExtensions.key;
+  }
+
+  @override
+  bool isValidPngFile(String filePath) {
+    final extension = p.extension(filePath);
+    return extension.toLowerCase() == FileExtensions.png;
+  }
+
+  @override
+  Future<StrawFile> readStrawPng(String filePath) async {
+    if (!isValidPngFile(filePath)) {
+      throw FileException(
+        '无效的文件扩展名：期望 .png，'
+        '实际为 "${p.extension(filePath)}"。'
+        '请确保选择的是 StrawHut 知识卡片图片。',
+        code: 'INVALID_EXTENSION',
+      );
+    }
+
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileException(
+        '文件不存在："$filePath"。\n'
+        '可能原因：文件已被删除、移动，或路径输入有误。',
+        code: 'FILE_NOT_FOUND',
+      );
+    }
+
+    Uint8List fileBytes;
+    try {
+      fileBytes = await file.readAsBytes();
+    } on FileSystemException catch (e) {
+      throw FileException(
+        '读取文件失败："$filePath"。\n'
+        '系统错误：${e.message}\n'
+        '可能原因：权限不足、文件被占用或磁盘故障。',
+        code: 'ACCESS_DENIED',
+      );
+    }
+
+    final strawJson = await CoverImageService.extractStrawData(fileBytes);
+    if (strawJson == null) {
+      throw FileException(
+        '该图片不是知识卡片或传输的不是原图，请确认文件来源后重试',
+        code: 'NOT_STRAWHUT_PNG',
+      );
+    }
+
+    Map<String, dynamic> jsonData;
+    try {
+      jsonData = jsonDecode(strawJson) as Map<String, dynamic>;
+    } on FormatException catch (e) {
+      throw FileException(
+        'JSON 解析失败："$filePath"。\n'
+        '文件内容不是有效的 JSON 格式。\n'
+        '详细信息：${e.message}\n'
+        '可能原因：文件已损坏或被篡改。',
+        code: 'INVALID_FORMAT',
+      );
+    }
+
+    final validationResult = _formatValidator.validateStrawFormat(jsonData);
+    if (!validationResult.isValid) {
+      final errorDetails = validationResult.errors.join('\n');
+      throw FileException(
+        '文件格式验证失败："$filePath"。\n'
+        '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
+        code: 'VALIDATION_FAILED',
+      );
+    }
+
+    return StrawFile.fromJson(jsonData);
   }
 
   /// 读取 .straw 知识卡片文件
