@@ -1,4 +1,6 @@
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
@@ -51,7 +53,15 @@ class _DropZoneState extends State<DropZone> {
   /// - 拖入时边框变为实线+高亮色，背景色变化
   @override
   Widget build(BuildContext context) {
-    // 使用 DropTarget 包裹拖拽区域，监听拖拽事件
+    // On Android/iOS/web, drop zone is not supported - render nothing
+    if (kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      return const SizedBox.shrink();
+    }
+
+    // Windows/macOS/Linux: render drop zone
+    // Use DropTarget 包裹拖拽区域，监听拖拽事件
     // desktop_drop 包提供跨平台拖拽支持
     return DropTarget(
       // 文件被拖入区域时触发
@@ -76,9 +86,8 @@ class _DropZoneState extends State<DropZone> {
           _isDragging = false;
         });
         // 将 DropItem 列表转换为文件路径字符串列表后处理
-        final filePaths = details.files
-            .map((dropItem) => dropItem.path)
-            .toList();
+        final filePaths =
+            details.files.map((dropItem) => dropItem.path).toList();
         _onFilesDropped(filePaths, context);
       },
       // 拖拽区域内容
@@ -179,7 +188,8 @@ class _DropZoneState extends State<DropZone> {
   /// 返回：true 表示是 .straw 文件，false 表示不是
   bool _isValidCardFile(String filePath) {
     final extension = p.extension(filePath);
-    return extension.toLowerCase() == FileExtensions.straw || extension.toLowerCase() == FileExtensions.png;
+    return extension.toLowerCase() == FileExtensions.straw ||
+        extension.toLowerCase() == FileExtensions.png;
   }
 
   /// 显示错误 SnackBar

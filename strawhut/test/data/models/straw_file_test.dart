@@ -548,7 +548,8 @@ void main() {
       expect(restored.content.ivBase64, original.content.ivBase64);
       expect(restored.content.algorithm, original.content.algorithm);
       expect(restored.integrity.hash, original.integrity.hash);
-      expect(restored.integrity.hashAlgorithm, original.integrity.hashAlgorithm);
+      expect(
+          restored.integrity.hashAlgorithm, original.integrity.hashAlgorithm);
     });
 
     test('assembleToJson 后再解析应还原所有字段', () {
@@ -753,6 +754,76 @@ void main() {
       final meta = CardMeta.fromJson(json);
 
       expect(meta.tags, isEmpty);
+    });
+  });
+
+  group('StrawFile v1.1.0 negotiated key mode', () {
+    test('EncryptedContent with salt/kdf fields', () {
+      const content = EncryptedContent(
+        encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
+        ivBase64: 'dGVzdGl2MTIzNDU2',
+        algorithm: 'AES-256-GCM',
+        saltBase64: 'c2FsdDE2Ynl0ZXM=',
+        kdfAlgorithm: 'PBKDF2-HMAC-SHA256',
+        kdfIterations: 100000,
+      );
+      expect(content.saltBase64, 'c2FsdDE2Ynl0ZXM=');
+      expect(content.kdfAlgorithm, 'PBKDF2-HMAC-SHA256');
+      expect(content.kdfIterations, 100000);
+    });
+
+    test('EncryptedContent random key mode new fields should be null', () {
+      const content = EncryptedContent(
+        encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
+        ivBase64: 'dGVzdGl2MTIzNDU2',
+        algorithm: 'AES-256-GCM',
+        saltBase64: 'c2FsdDE2Ynl0ZXM=',
+      );
+      expect(content.saltBase64, 'c2FsdDE2Ynl0ZXM=');
+      expect(content.kdfAlgorithm, isNull);
+      expect(content.kdfIterations, isNull);
+    });
+
+    test('v1.1.0 toJson should include new fields', () {
+      const content = EncryptedContent(
+        encryptedDataBase64: 'dGVzdA==',
+        ivBase64: 'aXY=',
+        algorithm: 'AES-256-GCM',
+        saltBase64: 'c2FsdA==',
+        kdfAlgorithm: 'PBKDF2-HMAC-SHA256',
+        kdfIterations: 100000,
+      );
+      final json = content.toJson();
+      expect(json['salt'], 'c2FsdA==');
+      expect(json['kdf_algorithm'], 'PBKDF2-HMAC-SHA256');
+      expect(json['kdf_iterations'], 100000);
+    });
+
+    test('v1.1.0 fromJson should parse new fields', () {
+      final json = {
+        'encrypted_data': 'dGVzdA==',
+        'iv': 'aXY=',
+        'encryption_algorithm': 'AES-256-GCM',
+        'salt': 'c2FsdA==',
+        'kdf_algorithm': 'PBKDF2-HMAC-SHA256',
+        'kdf_iterations': 100000,
+      };
+      final content = EncryptedContent.fromJson(json);
+      expect(content.saltBase64, 'c2FsdA==');
+      expect(content.kdfAlgorithm, 'PBKDF2-HMAC-SHA256');
+      expect(content.kdfIterations, 100000);
+    });
+
+    test('v1.0.0 format fromJson new fields should be null', () {
+      final json = {
+        'encrypted_data': 'dGVzdA==',
+        'iv': 'aXY=',
+        'encryption_algorithm': 'AES-256-GCM',
+      };
+      final content = EncryptedContent.fromJson(json);
+      expect(content.saltBase64, isNull);
+      expect(content.kdfAlgorithm, isNull);
+      expect(content.kdfIterations, isNull);
     });
   });
 }

@@ -27,6 +27,8 @@
 |------|------|
 | 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享 |
 | 🔒 **端到端加密** | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
+| 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景 |
+| 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制 |
 | 🏠 **纯本地运行** | 无服务器、无网络请求，数据永不离开你的设备 |
 | 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储 |
 | 🕶️ **匿名发布** | 一键切换匿名模式，完全保护创作者身份 |
@@ -155,7 +157,7 @@
 
 ```json
 {
-  "format_version": "1.0.0",
+  "format_version": "1.1.0",
   "meta": {
     "publisher_alias": "创作者代号",
     "publish_date": "2026-05-01T12:00:00Z",
@@ -166,7 +168,10 @@
   "content": {
     "encrypted_data": "Base64编码的加密内容",
     "encryption_algorithm": "AES-256-GCM",
-    "iv": "Base64编码的初始化向量"
+    "iv": "Base64编码的初始化向量",
+    "salt": "Base64编码的盐值（协商密钥模式）",
+    "kdf_algorithm": "PBKDF2-HMAC-SHA256",
+    "kdf_iterations": 100000
   },
   "integrity": {
     "hash": "sha256:abc123...",
@@ -174,6 +179,16 @@
   }
 }
 ```
+
+### 🔐 加密算法
+
+| 算法 | 说明 |
+|------|------|
+| **AES-256-GCM** | 对称加密算法，256 位密钥，GCM 认证加密模式 |
+| **PBKDF2-HMAC-SHA256** | 密钥派生函数，100,000 次迭代（协商密钥模式） |
+| **CSPRNG** | 密码学安全伪随机数生成器，用于生成密钥和盐值 |
+| **16 字节随机盐值** | CSPRNG 生成的盐值，确保相同暗号派生不同密钥 |
+| **SHA-256** | 哈希校验算法，确保文件完整性 |
 
 ### 🚀 快速开始
 
@@ -248,6 +263,8 @@ StrawHut/
 |---------|-------------|
 | 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
 | 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, content encrypted locally |
+| 🤝 **Negotiated Key Encryption** | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing |
+| 📊 **Passphrase Strength Evaluation** | Real-time strength assessment (Very Weak/Weak/Medium/Strong), weak passphrase confirmation |
 | 🏠 **Purely Local** | No servers, no network requests — data never leaves your device |
 | 🗝️ **Key Is Permission** | System generates strong random keys, stored in separate key files |
 | 🕶️ **Anonymous Publishing** | One-click anonymous mode, fully protects creator identity |
@@ -375,7 +392,7 @@ Creator                                   Reader
 
 ```json
 {
-  "format_version": "1.0.0",
+  "format_version": "1.1.0",
   "meta": {
     "publisher_alias": "Creator Alias",
     "publish_date": "2026-05-01T12:00:00Z",
@@ -386,7 +403,10 @@ Creator                                   Reader
   "content": {
     "encrypted_data": "Base64 encoded encrypted content",
     "encryption_algorithm": "AES-256-GCM",
-    "iv": "Base64 encoded initialization vector"
+    "iv": "Base64 encoded initialization vector",
+    "salt": "Base64 encoded salt (negotiated key mode)",
+    "kdf_algorithm": "PBKDF2-HMAC-SHA256",
+    "kdf_iterations": 100000
   },
   "integrity": {
     "hash": "sha256:abc123...",
@@ -455,4 +475,4 @@ StrawHut/
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v0.2.0 | **最后更新**: 2026-05-04
+> **文档版本**: v0.3.0 | **最后更新**: 2026-05-04

@@ -1,7 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
-import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
+import 'package:strawhut/core/file_io/file_selection_service.dart';
+import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/draft/draft_manager.dart';
 part 'crypto_provider.g.dart';
 
@@ -47,6 +48,20 @@ IntegrityService integrityService(IntegrityServiceRef ref) {
 @riverpod
 FileIOService fileIOService(FileIOServiceRef ref) {
   return FileIOService();
+}
+
+/// 文件选择服务 Provider
+///
+/// 提供全局单例的 FileSelectionService 实例，用于跨平台文件选择操作。
+///
+/// 使用方式：
+/// ```dart
+/// final fileSelection = ref.watch(fileSelectionServiceProvider);
+/// final bytes = await fileSelection.pickStrawOrPngFile();
+/// ```
+@riverpod
+FileSelectionService fileSelectionService(FileSelectionServiceRef ref) {
+  return FileSelectionService();
 }
 
 /// 草稿管理器 Provider

@@ -98,6 +98,44 @@ abstract class IFileIOService {
   /// 检查文件扩展名是否为 .png。
   /// 返回 true 表示扩展名正确，但不保证文件格式有效。
   bool isValidPngFile(String filePath);
+
+  /// 从字节数据读取 .straw 知识卡片文件（Android content:// URI 支持）
+  ///
+  /// 流程：
+  /// 1. 将字节数据解码为 JSON 字符串
+  /// 2. 解析 JSON 为 `Map<String, dynamic>`
+  /// 3. 调用 FormatValidator.validateStrawFormat() 验证格式
+  /// 4. 反序列化为 StrawFile 对象并返回
+  ///
+  /// 参数：[bytes] - .straw 文件的字节数据
+  /// 返回：解析后的 StrawFile 对象
+  /// 异常：格式错误时抛出异常
+  Future<StrawFile> readStrawFileFromBytes(Uint8List bytes);
+
+  /// 从字节数据读取 .key 密钥文件（Android content:// URI 支持）
+  ///
+  /// 流程：
+  /// 1. 将字节数据解码为 JSON 字符串
+  /// 2. 解析 JSON 为 `Map<String, dynamic>`
+  /// 3. 调用 FormatValidator.validateKeyFormat() 验证格式
+  /// 4. 反序列化为 KeyFile 对象并返回
+  ///
+  /// 参数：[bytes] - .key 文件的字节数据
+  /// 返回：解析后的 KeyFile 对象
+  /// 异常：格式错误时抛出异常
+  Future<KeyFile> readKeyFileFromBytes(Uint8List bytes);
+
+  /// 从字节数据读取内嵌 .straw 数据的 PNG 图片（Android content:// URI 支持）
+  ///
+  /// 流程：
+  /// 1. 将字节数据传给 CoverImageService.extractStrawData 提取嵌入的 .straw JSON
+  /// 2. 解析 JSON 并验证格式
+  /// 3. 反序列化为 StrawFile 对象并返回
+  ///
+  /// 参数：[bytes] - PNG 图片的字节数据
+  /// 返回：解析后的 StrawFile 对象
+  /// 异常：图片不包含嵌入数据或格式错误时抛出异常
+  Future<StrawFile> readStrawPngFromBytes(Uint8List bytes);
 }
 
 /// 文件 I/O 服务实现
@@ -214,7 +252,12 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    final strawJson = await CoverImageService.extractStrawData(fileBytes);
+    return readStrawPngFromBytes(fileBytes);
+  }
+
+  @override
+  Future<StrawFile> readStrawPngFromBytes(Uint8List bytes) async {
+    final strawJson = await CoverImageService.extractStrawData(bytes);
     if (strawJson == null) {
       throw FileException(
         '该图片不是知识卡片或传输的不是原图，请确认文件来源后重试',
@@ -227,7 +270,7 @@ class FileIOService implements IFileIOService {
       jsonData = jsonDecode(strawJson) as Map<String, dynamic>;
     } on FormatException catch (e) {
       throw FileException(
-        'JSON 解析失败："$filePath"。\n'
+        'JSON 解析失败。\n'
         '文件内容不是有效的 JSON 格式。\n'
         '详细信息：${e.message}\n'
         '可能原因：文件已损坏或被篡改。',
@@ -239,7 +282,7 @@ class FileIOService implements IFileIOService {
     if (!validationResult.isValid) {
       final errorDetails = validationResult.errors.join('\n');
       throw FileException(
-        '文件格式验证失败："$filePath"。\n'
+        '文件格式验证失败。\n'
         '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
         code: 'VALIDATION_FAILED',
       );
@@ -278,9 +321,6 @@ class FileIOService implements IFileIOService {
   @override
   Future<StrawFile> readStrawFile(String filePath) async {
     // ========== 步骤 1：验证文件扩展名 ==========
-    // 在尝试读取文件之前先检查扩展名，这是一种"快速失败"（Fail-Fast）策略
-    // 如果扩展名不正确，立即拒绝处理，避免浪费 I/O 资源
-    // 这也防止了用户误传其他类型的文件（如图片、文本文件等）
     if (!isValidStrawFile(filePath)) {
       throw FileException(
         '无效的文件扩展名：期望 .straw，'
@@ -291,10 +331,6 @@ class FileIOService implements IFileIOService {
     }
 
     // ========== 步骤 2：检查文件是否存在 ==========
-    // 在读取前显式检查文件存在性，原因：
-    // 1. 提供更清晰的错误信息（"文件不存在" vs "读取失败"）
-    // 2. 避免触发底层 FileSystemException，统一使用 FileException
-    // 3. 这是防御性编程的体现：在操作前验证前提条件
     final file = File(filePath);
     if (!await file.exists()) {
       throw FileException(
@@ -304,20 +340,11 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 3：读取文件内容 ==========
-    // 将整个文件内容读取为字符串。
-    // .straw 文件是 JSON 格式的知识卡片，通常体积较小（KB 级别），
-    // 因此一次性读取到内存是合理的。
-    // 对于超大文件，可能需要流式读取，但本场景不需要。
-    String fileContent;
+    // ========== 步骤 3：读取为字节并委托给 bytes-based 方法 ==========
+    Uint8List bytes;
     try {
-      fileContent = await file.readAsString();
+      bytes = await file.readAsBytes();
     } on FileSystemException catch (e) {
-      // FileSystemException 可能由以下原因触发：
-      // - 权限不足（无读取权限）
-      // - 文件被其他进程锁定
-      // - 磁盘 I/O 错误
-      // 我们将其包装为 FileException，提供更友好的错误信息
       throw FileException(
         '读取文件失败："$filePath"。\n'
         '系统错误：${e.message}\n'
@@ -326,39 +353,38 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // 检查文件内容是否为空
-    // Windows 上文件选择器可能返回路径但文件尚未完全写入，
-    // 导致读取到空内容。添加重试机制。
-    if (fileContent.trim().isEmpty) {
-      // 等待 100ms 后重试一次
-      await Future.delayed(const Duration(milliseconds: 100));
-      try {
-        fileContent = await file.readAsString();
-      } on FileSystemException {
-        fileContent = '';
-      }
-      if (fileContent.trim().isEmpty) {
-        throw FileException(
-          '文件为空："$filePath"。\n'
-          '可能原因：文件尚未写入完成或文件已损坏。',
-          code: 'EMPTY_FILE',
-        );
-      }
+    return readStrawFileFromBytes(bytes);
+  }
+
+  @override
+  Future<StrawFile> readStrawFileFromBytes(Uint8List bytes) async {
+    // ========== 步骤 1：解码 UTF-8 并解析 JSON ==========
+    String fileContent;
+    try {
+      fileContent = utf8.decode(bytes);
+    } on FormatException catch (e) {
+      throw FileException(
+        '文件内容不是有效的 UTF-8 编码。\n'
+        '详细信息：${e.message}\n'
+        '可能原因：文件已损坏或被篡改。',
+        code: 'INVALID_FORMAT',
+      );
     }
 
-    // ========== 步骤 4：解析 JSON ==========
-    // 将 JSON 字符串反序列化为 Map<String, dynamic>
-    // jsonDecode 会在 JSON 格式错误时抛出 FormatException
-    // 捕获并转换为 FileException，确保异常类型统一
+    if (fileContent.trim().isEmpty) {
+      throw FileException(
+        '文件内容为空。\n'
+        '可能原因：文件尚未写入完成或文件已损坏。',
+        code: 'EMPTY_FILE',
+      );
+    }
+
     Map<String, dynamic> jsonData;
     try {
       jsonData = jsonDecode(fileContent) as Map<String, dynamic>;
     } on FormatException catch (e) {
-      // JSON 格式错误意味着文件内容不是有效的 JSON
-      // 可能原因：文件被篡改、手动编辑出错、传输过程中损坏
-      // 这是安全验证的重要环节：拒绝格式错误的文件
       throw FileException(
-        'JSON 解析失败："$filePath"。\n'
+        'JSON 解析失败。\n'
         '文件内容不是有效的 JSON 格式。\n'
         '详细信息：${e.message}\n'
         '可能原因：文件已损坏或被篡改。',
@@ -366,32 +392,18 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 5：验证文件格式 ==========
-    // 这是最核心的安全验证步骤。FormatValidator 会检查：
-    // - 所有必填字段是否存在
-    // - 加密算法是否为 AES-256-GCM（防止降级攻击）
-    // - 哈希算法是否为 SHA-256（确保完整性校验强度）
-    // - 字段长度是否符合限制（防止缓冲区溢出）
-    // - 版本号是否兼容（主版本必须为 1）
-    //
-    // 收集所有验证错误（而非在第一个错误处停止），
-    // 这样可以一次性向用户展示所有问题，提升用户体验。
+    // ========== 步骤 2：验证文件格式 ==========
     final validationResult = _formatValidator.validateStrawFormat(jsonData);
     if (!validationResult.isValid) {
-      // 格式验证失败，拒绝处理此文件
-      // 将所有验证错误拼接成完整的错误信息
       final errorDetails = validationResult.errors.join('\n');
       throw FileException(
-        '文件格式验证失败："$filePath"。\n'
+        '文件格式验证失败。\n'
         '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
         code: 'VALIDATION_FAILED',
       );
     }
 
-    // ========== 步骤 6：反序列化为 StrawFile 对象 ==========
-    // 经过上述所有验证后，可以安全地将 JSON 数据转换为强类型对象
-    // StrawFile.fromJson 会进一步解析各子对象（meta、content、integrity）
-    // 此时数据已经通过所有安全验证，可以信任其结构
+    // ========== 步骤 3：反序列化为 StrawFile 对象 ==========
     return StrawFile.fromJson(jsonData);
   }
 
@@ -473,9 +485,6 @@ class FileIOService implements IFileIOService {
   /// - FileException（其他 I/O 异常）
   @override
   Future<KeyFile> readKeyFile(String filePath) async {
-    // ========== 步骤 1：验证文件扩展名 ==========
-    // 确保路径指向的是 .key 文件，防止误读其他类型文件
-    // 密钥文件包含敏感信息，扩展名校验是基本的安全措施
     if (!isValidKeyFile(filePath)) {
       throw FileException(
         '无效的文件扩展名：期望 .key，'
@@ -485,8 +494,6 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 2：检查文件是否存在 ==========
-    // 与 readStrawFile 相同，显式检查文件存在性
     final file = File(filePath);
     if (!await file.exists()) {
       throw FileException(
@@ -496,15 +503,10 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 3：读取文件内容 ==========
-    // 将密钥文件内容读取为字符串
-    // 密钥文件通常很小（约几百字节），一次性读取到内存是安全的
-    String fileContent;
+    Uint8List bytes;
     try {
-      fileContent = await file.readAsString();
+      bytes = await file.readAsBytes();
     } on FileSystemException catch (e) {
-      // 读取失败可能意味着权限问题或文件被占用
-      // 对于密钥文件，读取失败也可能是安全事件（如文件被加密勒索软件锁定）
       throw FileException(
         '读取密钥文件失败："$filePath"。\n'
         '系统错误：${e.message}\n'
@@ -513,17 +515,29 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 4：解析 JSON ==========
-    // 将 JSON 字符串反序列化为 Map
+    return readKeyFileFromBytes(bytes);
+  }
+
+  @override
+  Future<KeyFile> readKeyFileFromBytes(Uint8List bytes) async {
+    String fileContent;
+    try {
+      fileContent = utf8.decode(bytes);
+    } on FormatException catch (e) {
+      throw FileException(
+        '密钥文件内容不是有效的 UTF-8 编码。\n'
+        '详细信息：${e.message}\n'
+        '安全警告：密钥文件可能被篡改，请勿使用此文件进行解密。',
+        code: 'INVALID_FORMAT',
+      );
+    }
+
     Map<String, dynamic> jsonData;
     try {
       jsonData = jsonDecode(fileContent) as Map<String, dynamic>;
     } on FormatException catch (e) {
-      // 密钥文件的 JSON 格式错误是非常严重的问题
-      // 可能意味着密钥文件被篡改或损坏
-      // 被篡改的密钥可能导致安全漏洞
       throw FileException(
-        '密钥文件 JSON 解析失败："$filePath"。\n'
+        '密钥文件 JSON 解析失败。\n'
         '文件内容不是有效的 JSON 格式。\n'
         '详细信息：${e.message}\n'
         '安全警告：密钥文件可能被篡改，请勿使用此文件进行解密。',
@@ -531,32 +545,16 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 5：验证密钥文件格式 ==========
-    // FormatValidator.validateKeyFormat() 会验证：
-    // - format_version 存在
-    // - key_metadata 包含 key_id、created_at、key_algorithm、key_length_bits
-    // - key_algorithm 必须为 AES-256-GCM
-    // - key_length_bits 必须为 256
-    // - key_data 包含 key_base64 和 encoding
-    // - encoding 必须为 "base64"
-    // - integrity 包含 hash 和 hash_algorithm
-    //
-    // 这些验证确保密钥文件的完整性和安全性
     final validationResult = _formatValidator.validateKeyFormat(jsonData);
     if (!validationResult.isValid) {
-      // 密钥文件格式验证失败，拒绝处理
-      // 使用错误的密钥文件可能导致数据泄露或解密失败
       final errorDetails = validationResult.errors.join('\n');
       throw FileException(
-        '密钥文件格式验证失败："$filePath"。\n'
+        '密钥文件格式验证失败。\n'
         '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
         code: 'VALIDATION_FAILED',
       );
     }
 
-    // ========== 步骤 6：反序列化为 KeyFile 对象 ==========
-    // 经过所有安全验证后，将 JSON 数据转换为强类型 KeyFile 对象
-    // KeyFile 包含密钥数据，后续将用于解密 .straw 文件
     return KeyFile.fromJson(jsonData);
   }
 

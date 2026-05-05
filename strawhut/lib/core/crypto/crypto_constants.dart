@@ -57,7 +57,7 @@ const String HASH_ALGORITHM_SHA256 = 'SHA-256';
 /// - 主版本相同 → 正常读取
 /// - 文件主版本高于当前软件 → 拒绝读取，提示更新
 /// - 文件主版本低于当前软件 → 兼容模式读取
-const String STRAW_FORMAT_VERSION = '1.0.0';
+const String STRAW_FORMAT_VERSION = '1.1.0';
 
 /// .key 密钥文件格式版本号
 ///
@@ -88,3 +88,48 @@ const int MAX_TAG_LENGTH = 20;
 /// 知识卡片描述最长 200 个字符。
 /// 描述内容在未解密状态下可见，帮助用户识别卡片内容。
 const int MAX_DESCRIPTION_LENGTH = 200;
+
+/// 盐值长度（字节）
+///
+/// 用于密钥派生函数（KDF）的盐值长度。
+/// 16 字节（128 位）的盐值可提供足够的随机性，
+/// 防止彩虹表攻击和预计算攻击。
+///
+/// 安全说明：
+/// - 盐值必须使用 CSPRNG 生成
+/// - 每次加密应使用不同的盐值
+/// - 盐值不需要保密，可随密文一起存储
+const int SALT_LENGTH_BYTES = 16;
+
+/// 密钥派生算法标识
+///
+/// 使用 PBKDF2-HMAC-SHA256 从口令派生加密密钥。
+/// PBKDF2（Password-Based Key Derivation Function 2）是 NIST 推荐的
+/// 基于口令的密钥派生标准，结合 HMAC-SHA256 提供强安全性。
+const String KDF_ALGORITHM_PBKDF2 = 'PBKDF2-HMAC-SHA256';
+
+/// KDF 迭代次数
+///
+/// PBKDF2 的迭代次数，100000 次是当前 OWASP 推荐的最小值。
+/// 更高的迭代次数增加暴力破解的成本，但也会增加密钥派生的耗时。
+///
+/// 性能参考：100000 次迭代在现代设备上约需 100-300ms
+const int KDF_ITERATIONS = 100000;
+
+/// 口令最小长度
+///
+/// 用户设置的口令至少需要 8 个字符。
+/// 低于此长度的口令将被视为 veryWeak 强度。
+const int PASSPHRASE_MIN_LENGTH = 8;
+
+/// 口令推荐长度
+///
+/// 推荐用户使用 12 个字符以上的口令，
+/// 以获得更好的安全性。
+const int PASSPHRASE_RECOMMENDED_LENGTH = 12;
+
+/// 最大连续相同字符数
+///
+/// 口令中不允许出现 6 个及以上连续相同字符，
+/// 如 "aaaaaa" 或 "111111"，防止弱口令。
+const int MAX_CONSECUTIVE_SAME_CHAR = 6;

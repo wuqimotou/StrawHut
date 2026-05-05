@@ -36,6 +36,9 @@ class EncryptedContent {
     required this.encryptedDataBase64,
     required this.ivBase64,
     required this.algorithm,
+    this.saltBase64,
+    this.kdfAlgorithm,
+    this.kdfIterations,
   });
 
   /// 从 JSON 映射反序列化为 [EncryptedContent]
@@ -64,6 +67,9 @@ class EncryptedContent {
       encryptedDataBase64: json['encrypted_data'] as String,
       ivBase64: json['iv'] as String,
       algorithm: json['encryption_algorithm'] as String,
+      saltBase64: json['salt'] as String?,
+      kdfAlgorithm: json['kdf_algorithm'] as String?,
+      kdfIterations: json['kdf_iterations'] as int?,
     );
   }
 
@@ -88,6 +94,27 @@ class EncryptedContent {
   /// 对应 .straw 文件中的 `encryption_algorithm` 字段。
   final String algorithm;
 
+  /// Base64 编码的盐值
+  ///
+  /// 用于密钥派生函数（KDF）的盐值，Base64 编码后存储。
+  /// 仅在协商密钥加密模式下使用。
+  /// 对应 .straw 文件中的 `salt` 字段。
+  final String? saltBase64;
+
+  /// 密钥派生算法标识
+  ///
+  /// 标识使用的密钥派生算法，如 "PBKDF2-HMAC-SHA256"。
+  /// 仅在协商密钥加密模式下使用。
+  /// 对应 .straw 文件中的 `kdf_algorithm` 字段。
+  final String? kdfAlgorithm;
+
+  /// KDF 迭代次数
+  ///
+  /// 密钥派生函数的迭代次数，如 100000。
+  /// 仅在协商密钥加密模式下使用。
+  /// 对应 .straw 文件中的 `kdf_iterations` 字段。
+  final int? kdfIterations;
+
   /// 将加密内容序列化为 JSON 映射
   ///
   /// 返回的 Map 可直接嵌入 .straw 文件的 `content` 字段。
@@ -107,5 +134,8 @@ class EncryptedContent {
         'encrypted_data': encryptedDataBase64,
         'encryption_algorithm': algorithm,
         'iv': ivBase64,
+        'salt': saltBase64,
+        'kdf_algorithm': kdfAlgorithm,
+        'kdf_iterations': kdfIterations,
       };
 }

@@ -2,7 +2,7 @@ name: strawhut
 description: 去中心化加密知识分享平台
 publish_to: 'none'
 
-version: 0.2.0+1
+version: 0.3.0+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -38,6 +38,13 @@ dependencies:
 
   # 桌面端拖拽
   desktop_drop: ^0.5.0
+
+  # Android 平台支持
+  share_plus: ^10.1.3
+  receive_sharing_intent: ^1.8.0
+  permission_handler: ^11.3.1
+  media_scanner: ^2.1.0
+  image_picker: ^1.1.2
 
   # JSON 序列化
   json_annotation: ^4.9.0

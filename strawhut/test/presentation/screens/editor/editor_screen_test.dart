@@ -17,9 +17,11 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/screens/editor/editor_screen.dart';
 
 /// 用于 Widget 测试的辅助方法：构建被 ProviderScope 包裹的 EditorScreen
@@ -28,7 +30,11 @@ Widget createEditorScreen() {
     child: MaterialApp(
       localizationsDelegates: const [
         quill.FlutterQuillLocalizations.delegate,
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
       ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const EditorScreen(),
     ),
   );
@@ -204,7 +210,11 @@ void main() {
           child: MaterialApp(
             localizationsDelegates: const [
               quill.FlutterQuillLocalizations.delegate,
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
             ],
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () {

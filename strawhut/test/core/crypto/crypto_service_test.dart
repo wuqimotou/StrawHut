@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
@@ -228,6 +230,78 @@ void main() {
       final cryptoService = _createCryptoService();
 
       expect(() => cryptoService.clearSensitiveData(), returnsNormally);
+    });
+  });
+
+  group('CryptoService.deriveKeyFromPassphrase', () {
+    test('should derive 32-byte key', () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final salt = Uint8List.fromList(List.generate(16, (i) => i));
+      final key = await cryptoService.deriveKeyFromPassphrase(
+        passphrase: 'testPassphrase',
+        salt: salt,
+      );
+      expect(key.length, 32);
+    });
+
+    test('same passphrase and salt should derive same key', () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final salt = Uint8List.fromList(List.generate(16, (i) => i));
+      final key1 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'samePassphrase', salt: salt);
+      final key2 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'samePassphrase', salt: salt);
+      expect(key1, equals(key2));
+    });
+
+    test('same passphrase with different salt should derive different key',
+        () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final salt1 = Uint8List.fromList(List.generate(16, (i) => i));
+      final salt2 = Uint8List.fromList(List.generate(16, (i) => i + 16));
+      final key1 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'samePassphrase', salt: salt1);
+      final key2 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'samePassphrase', salt: salt2);
+      expect(key1, isNot(equals(key2)));
+    });
+
+    test('different passphrase with same salt should derive different key',
+        () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final salt = Uint8List.fromList(List.generate(16, (i) => i));
+      final key1 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'passphrase1', salt: salt);
+      final key2 = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'passphrase2', salt: salt);
+      expect(key1, isNot(equals(key2)));
+    });
+
+    test('invalid salt length should throw CryptoException', () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final invalidSalt = Uint8List(8);
+      expect(
+        () => cryptoService.deriveKeyFromPassphrase(
+            passphrase: 'test', salt: invalidSalt),
+        throwsA(isA<CryptoException>()
+            .having((e) => e.code, 'code', 'INVALID_SALT_LENGTH')),
+      );
+    });
+
+    test('derived key can encrypt and decrypt', () async {
+      final cryptoService = CryptoService(IntegrityService());
+      final salt = Uint8List.fromList(List.generate(16, (i) => i));
+      const originalText = '{"ops": [{"insert": "PBKDF2 test\\n"}]}';
+      final key = await cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'testPassphrase123', salt: salt);
+      final encrypted =
+          await cryptoService.encryptContent(deltaJson: originalText, key: key);
+      final decrypted = await cryptoService.decryptContent(
+        encryptedDataBase64: encrypted.encryptedDataBase64,
+        ivBase64: encrypted.ivBase64,
+        key: key,
+      );
+      expect(decrypted, originalText);
     });
   });
 }

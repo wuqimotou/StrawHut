@@ -187,6 +187,210 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'文件可能被篡改'**
   String get integrityError;
+
+  /// 加密模式标签
+  ///
+  /// In zh, this message translates to:
+  /// **'加密模式'**
+  String get encryptionModeLabel;
+
+  /// 随机密钥模式选项
+  ///
+  /// In zh, this message translates to:
+  /// **'随机密钥模式（推荐）'**
+  String get randomKeyMode;
+
+  /// 随机密钥模式描述
+  ///
+  /// In zh, this message translates to:
+  /// **'系统自动生成高强度随机密钥'**
+  String get randomKeyModeDesc;
+
+  /// 协商密钥模式选项
+  ///
+  /// In zh, this message translates to:
+  /// **'协商密钥模式'**
+  String get negotiatedKeyMode;
+
+  /// 协商密钥模式描述
+  ///
+  /// In zh, this message translates to:
+  /// **'通过暗号派生密钥，适合口头分享'**
+  String get negotiatedKeyModeDesc;
+
+  /// 暗号输入标签
+  ///
+  /// In zh, this message translates to:
+  /// **'加密暗号'**
+  String get passphraseLabel;
+
+  /// 暗号输入提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入加密暗号'**
+  String get passphraseHint;
+
+  /// 暗号确认标签
+  ///
+  /// In zh, this message translates to:
+  /// **'再次输入暗号（确认）'**
+  String get passphraseConfirmLabel;
+
+  /// 暗号确认提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请再次输入暗号'**
+  String get passphraseConfirmHint;
+
+  /// 暗号不一致提示
+  ///
+  /// In zh, this message translates to:
+  /// **'两次输入的暗号不一致'**
+  String get passphraseMismatch;
+
+  /// 暗号强度标签
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号强度'**
+  String get passphraseStrengthLabel;
+
+  /// 强强度
+  ///
+  /// In zh, this message translates to:
+  /// **'强'**
+  String get strengthStrong;
+
+  /// 中等强度
+  ///
+  /// In zh, this message translates to:
+  /// **'中'**
+  String get strengthMedium;
+
+  /// 弱强度
+  ///
+  /// In zh, this message translates to:
+  /// **'弱'**
+  String get strengthWeak;
+
+  /// 极弱强度
+  ///
+  /// In zh, this message translates to:
+  /// **'极弱'**
+  String get strengthVeryWeak;
+
+  /// 极弱强度详细提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号过短，至少需要 8 个字符'**
+  String get strengthVeryWeakDetail;
+
+  /// 弱暗号警告
+  ///
+  /// In zh, this message translates to:
+  /// **'当前暗号强度较弱，存在被暴力破解的风险'**
+  String get passphraseWeakWarning;
+
+  /// 弱暗号建议
+  ///
+  /// In zh, this message translates to:
+  /// **'建议将暗号延长至 12 个字符以上，并混合使用字母、数字和符号'**
+  String get passphraseWeakSuggestion;
+
+  /// 弱暗号确认提示
+  ///
+  /// In zh, this message translates to:
+  /// **'您确定要继续使用该暗号吗？'**
+  String get passphraseWeakConfirm;
+
+  /// 弱暗号警告对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号强度警告'**
+  String get weakPassphraseTitle;
+
+  /// 返回修改按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'返回修改'**
+  String get backToEdit;
+
+  /// 确认继续按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确认继续'**
+  String get confirmContinue;
+
+  /// 解密时暗号输入标签
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入加密暗号'**
+  String get decryptPassphraseLabel;
+
+  /// 解密时暗号输入提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请与创作者确认暗号内容'**
+  String get decryptPassphraseHint;
+
+  /// 解密时暗号加密提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此知识卡片通过暗号加密'**
+  String get decryptPassphraseInfo;
+
+  /// 暗号解密失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号错误或文件已损坏'**
+  String get passphraseDecryptFailed;
+
+  /// 暗号安全提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请妥善保管暗号，遗忘后无法找回内容'**
+  String get passphraseSecurityNote;
+
+  /// 暗号强度要求提示
+  ///
+  /// In zh, this message translates to:
+  /// **'建议使用 12 个以上字符，包含字母、数字和符号，以提高安全性'**
+  String get passphraseStrengthRequirement;
+
+  /// 协商密钥模式下发布成功后的暗号分享提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请将暗号告知接收者，接收者需要输入相同暗号才能解密。'**
+  String get passphraseShareNote;
+
+  /// 知识卡片保存成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'知识卡片已保存到下载文件夹'**
+  String get strawSavedToDownloads;
+
+  /// PNG 卡片保存成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'卡片图片已保存到相册'**
+  String get pngSavedToPhotos;
+
+  /// 密钥文件保存成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'密钥文件已保存到下载文件夹'**
+  String get keySavedToDownloads;
+
+  /// PNG 分享时提示以原图发送
+  ///
+  /// In zh, this message translates to:
+  /// **'请以原图方式发送，否则接收方无法解密'**
+  String get shareAsOriginalImage;
+
+  /// PNG 分享按钮文字
+  ///
+  /// In zh, this message translates to:
+  /// **'分享卡片'**
+  String get sharePngCard;
 }
 
 class _AppLocalizationsDelegate

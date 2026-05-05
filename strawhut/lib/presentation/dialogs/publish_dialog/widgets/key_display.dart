@@ -22,10 +22,7 @@ class KeyDisplay extends StatefulWidget {
   ///
   /// 参数说明：
   /// - [keyBase64]: Base64 编码的密钥字符串，必填
-  const KeyDisplay({
-    required this.keyBase64,
-    super.key,
-  });
+  const KeyDisplay({required this.keyBase64, super.key});
 
   /// Base64 编码的密钥字符串
   final String keyBase64;
@@ -45,6 +42,7 @@ class _KeyDisplayState extends State<KeyDisplay> {
   ///
   /// 使用 Flutter 的 Clipboard API 将密钥字符串复制到系统剪贴板，
   /// 并显示短暂的视觉反馈（按钮变为"已复制"）。
+  /// 同时弹出 SnackBar 提示用户复制成功。
   Future<void> _copyToClipboard() async {
     // 将密钥字符串写入系统剪贴板
     await Clipboard.setData(ClipboardData(text: widget.keyBase64));
@@ -53,6 +51,25 @@ class _KeyDisplayState extends State<KeyDisplay> {
     setState(() {
       _isCopied = true;
     });
+
+    // 显示 SnackBar 提示（AC-COPY-02）
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Flexible(child: Text('密钥已复制到剪贴板')),
+            ],
+          ),
+          backgroundColor: Colors.green[700],
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
 
     // 1.5 秒后恢复按钮状态
     await Future.delayed(const Duration(milliseconds: 1500), () {});
@@ -80,10 +97,7 @@ class _KeyDisplayState extends State<KeyDisplay> {
         // 密钥标题
         const Text(
           '密钥（请妥善保存）：',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 8),
 

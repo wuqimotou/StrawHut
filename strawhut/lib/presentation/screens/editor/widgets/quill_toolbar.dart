@@ -55,7 +55,7 @@ class _QuillToolbarState extends State<QuillToolbar> {
 
     return Container(
       // 工具栏容器：带边框和背景色
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey[900] : Colors.white,
         border: Border(
@@ -174,6 +174,8 @@ class _QuillToolbarState extends State<QuillToolbar> {
                 controller: widget.controller,
                 isBackground: false,
               ),
+              // Extra spacing at end for comfortable scroll
+              const SizedBox(width: 8),
             ],
           ),
         ),
@@ -181,10 +183,10 @@ class _QuillToolbarState extends State<QuillToolbar> {
     );
   }
 
-  /// 构建一组按钮（带内边距）
+  /// 构建一组按钮（带内边距，至少 8dp 间距）
   Widget _buildGroup(List<Widget> buttons) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(children: buttons),
     );
   }
@@ -209,14 +211,20 @@ class _QuillToolbarState extends State<QuillToolbar> {
   }) {
     return Tooltip(
       message: tooltip,
-      child: quill.QuillToolbarToggleStyleButton(
-        attribute: attribute,
-        controller: widget.controller,
+      child: SizedBox(
+        width: 40,
+        height: 48,
+        child: quill.QuillToolbarToggleStyleButton(
+          attribute: attribute,
+          controller: widget.controller,
+        ),
       ),
     );
   }
 
   /// 构建自定义图标按钮（用于非标准功能，如分隔线、图片）
+  ///
+  /// 确保按钮至少有 48x48dp 的触摸区域。
   Widget _buildCustomIconButton({
     required IconData icon,
     required String tooltip,
@@ -224,14 +232,18 @@ class _QuillToolbarState extends State<QuillToolbar> {
   }) {
     return Tooltip(
       message: tooltip,
-      child: IconButton(
-        icon: Icon(icon, size: 20),
-        onPressed: onPressed,
-        iconSize: 20,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(
-          minWidth: 32,
-          minHeight: 32,
+      child: SizedBox(
+        width: 40,
+        height: 48,
+        child: IconButton(
+          icon: Icon(icon, size: 20),
+          onPressed: onPressed,
+          iconSize: 20,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 48,
+          ),
         ),
       ),
     );
@@ -263,11 +275,15 @@ class _QuillToolbarState extends State<QuillToolbar> {
               leading: const Icon(Icons.photo_library),
               title: const Text('从文件选择'),
               onTap: () => Navigator.pop(context, ImageSource.file),
+              minLeadingWidth: 40,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             ),
             ListTile(
               leading: const Icon(Icons.link),
               title: const Text('输入 URL'),
               onTap: () => Navigator.pop(context, ImageSource.url),
+              minLeadingWidth: 40,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             ),
           ],
         ),

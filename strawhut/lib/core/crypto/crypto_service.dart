@@ -2,7 +2,12 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:encrypt/encrypt.dart';
+import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:flutter/foundation.dart';
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/key_derivators/api.dart';
+import 'package:pointycastle/key_derivators/pbkdf2.dart';
+import 'package:pointycastle/macs/hmac.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
@@ -87,6 +92,28 @@ abstract class ICryptoService {
   /// - 最佳实践：调用此方法后尽快让引用超出作用域
   /// - 使用 [MemoryUtils.wipeBytes] 可将字节数组逐字节置零
   void clearSensitiveData();
+
+  /// 从口令派生加密密钥
+  ///
+  /// 使用 PBKDF2-HMAC-SHA256 算法从用户口令派生 32 字节加密密钥。
+  /// 用于协商密钥加密模式，允许用户通过口令保护知识卡片。
+  ///
+  /// 参数说明：
+  /// - [passphrase]: 用户输入的口令
+  /// - [salt]: 16 字节盐值（由 CSPRNG 生成）
+  /// - [iterations]: PBKDF2 迭代次数，默认为 [KDF_ITERATIONS]（100000）
+  ///
+  /// 返回值：派生出的 32 字节密钥
+  ///
+  /// 安全说明：
+  /// - 盐值必须使用 CSPRNG 生成，长度必须为 [SALT_LENGTH_BYTES]
+  /// - 迭代次数越高，暴力破解成本越大，但派生耗时也越长
+  /// - 派生后的密钥与 [generateKey] 生成的密钥用法一致
+  Future<Uint8List> deriveKeyFromPassphrase({
+    required String passphrase,
+    required Uint8List salt,
+    int iterations = KDF_ITERATIONS,
+  });
 }
 
 /// 加密服务实现
@@ -184,10 +211,12 @@ class CryptoService implements ICryptoService {
     required Uint8List key,
   }) async {
     // 创建 AES-256-GCM 加密器（使用 encrypt 包的高层 API）
-    final encrypter = Encrypter(AES(Key(key), mode: AESMode.gcm));
+    final encrypter = encrypt.Encrypter(
+      encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.gcm),
+    );
 
     // 生成 16 字节安全随机 IV
-    final iv = IV.fromSecureRandom(IV_LENGTH_BYTES);
+    final iv = encrypt.IV.fromSecureRandom(IV_LENGTH_BYTES);
 
     // 执行加密操作，将 Delta JSON 字符串转为 UTF-8 字节后加密
     final encrypted = encrypter.encrypt(deltaJson, iv: iv);
@@ -245,14 +274,16 @@ class CryptoService implements ICryptoService {
       final encryptedBytes = base64Decode(encryptedDataBase64);
 
       // 创建 AES-256-GCM 解密器（使用 encrypt 包的高层 API）
-      final encrypter = Encrypter(AES(Key(key), mode: AESMode.gcm));
+      final encrypter = encrypt.Encrypter(
+        encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.gcm),
+      );
 
       // 执行解密操作
       // 使用 decrypt() 直接传入 Encrypted 对象，避免冗余的 Base64 编解码
       // GCM 模式自动验证 MAC，如果密钥错误或密文被篡改，会抛出异常
       final decrypted = encrypter.decrypt(
-        Encrypted(encryptedBytes),
-        iv: IV(ivBytes),
+        encrypt.Encrypted(encryptedBytes),
+        iv: encrypt.IV(ivBytes),
       );
 
       return decrypted;
@@ -265,6 +296,50 @@ class CryptoService implements ICryptoService {
         '解密失败：可能是密钥错误或文件已损坏。详情：$e',
         code: 'DECRYPTION_FAILED',
       );
+    }
+  }
+
+  /// 从口令派生加密密钥
+  ///
+  /// 实现步骤：
+  /// 1. 验证盐值长度是否为 [SALT_LENGTH_BYTES] 字节
+  /// 2. 使用 PBKDF2-HMAC-SHA256 算法派生密钥
+  /// 3. 返回派生后的 32 字节密钥
+  ///
+  /// 参数说明：
+  /// - [passphrase]: 用户输入的口令
+  /// - [salt]: 16 字节盐值
+  /// - [iterations]: PBKDF2 迭代次数，默认 100000
+  ///
+  /// 异常处理：
+  /// - 盐值长度不正确时抛出 [CryptoException]
+  /// - 密钥派生过程出错时抛出 [CryptoException]
+  @override
+  Future<Uint8List> deriveKeyFromPassphrase({
+    required String passphrase,
+    required Uint8List salt,
+    int iterations = KDF_ITERATIONS,
+  }) async {
+    if (salt.length != SALT_LENGTH_BYTES) {
+      throw CryptoException(
+        '盐值长度不正确：期望 $SALT_LENGTH_BYTES 字节，实际 ${salt.length} 字节',
+        code: 'INVALID_SALT_LENGTH',
+      );
+    }
+
+    try {
+      // Use compute (Isolate) on non-web platforms to avoid blocking the UI thread.
+      // PBKDF2 with 100,000 iterations is CPU-intensive, especially on mobile.
+      return compute(
+        _deriveKeyFromPassphraseIsolate,
+        _DeriveKeyParams(
+          passphrase: passphrase,
+          salt: salt,
+          iterations: iterations,
+        ),
+      );
+    } catch (e) {
+      throw CryptoException('密钥派生失败：$e', code: 'KEY_DERIVATION_FAILED');
     }
   }
 
@@ -294,4 +369,31 @@ class CryptoService implements ICryptoService {
     // 如果未来扩展为有状态设计（如缓存解密密钥），
     // 需要在此处清理所有内部持有的敏感数据引用。
   }
+}
+
+/// Parameters for PBKDF2 key derivation (must be serializable for compute/Isolate).
+class _DeriveKeyParams {
+  final String passphrase;
+  final Uint8List salt;
+  final int iterations;
+
+  _DeriveKeyParams({
+    required this.passphrase,
+    required this.salt,
+    required this.iterations,
+  });
+}
+
+/// Top-level function for PBKDF2 key derivation in a background Isolate.
+///
+/// Must be a top-level function because [compute] requires functions that are
+/// serializable and accessible without capturing any closure context.
+Uint8List _deriveKeyFromPassphraseIsolate(_DeriveKeyParams params) {
+  final hmac = HMac.withDigest(SHA256Digest());
+  final derivator = PBKDF2KeyDerivator(hmac)
+    ..init(Pbkdf2Parameters(params.salt, params.iterations, KEY_LENGTH_BYTES));
+
+  return Uint8List.fromList(
+    derivator.process(Uint8List.fromList(utf8.encode(params.passphrase))),
+  );
 }

@@ -88,6 +88,35 @@ final fileIOServiceProvider = AutoDisposeProvider<FileIOService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef FileIOServiceRef = AutoDisposeProviderRef<FileIOService>;
+String _$fileSelectionServiceHash() =>
+    r'd86bdd23d2493e0054870f9d0ad49c4852d3d261';
+
+/// 文件选择服务 Provider
+///
+/// 提供全局单例的 FileSelectionService 实例，用于跨平台文件选择操作。
+///
+/// 使用方式：
+/// ```dart
+/// final fileSelection = ref.watch(fileSelectionServiceProvider);
+/// final bytes = await fileSelection.pickStrawOrPngFile();
+/// ```
+///
+/// Copied from [fileSelectionService].
+@ProviderFor(fileSelectionService)
+final fileSelectionServiceProvider =
+    AutoDisposeProvider<FileSelectionService>.internal(
+  fileSelectionService,
+  name: r'fileSelectionServiceProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$fileSelectionServiceHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef FileSelectionServiceRef = AutoDisposeProviderRef<FileSelectionService>;
 String _$draftManagerHash() => r'97df6e51ea03664f201a940df82f78dcf57e76f0';
 
 /// 草稿管理器 Provider

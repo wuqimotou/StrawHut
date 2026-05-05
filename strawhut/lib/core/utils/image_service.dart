@@ -12,9 +12,26 @@ class ImageService {
   static const int maxSingleImageSizeBytes = 2 * 1024 * 1024;
   static const int maxTotalContentSizeBytes = 10 * 1024 * 1024;
 
+  /// Compress and encode image to base64 data URL.
+  ///
+  /// For static images (JPG, PNG, BMP, etc.): resize and compress to JPEG.
+  /// For GIFs: read original bytes and encode as data URL without re-encoding,
+  ///   preserving the animation frames.
   static Future<String> compressAndEncodeImage(String filePath) async {
     final file = File(filePath);
     final bytes = await file.readAsBytes();
+
+    // Check if file is GIF - preserve animation by not re-encoding
+    final lowerPath = filePath.toLowerCase();
+    if (lowerPath.endsWith('.gif')) {
+      if (bytes.length > maxSingleImageSizeBytes) {
+        throw Exception('GIF 文件过大（超过 2MB），请使用更小的文件');
+      }
+      final base64Str = base64Encode(bytes);
+      return 'data:image/gif;base64,$base64Str';
+    }
+
+    // Static image: decode, resize, and compress to JPEG
     final image = decodeImage(bytes);
 
     if (image == null) {

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -94,13 +96,57 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// 加载知识卡片文件
   ///
   /// 从路由参数中获取文件路径，然后调用 CurrentCard Provider 加载文件。
+  /// 支持两种加载方式：
+  /// 1. 字节流加载（Android content:// URI / Intent 接收的文件）
+  /// 2. 路径加载（Windows 桌面端 / 已知文件路径）
   ///
   /// 流程：
-  /// 1. 从 go_router 的 state.uri.queryParameters 获取 path 参数
-  /// 2. 验证路径是否有效
-  /// 3. 调用 ref.read(currentCardProvider.notifier).loadFile(filePath)
-  /// 4. 监听文件加载结果，更新 UI 状态
+  /// 1. 检查 pendingFileBytesProvider 是否有待处理的字节
+  /// 2. 如果有字节，调用 loadFileFromBytes()
+  /// 3. 如果没有字节，从 go_router 的 state.uri.queryParameters 获取 path 参数
+  /// 4. 调用 ref.read(currentCardProvider.notifier).loadFile(filePath)
+  /// 5. 监听文件加载结果，更新 UI 状态
   Future<void> _loadFile() async {
+    // 优先检查是否有待处理的字节（来自 Intent 或文件选择器）
+    final pendingData = ref.read(pendingFileBytesProvider);
+    if (pendingData != null) {
+      final bytes = pendingData.$1;
+      final fileName = pendingData.$2;
+
+      // 从字节流加载（Android content:// URI / Intent 接收）
+      try {
+        final strawFile = await ref
+            .read(currentCardProvider.notifier)
+            .loadFileFromBytes(bytes, fileName: fileName);
+
+        // 清除待处理的字节
+        ref.read(pendingFileBytesProvider.notifier).state = null;
+
+        if (mounted) {
+          if (strawFile != null) {
+            setState(() {
+              _strawFile = strawFile;
+              _status = ReaderStatus.metaOnly;
+            });
+            _showDecryptDialog();
+          } else {
+            setState(() {
+              _status = ReaderStatus.error;
+              _errorMessage = '文件加载失败：文件内容为空';
+            });
+          }
+        }
+      } on Exception catch (e) {
+        if (mounted) {
+          setState(() {
+            _status = ReaderStatus.error;
+            _errorMessage = '文件加载异常：$e';
+          });
+        }
+      }
+      return;
+    }
+
     // 从路由参数中获取文件路径
     final state = GoRouterState.of(context);
     final filePath = state.uri.queryParameters['path'];
@@ -177,9 +223,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// 处理返回按钮
   ///
-  /// 返回到首页，并重置阅读器状态。
+  /// 清理解密状态并返回到首页。
   void _handleBack() {
-    // 清理状态
+    _clearDecryptedState();
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
+  }
+
+  /// 清理解密状态
+  void _clearDecryptedState() {
     setState(() {
       _status = ReaderStatus.loading;
       _decryptedContent = null;
@@ -187,12 +242,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _errorMessage = null;
       _hasShownDecryptDialog = false;
     });
-    // 返回上一页
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/');
-    }
   }
 
   /// 处理错误状态下的重试
@@ -284,6 +333,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       return const Center(child: Text('文件数据丢失'));
     }
     return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -291,15 +341,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           MetaPreview(strawFile: strawFile),
           const SizedBox(height: 16),
           // 解密提示
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '该卡片已加密，请在对话框中输入密钥以解密查看完整内容。',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
+          Text(
+            '该卡片已加密，请在对话框中输入密钥以解密查看完整内容。',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
           const SizedBox(height: 16),
         ],
@@ -381,35 +428,47 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       appBarTitle = '阅读器';
     }
 
-    return Scaffold(
-      // 顶部导航栏：卡片标题 + 返回按钮
-      appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _handleBack,
-          tooltip: '返回首页',
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _clearDecryptedState();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      },
+      child: Scaffold(
+        // 顶部导航栏：卡片标题 + 返回按钮
+        appBar: AppBar(
+          title: Text(appBarTitle),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleBack,
+            tooltip: '返回首页',
+          ),
+          actions: [
+            // 在解密状态下，提供重新解密按钮（允许用户换一个密钥重新解密）
+            if (_status == ReaderStatus.decrypted)
+              IconButton(
+                icon: const Icon(Icons.lock_open),
+                onPressed: () {
+                  // 重置为未解密状态，重置对话框标记以便重新弹出
+                  setState(() {
+                    _hasShownDecryptDialog = false;
+                  });
+                  _showDecryptDialog();
+                },
+                tooltip: '重新解密',
+                iconSize: 20,
+              ),
+          ],
         ),
-        actions: [
-          // 在解密状态下，提供重新解密按钮（允许用户换一个密钥重新解密）
-          if (_status == ReaderStatus.decrypted)
-            IconButton(
-              icon: const Icon(Icons.lock_open),
-              onPressed: () {
-                // 重置为未解密状态，重置对话框标记以便重新弹出
-                setState(() {
-                  _hasShownDecryptDialog = false;
-                });
-                _showDecryptDialog();
-              },
-              tooltip: '重新解密',
-              iconSize: 20,
-            ),
-        ],
+        // 主体内容：根据状态展示不同界面
+        body: _buildBody(),
       ),
-      // 主体内容：根据状态展示不同界面
-      body: _buildBody(),
     );
   }
 

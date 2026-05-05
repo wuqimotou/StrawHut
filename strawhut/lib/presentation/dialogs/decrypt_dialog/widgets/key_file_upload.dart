@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
+import 'package:strawhut/core/file_io/file_selection_service.dart';
+import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
 /// 解密对话框 - 密钥文件上传组件
 ///
@@ -28,7 +29,7 @@ import 'package:strawhut/core/errors/file_exception.dart';
 /// 5. 验证文件格式（检查必填字段和格式）
 /// 6. 验证通过 → 通过回调传递密钥
 /// 7. 验证失败 → 显示错误提示
-class KeyFileUpload extends StatefulWidget {
+class KeyFileUpload extends ConsumerStatefulWidget {
   /// 创建密钥文件上传组件实例
   ///
   /// 参数：
@@ -43,10 +44,10 @@ class KeyFileUpload extends StatefulWidget {
   final void Function(String keyBase64) onKeyFileLoaded;
 
   @override
-  State<KeyFileUpload> createState() => _KeyFileUploadState();
+  ConsumerState<KeyFileUpload> createState() => _KeyFileUploadState();
 }
 
-class _KeyFileUploadState extends State<KeyFileUpload> {
+class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
   /// 是否正在加载文件
   bool _isLoading = false;
 
@@ -59,8 +60,8 @@ class _KeyFileUploadState extends State<KeyFileUpload> {
   /// 处理文件上传流程
   ///
   /// 完整流程：
-  /// 1. 弹出文件选择器（仅 .key 文件）
-  /// 2. 读取文件内容
+  /// 1. 通过 FileSelectionService 弹出文件选择器（仅 .key 文件）
+  /// 2. 读取文件字节内容
   /// 3. 解析 JSON
   /// 4. 验证格式和完整性
   /// 5. 提取 key_base64
@@ -72,90 +73,54 @@ class _KeyFileUploadState extends State<KeyFileUpload> {
     });
 
     try {
-      // ========== 步骤 1：弹出文件选择器 ==========
-      // 使用 file_picker 选择文件，限制仅 .key 扩展名
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['key'],
-        dialogTitle: '选择密钥文件',
-        allowMultiple: false,
-      );
+      // ========== 步骤 1：通过 FileSelectionService 选择文件 ==========
+      final fileSelectionService = ref.read(fileSelectionServiceProvider);
+      final fileIOService = ref.read(fileIOServiceProvider);
+
+      final result = await fileSelectionService.pickKeyFile();
 
       // 用户取消了文件选择
-      if (result == null || result.files.isEmpty) {
+      if (result == null) {
         setState(() {
           _isLoading = false;
         });
         return;
       }
 
-      final filePath = result.files.single.path;
-      if (filePath == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = '无法获取文件路径';
-        });
-        return;
-      }
+      final (bytes, fileName) = result;
 
-      final fileName = result.files.single.name;
-
-      // ========== 步骤 2：读取 .key 文件内容 ==========
-      final file = File(filePath);
-      if (!await file.exists()) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = '文件不存在：$fileName';
-        });
-        return;
-      }
-
-      final fileContent = await file.readAsString();
-
-      // ========== 步骤 3：解析 JSON ==========
-      Map<String, dynamic> jsonData;
+      // ========== 步骤 2：通过 IFileIOService 从字节解析 .key 文件 ==========
+      late final keyFile;
       try {
-        jsonData = jsonDecode(fileContent) as Map<String, dynamic>;
-      } on FormatException {
+        keyFile = await fileIOService.readKeyFileFromBytes(bytes);
+      } on FileException catch (e) {
         setState(() {
           _isLoading = false;
-          _errorMessage = '$fileName 不是有效的 JSON 文件，可能已损坏';
+          _errorMessage = '$fileName 格式不正确：\n${e.message}';
         });
         return;
       }
 
-      // ========== 步骤 4：验证 .key 文件格式 ==========
-      final validationResult = _validateKeyFormat(jsonData);
-      if (!validationResult.isValid) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage =
-              '$fileName 格式不正确：\n${validationResult.errors.join('\n')}';
-        });
-        return;
-      }
-
-      // ========== 步骤 5：验证 .key 文件完整性（可选） ==========
-      // 如果 .key 文件中包含完整性哈希，进行校验
+      // ========== 步骤 3：验证 .key 文件完整性（可选） ==========
+      final jsonData = keyFile.toJson();
       final integrityMap = jsonData['integrity'] as Map<String, dynamic>?;
       if (integrityMap != null && integrityMap['hash'] != null) {
         final expectedHash = integrityMap['hash'] as String;
         if (expectedHash.isNotEmpty) {
+          final fileContent = utf8.decode(bytes);
           final currentHash = _computeHash(fileContent);
           if (currentHash != expectedHash) {
             setState(() {
               _isLoading = false;
-              _errorMessage =
-                  '$fileName 完整性校验失败，文件可能已被篡改，请勿使用';
+              _errorMessage = '$fileName 完整性校验失败，文件可能已被篡改，请勿使用';
             });
             return;
           }
         }
       }
 
-      // ========== 步骤 6：提取 key_base64 ==========
-      final keyData = jsonData['key_data'] as Map<String, dynamic>;
-      final keyBase64 = keyData['key_base64'] as String;
+      // ========== 步骤 4：提取 key_base64 ==========
+      final keyBase64 = keyFile.keyData.keyBase64;
 
       if (keyBase64.isEmpty) {
         setState(() {
@@ -165,7 +130,7 @@ class _KeyFileUploadState extends State<KeyFileUpload> {
         return;
       }
 
-      // ========== 步骤 7：成功，回调通知父组件 ==========
+      // ========== 步骤 5：成功，回调通知父组件 ==========
       setState(() {
         _isLoading = false;
         _loadedFileName = fileName;
@@ -186,59 +151,6 @@ class _KeyFileUploadState extends State<KeyFileUpload> {
         _errorMessage = '加载密钥文件时发生错误：$e';
       });
     }
-  }
-
-  /// 简易 .key 文件格式验证
-  ///
-  /// 检查 .key 文件 JSON 中的必填字段。
-  /// 返回 ValidationResult 对象，包含验证结果和错误列表。
-  ValidationResult _validateKeyFormat(Map<String, dynamic> json) {
-    final errors = <String>[];
-
-    // 检查 format_version
-    if (json['format_version'] == null) {
-      errors.add('缺少 format_version 字段');
-    }
-
-    // 检查 key_metadata
-    final keyMetadata = json['key_metadata'] as Map<String, dynamic>?;
-    if (keyMetadata == null) {
-      errors.add('缺少 key_metadata 字段');
-    } else {
-      if (keyMetadata['key_id'] == null) errors.add('缺少 key_id 字段');
-      if (keyMetadata['key_algorithm'] == null) {
-        errors.add('缺少 key_algorithm 字段');
-      }
-      if (keyMetadata['key_length_bits'] == null) {
-        errors.add('缺少 key_length_bits 字段');
-      }
-      if (keyMetadata['key_length_bits'] != null &&
-          keyMetadata['key_length_bits'] != 256) {
-        errors.add('密钥长度必须为 256 位');
-      }
-    }
-
-    // 检查 key_data
-    final keyData = json['key_data'] as Map<String, dynamic>?;
-    if (keyData == null) {
-      errors.add('缺少 key_data 字段');
-    } else {
-      if (keyData['key_base64'] == null) {
-        errors.add('缺少 key_base64 字段');
-      }
-      if (keyData['encoding'] == null) {
-        errors.add('缺少 encoding 字段');
-      } else if (keyData['encoding'] != 'base64') {
-        errors.add('编码方式必须为 base64');
-      }
-    }
-
-    // 检查 integrity
-    if (json['integrity'] == null) {
-      errors.add('缺少 integrity 字段');
-    }
-
-    return ValidationResult(isValid: errors.isEmpty, errors: errors);
   }
 
   /// 简易 SHA-256 哈希计算（与 IntegrityService.computeHash 逻辑一致）
@@ -270,17 +182,16 @@ class _KeyFileUploadState extends State<KeyFileUpload> {
             Expanded(
               child: FilledButton.icon(
                 onPressed: _isLoading ? null : _handleFileUpload,
-                icon:
-                    _isLoading
-                        ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                        : const Icon(Icons.upload_file),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.upload_file),
                 label: Text(_isLoading ? '正在读取...' : '选择 .key 文件'),
               ),
             ),

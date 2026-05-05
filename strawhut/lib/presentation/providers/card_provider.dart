@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
@@ -62,4 +65,44 @@ class CurrentCard extends _$CurrentCard {
       return null;
     }
   }
+
+  /// 从字节数据加载知识卡片文件（Android content:// URI 支持）
+  ///
+  /// 从字节数据读取文件并更新状态。
+  ///
+  /// 流程：
+  /// 1. 设置状态为 loading
+  /// 2. 根据文件名判断是否为 PNG 文件
+  /// 3. 调用 FileIOService.readStrawFileFromBytes 或 readStrawPngFromBytes
+  /// 4. 成功 → 更新 state 为 AsyncValue.data(file)
+  /// 5. 失败 → 更新 state 为 AsyncValue.error(e, st)
+  ///
+  /// 参数：
+  /// - [bytes] - 文件字节数据
+  /// - [fileName] - 文件名（用于判断文件类型）
+  Future<StrawFile?> loadFileFromBytes(
+    Uint8List bytes, {
+    String? fileName,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final fileIOService = ref.read(fileIOServiceProvider);
+      final isPng = fileName?.toLowerCase().endsWith('.png') ?? false;
+      final file = isPng
+          ? await fileIOService.readStrawPngFromBytes(bytes)
+          : await fileIOService.readStrawFileFromBytes(bytes);
+      state = AsyncValue.data(file);
+      return file;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
 }
+
+/// Provider for pending file bytes from file selection.
+///
+/// Used to pass file bytes from the file picker to the reader screen,
+/// especially for Android content:// URIs where path-based access is not available.
+final pendingFileBytesProvider =
+    StateProvider<(Uint8List, String)?>((_) => null);

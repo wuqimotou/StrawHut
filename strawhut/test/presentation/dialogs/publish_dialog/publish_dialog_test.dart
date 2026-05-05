@@ -23,6 +23,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -34,6 +35,7 @@ import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
 /// Mock CryptoService
@@ -59,8 +61,7 @@ void main() {
   });
 
   group('PublishDialog 对话框渲染测试', () {
-    testWidgets('PublishDialog 应该渲染 AlertDialog',
-        (WidgetTester tester) async {
+    testWidgets('PublishDialog 应该渲染 AlertDialog', (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -78,8 +79,7 @@ void main() {
       expect(find.text('发布知识卡片'), findsOneWidget);
     });
 
-    testWidgets('对话框应该包含取消和生成并加密按钮',
-        (WidgetTester tester) async {
+    testWidgets('对话框应该包含取消和生成并加密按钮', (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -139,8 +139,7 @@ void main() {
       expect(crypto, isA<CryptoService>());
     });
 
-    testWidgets('错误发生后应该恢复非加载状态',
-        (WidgetTester tester) async {
+    testWidgets('错误发生后应该恢复非加载状态', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -165,9 +164,7 @@ void main() {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     FilledButton(
-                      onPressed: loading
-                          ? () {}
-                          : onButtonPressed,
+                      onPressed: loading ? () {} : onButtonPressed,
                       child: loading
                           ? const SizedBox(
                               width: 20,
@@ -222,8 +219,7 @@ void main() {
   });
 
   group('PublishDialog 匿名模式集成测试', () {
-    testWidgets('匿名模式切换应该更新 SwitchListTile 的值',
-        (WidgetTester tester) async {
+    testWidgets('匿名模式切换应该更新 SwitchListTile 的值', (WidgetTester tester) async {
       // 这个测试验证 SwitchListTile 的 onChanged 回调被正确触发
       var isAnonymous = false;
       await tester.pumpWidget(
@@ -270,11 +266,9 @@ void main() {
   });
 
   group('PublishDialog .key 文件格式测试', () {
-    testWidgets('_buildKeyFile 应该生成正确的 JSON 结构',
-        (WidgetTester tester) async {
+    testWidgets('_buildKeyFile 应该生成正确的 JSON 结构', (WidgetTester tester) async {
       final now = DateTime.now().toUtc();
-      final timestamp =
-          '${now.toIso8601String().split('.').first}Z';
+      final timestamp = '${now.toIso8601String().split('.').first}Z';
       final keyFile = <String, dynamic>{
         'format_version': '1.0.0',
         'key_metadata': <String, dynamic>{
@@ -325,8 +319,7 @@ void main() {
   });
 
   group('PublishDialog .straw 文件格式测试', () {
-    testWidgets('发布的 StrawFile 应该包含所有必需字段',
-        (WidgetTester tester) async {
+    testWidgets('发布的 StrawFile 应该包含所有必需字段', (WidgetTester tester) async {
       const strawFile = StrawFile(
         formatVersion: FormatVersion(1, 0, 0),
         meta: CardMeta(
@@ -379,8 +372,7 @@ void main() {
       expect(integrity['hash_algorithm'], equals('SHA-256'));
     });
 
-    testWidgets('StrawFile 应该支持匿名模式的元数据',
-        (WidgetTester tester) async {
+    testWidgets('StrawFile 应该支持匿名模式的元数据', (WidgetTester tester) async {
       const strawFile = StrawFile(
         formatVersion: FormatVersion(1, 0, 0),
         meta: CardMeta(
@@ -476,8 +468,7 @@ void main() {
   });
 
   group('PublishDialog 加载状态测试', () {
-    testWidgets('加载状态下应该显示进度指示器',
-        (WidgetTester tester) async {
+    testWidgets('加载状态下应该显示进度指示器', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

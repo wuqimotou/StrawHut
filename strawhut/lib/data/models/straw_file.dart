@@ -55,11 +55,7 @@ class StrawFile {
         json['format_version'] as String,
       ),
       meta: CardMeta.fromJson(json['meta'] as Map<String, dynamic>),
-      content: EncryptedContent(
-        encryptedDataBase64: contentMap['encrypted_data'] as String,
-        ivBase64: contentMap['iv'] as String,
-        algorithm: contentMap['encryption_algorithm'] as String,
-      ),
+      content: EncryptedContent.fromJson(contentMap),
       integrity: IntegrityInfo.fromJson(
         json['integrity'] as Map<String, dynamic>,
       ),
