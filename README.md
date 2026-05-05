@@ -3,6 +3,8 @@
 > **让知识在人与人之间安全地传递。**
 > *Let knowledge flow securely between people.*
 
+> ⚖️ **合规声明**：本项目旨在保护个人隐私与知识安全，请遵守当地法律法规，正当合法使用。严禁用于传播违法违规内容或从事任何非法活动。
+
 <p align="center">
   <a href="#中文">🇨🇳 中文</a> · <a href="#english">🇬🇧 English</a>
 </p>
