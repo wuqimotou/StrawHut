@@ -11,30 +11,41 @@
 
 <a name="中文"></a>
 
-## 🇨🇳  StrawHut — 本地知识卡片加密工具
+## 🇨🇳 StrawHut — 本地加密知识卡片工具
 
 ### 🏠 产品简介
 
-**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。它将你的知识内容加密为 `.straw` 格式文件，通过独立的 `.key` 密钥文件控制访问权限。软件不依赖任何中心化服务器，所有数据处理均在你的设备上完成。
+**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。你的知识内容在离开设备之前就被加密，软件不依赖任何中心化服务器，不发送任何网络请求，不在本地保存任何数据——你的知识、你的密钥、你的控制权。
 
-**✨ 重磅特性：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。
+**✨ 隐私核心：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。
 
-> 🌟 **愿景**：让知识在人与人之间安全传递，创作者掌控内容，读者获得价值。
+> 🌟 **愿景**：让知识在人与人之间安全传递，创作者掌控内容，读者获得价值，隐私永不妥协。
+
+### 🔐 隐私承诺
+
+| 承诺 | 说明 |
+|------|------|
+| 🚫 **零网络请求** | 软件运行时不会发送或接收任何网络数据，所有内容在本地处理 |
+| 🚫 **零数据收集** | 不收集任何用户信息、使用数据或分析数据 |
+| 🚫 **零持久化存储** | 不保存任何知识卡片、密钥、草稿或历史记录，关闭后内存完全清空 |
+| 🔒 **端到端加密** | 内容在本地即被 AES-256-GCM 加密，只有持有密钥的人才能解密 |
+| 🕶️ **匿名发布** | 一键切换匿名模式，创作者身份完全隐藏，无任何可追溯信息 |
+| 🗝️ **密钥即权限** | 密钥文件由用户独立保管，无密钥即无访问，无后门、无恢复机制 |
 
 ### ✨ 核心特性
 
-| 特性            | 说明                                     |
-| ------------- | -------------------------------------- |
-| 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享    |
-| 🔒 **端到端加密**  | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
-| 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景  |
-| 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制           |
-| 🏠 **纯本地运行**  | 无服务器、无网络请求，数据永不离开你的设备                  |
-| 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储                 |
-| 🕶️ **匿名发布**  | 一键切换匿名模式，完全保护创作者身份                     |
-| 📄 **双格式导出**  | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择  |
-| 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改                   |
-| 🧹 **零痕迹**    | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空              |
+| 特性 | 说明 |
+|------|------|
+| 🔒 **端到端加密** | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
+| 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享 |
+| 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景 |
+| 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制 |
+| 🏠 **纯本地运行** | 无服务器、无网络请求，数据永不离开你的设备 |
+| 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储 |
+| 🕶️ **匿名发布** | 一键切换匿名模式，完全保护创作者身份 |
+| 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
+| 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
+| 🧹 **零痕迹** | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空 |
 
 ### 🖥️ 界面预览
 
@@ -143,15 +154,15 @@
 └──────────────────────────────────────────────────────┘
 ```
 
-| **技术栈**            | 说明                             |
-| ------------------ | ------------------------------ |
-| **Flutter**        | 跨平台 UI 框架，一套代码多端运行             |
-| **flutter\_quill** | 富文本编辑器，支持所见即所得编辑               |
-| **Riverpod**       | 状态管理，响应式数据流                    |
-| **encrypt**        | AES-256-GCM 加密实现               |
-| **image**          | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
-| **file\_selector** | 跨平台文件选择器                       |
-| **go\_router**     | 声明式路由导航                        |
+| **技术栈** | 说明 |
+|--------|------|
+| **Flutter** | 跨平台 UI 框架，一套代码多端运行 |
+| **flutter_quill** | 富文本编辑器，支持所见即所得编辑 |
+| **Riverpod** | 状态管理，响应式数据流 |
+| **encrypt** | AES-256-GCM 加密实现 |
+| **image** | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
+| **file_selector** | 跨平台文件选择器 |
+| **go_router** | 声明式路由导航 |
 
 ### 📦 .straw 文件格式
 
@@ -182,13 +193,13 @@
 
 ### 🔐 加密算法
 
-| 算法                     | 说明                         |
-| ---------------------- | -------------------------- |
-| **AES-256-GCM**        | 对称加密算法，256 位密钥，GCM 认证加密模式  |
+| 算法 | 说明 |
+|------|------|
+| **AES-256-GCM** | 对称加密算法，256 位密钥，GCM 认证加密模式 |
 | **PBKDF2-HMAC-SHA256** | 密钥派生函数，100,000 次迭代（协商密钥模式） |
-| **CSPRNG**             | 密码学安全伪随机数生成器，用于生成密钥和盐值     |
-| **16 字节随机盐值**          | CSPRNG 生成的盐值，确保相同暗号派生不同密钥  |
-| **SHA-256**            | 哈希校验算法，确保文件完整性             |
+| **CSPRNG** | 密码学安全伪随机数生成器，用于生成密钥和盐值 |
+| **16 字节随机盐值** | CSPRNG 生成的盐值，确保相同暗号派生不同密钥 |
+| **SHA-256** | 哈希校验算法，确保文件完整性 |
 
 ### 🚀 快速开始
 
@@ -196,6 +207,7 @@
 
 - Flutter SDK >= 3.4.0
 - Windows 10+ (19041+)
+- Android 5.0+ (API 23+)
 
 #### 安装与运行
 
@@ -218,7 +230,11 @@ flutter run -d windows
 #### 构建发布版
 
 ```bash
+# Windows
 flutter build windows --release
+
+# Android
+flutter build apk --release
 ```
 
 ### 📁 项目结构
@@ -252,26 +268,37 @@ StrawHut/
 
 ### 🏠 Overview
 
-**StrawHut** is a **fully local** knowledge card encryption tool. It encrypts your knowledge content into `.straw` format files, with access controlled through independent `.key` files. The software doesn't rely on any centralized servers — all data processing happens on your device.
+**StrawHut** is a **fully local** knowledge card encryption tool. Your knowledge content is encrypted before it ever leaves your device. The software doesn't rely on any centralized servers, sends no network requests, and stores nothing locally — your knowledge, your keys, your control.
 
-**✨ Key Feature: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Images can be shared via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing.
+**✨ Privacy Core: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Images can be shared via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing.
 
-> 🌟 **Vision**: Let knowledge flow securely between people. Creators control their content, readers gain value.
+> 🌟 **Vision**: Let knowledge flow securely between people. Creators control their content, readers gain value, privacy is never compromised.
+
+### 🔐 Privacy Promise
+
+| Promise | Description |
+|---------|-------------|
+| 🚫 **Zero Network Requests** | The app never sends or receives any network data; all content is processed locally |
+| 🚫 **Zero Data Collection** | No user information, usage data, or analytics are collected |
+| 🚫 **Zero Persistent Storage** | No knowledge cards, keys, drafts, or history are saved; memory is fully cleared on exit |
+| 🔒 **End-to-End Encryption** | Content is encrypted locally with AES-256-GCM; only those with the key can decrypt |
+| 🕶️ **Anonymous Publishing** | One-click anonymous mode; creator identity is completely hidden with no traceable information |
+| 🗝️ **Key Is Permission** | Key files are independently managed by users; no key means no access; no backdoors, no recovery |
 
 ### ✨ Features
 
-| Feature                               | Description                                                                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 🖼️ **Knowledge as Image**            | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile       |
-| 🔒 **End-to-End Encryption**          | AES-256-GCM strong encryption, content encrypted locally                                   |
-| 🤝 **Negotiated Key Encryption**      | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing               |
+| Feature | Description |
+|---------|-------------|
+| 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, content encrypted locally |
+| 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
+| 🤝 **Negotiated Key Encryption** | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing |
 | 📊 **Passphrase Strength Evaluation** | Real-time strength assessment (Very Weak/Weak/Medium/Strong), weak passphrase confirmation |
-| 🏠 **Purely Local**                   | No servers, no network requests — data never leaves your device                            |
-| 🗝️ **Key Is Permission**             | System generates strong random keys, stored in separate key files                          |
-| 🕶️ **Anonymous Publishing**          | One-click anonymous mode, fully protects creator identity                                  |
-| 📄 **Dual Format Export**             | Support `.straw` files and `.png` images, choose by scenario                               |
-| 🛡️ **Integrity Verification**        | SHA-256 hash verification to prevent tampering                                             |
-| 🧹 **Zero Traces**                    | No cards, keys, or drafts stored — memory fully cleared on exit                            |
+| 🏠 **Purely Local** | No servers, no network requests — data never leaves your device |
+| 🗝️ **Key Is Permission** | System generates strong random keys, stored in separate key files |
+| 🕶️ **Anonymous Publishing** | One-click anonymous mode, fully protects creator identity |
+| 📄 **Dual Format Export** | Support `.straw` files and `.png` images, choose by scenario |
+| 🛡️ **Integrity Verification** | SHA-256 hash verification to prevent tampering |
+| 🧹 **Zero Traces** | No cards, keys, or drafts stored — memory fully cleared on exit |
 
 ### 🖥️ Interface Preview
 
@@ -380,14 +407,14 @@ Creator                                   Reader
 └──────────────────────────────────────────────────────┘
 ```
 
-| Tech Stack         | Description                                                 |
-| ------------------ | ----------------------------------------------------------- |
-| **Flutter**        | Cross-platform UI framework, one codebase for all platforms |
-| **flutter\_quill** | Rich text editor with WYSIWYG support                       |
-| **Riverpod**       | State management with reactive data flow                    |
-| **encrypt**        | AES-256-GCM encryption implementation                       |
-| **file\_selector** | Cross-platform file picker                                  |
-| **go\_router**     | Declarative routing                                         |
+| Tech Stack | Description |
+|------------|-------------|
+| **Flutter** | Cross-platform UI framework, one codebase for all platforms |
+| **flutter_quill** | Rich text editor with WYSIWYG support |
+| **Riverpod** | State management with reactive data flow |
+| **encrypt** | AES-256-GCM encryption implementation |
+| **file_selector** | Cross-platform file picker |
+| **go_router** | Declarative routing |
 
 ### 📦 .straw File Format
 
@@ -422,6 +449,7 @@ Creator                                   Reader
 
 - Flutter SDK >= 3.4.0
 - Windows 10+ (19041+)
+- Android 5.0+ (API 23+)
 
 #### Install & Run
 
@@ -444,7 +472,11 @@ flutter run -d windows
 #### Build Release
 
 ```bash
+# Windows
 flutter build windows --release
+
+# Android
+flutter build apk --release
 ```
 
 ### 📁 Project Structure
@@ -477,4 +509,3 @@ StrawHut/
 This project is open source. Contributions are welcome! 🌾
 
 > **文档版本**: v0.3.0 | **最后更新**: 2026-05-04
-
