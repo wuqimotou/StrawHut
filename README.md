@@ -7,7 +7,7 @@
   <a href="#中文">🇨🇳 中文</a> · <a href="#english">🇬🇧 English</a>
 </p>
 
----
+***
 
 <a name="中文"></a>
 
@@ -23,18 +23,18 @@
 
 ### ✨ 核心特性
 
-| 特性 | 说明 |
-|------|------|
-| 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享 |
-| 🔒 **端到端加密** | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
-| 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景 |
-| 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制 |
-| 🏠 **纯本地运行** | 无服务器、无网络请求，数据永不离开你的设备 |
-| 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储 |
-| 🕶️ **匿名发布** | 一键切换匿名模式，完全保护创作者身份 |
-| 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
-| 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
-| 🧹 **零痕迹** | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空 |
+| 特性            | 说明                                     |
+| ------------- | -------------------------------------- |
+| 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享    |
+| 🔒 **端到端加密**  | AES-256-GCM 强加密，知识内容在本地即被加密，图片中嵌入的也是密文 |
+| 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景  |
+| 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制           |
+| 🏠 **纯本地运行**  | 无服务器、无网络请求，数据永不离开你的设备                  |
+| 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储                 |
+| 🕶️ **匿名发布**  | 一键切换匿名模式，完全保护创作者身份                     |
+| 📄 **双格式导出**  | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择  |
+| 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改                   |
+| 🧹 **零痕迹**    | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空              |
 
 ### 🖥️ 界面预览
 
@@ -143,15 +143,15 @@
 └──────────────────────────────────────────────────────┘
 ```
 
-| **技术栈** | 说明 |
-|--------|------|
-| **Flutter** | 跨平台 UI 框架，一套代码多端运行 |
-| **flutter_quill** | 富文本编辑器，支持所见即所得编辑 |
-| **Riverpod** | 状态管理，响应式数据流 |
-| **encrypt** | AES-256-GCM 加密实现 |
-| **image** | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
-| **file_selector** | 跨平台文件选择器 |
-| **go_router** | 声明式路由导航 |
+| **技术栈**            | 说明                             |
+| ------------------ | ------------------------------ |
+| **Flutter**        | 跨平台 UI 框架，一套代码多端运行             |
+| **flutter\_quill** | 富文本编辑器，支持所见即所得编辑               |
+| **Riverpod**       | 状态管理，响应式数据流                    |
+| **encrypt**        | AES-256-GCM 加密实现               |
+| **image**          | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
+| **file\_selector** | 跨平台文件选择器                       |
+| **go\_router**     | 声明式路由导航                        |
 
 ### 📦 .straw 文件格式
 
@@ -182,13 +182,13 @@
 
 ### 🔐 加密算法
 
-| 算法 | 说明 |
-|------|------|
-| **AES-256-GCM** | 对称加密算法，256 位密钥，GCM 认证加密模式 |
+| 算法                     | 说明                         |
+| ---------------------- | -------------------------- |
+| **AES-256-GCM**        | 对称加密算法，256 位密钥，GCM 认证加密模式  |
 | **PBKDF2-HMAC-SHA256** | 密钥派生函数，100,000 次迭代（协商密钥模式） |
-| **CSPRNG** | 密码学安全伪随机数生成器，用于生成密钥和盐值 |
-| **16 字节随机盐值** | CSPRNG 生成的盐值，确保相同暗号派生不同密钥 |
-| **SHA-256** | 哈希校验算法，确保文件完整性 |
+| **CSPRNG**             | 密码学安全伪随机数生成器，用于生成密钥和盐值     |
+| **16 字节随机盐值**          | CSPRNG 生成的盐值，确保相同暗号派生不同密钥  |
+| **SHA-256**            | 哈希校验算法，确保文件完整性             |
 
 ### 🚀 快速开始
 
@@ -239,14 +239,15 @@ StrawHut/
 
 ### 🔮 未来规划
 
-- [ ] Android 移动端适配
+- [x] Android 移动端适配
 - [ ] iOS 移动端适配
 - [ ] P2P 知识卡片网络（可选）
 - [ ] 多媒体内容嵌入
 
----
+***
 
 <a name="english"></a>
+
 ## 🇬🇧 StrawHut — Local Encrypted Knowledge Card Tool
 
 ### 🏠 Overview
@@ -259,18 +260,18 @@ StrawHut/
 
 ### ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
-| 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, content encrypted locally |
-| 🤝 **Negotiated Key Encryption** | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing |
+| Feature                               | Description                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 🖼️ **Knowledge as Image**            | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile       |
+| 🔒 **End-to-End Encryption**          | AES-256-GCM strong encryption, content encrypted locally                                   |
+| 🤝 **Negotiated Key Encryption**      | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing               |
 | 📊 **Passphrase Strength Evaluation** | Real-time strength assessment (Very Weak/Weak/Medium/Strong), weak passphrase confirmation |
-| 🏠 **Purely Local** | No servers, no network requests — data never leaves your device |
-| 🗝️ **Key Is Permission** | System generates strong random keys, stored in separate key files |
-| 🕶️ **Anonymous Publishing** | One-click anonymous mode, fully protects creator identity |
-| 📄 **Dual Format Export** | Support `.straw` files and `.png` images, choose by scenario |
-| 🛡️ **Integrity Verification** | SHA-256 hash verification to prevent tampering |
-| 🧹 **Zero Traces** | No cards, keys, or drafts stored — memory fully cleared on exit |
+| 🏠 **Purely Local**                   | No servers, no network requests — data never leaves your device                            |
+| 🗝️ **Key Is Permission**             | System generates strong random keys, stored in separate key files                          |
+| 🕶️ **Anonymous Publishing**          | One-click anonymous mode, fully protects creator identity                                  |
+| 📄 **Dual Format Export**             | Support `.straw` files and `.png` images, choose by scenario                               |
+| 🛡️ **Integrity Verification**        | SHA-256 hash verification to prevent tampering                                             |
+| 🧹 **Zero Traces**                    | No cards, keys, or drafts stored — memory fully cleared on exit                            |
 
 ### 🖥️ Interface Preview
 
@@ -379,14 +380,14 @@ Creator                                   Reader
 └──────────────────────────────────────────────────────┘
 ```
 
-| Tech Stack | Description |
-|------------|-------------|
-| **Flutter** | Cross-platform UI framework, one codebase for all platforms |
-| **flutter_quill** | Rich text editor with WYSIWYG support |
-| **Riverpod** | State management with reactive data flow |
-| **encrypt** | AES-256-GCM encryption implementation |
-| **file_selector** | Cross-platform file picker |
-| **go_router** | Declarative routing |
+| Tech Stack         | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| **Flutter**        | Cross-platform UI framework, one codebase for all platforms |
+| **flutter\_quill** | Rich text editor with WYSIWYG support                       |
+| **Riverpod**       | State management with reactive data flow                    |
+| **encrypt**        | AES-256-GCM encryption implementation                       |
+| **file\_selector** | Cross-platform file picker                                  |
+| **go\_router**     | Declarative routing                                         |
 
 ### 📦 .straw File Format
 
@@ -464,15 +465,16 @@ StrawHut/
 
 ### 🔮 Roadmap
 
-- [ ] Android mobile support
+- [x] Android mobile support
 - [ ] iOS mobile support
 - [ ] P2P knowledge card network (optional)
 - [ ] Multimedia content embedding
 
----
+***
 
 ## 📜 License
 
 This project is open source. Contributions are welcome! 🌾
 
 > **文档版本**: v0.3.0 | **最后更新**: 2026-05-04
+
