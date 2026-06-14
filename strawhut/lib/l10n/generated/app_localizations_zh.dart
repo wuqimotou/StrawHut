@@ -123,6 +123,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get decryptPassphraseLabel => '请输入加密暗号';
 
   @override
+  String get decryptPassphraseRequired => '请输入暗号后再解密';
+
+  @override
   String get decryptPassphraseHint => '请与创作者确认暗号内容';
 
   @override
@@ -154,4 +157,136 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sharePngCard => '分享卡片';
+
+  @override
+  String get vaultTitle => '暗号保险库';
+
+  @override
+  String get vaultEmptyTitle => '暗号保险库为空';
+
+  @override
+  String get vaultEmptyDesc => '保存常用暗号后，解密暗号加密的卡片时将自动匹配，无需手动输入';
+
+  @override
+  String get vaultAddButton => '添加暗号';
+
+  @override
+  String get vaultClearAllButton => '清除全部暗号';
+
+  @override
+  String vaultCountLabel(int count) {
+    return '已保存 $count/10 条暗号';
+  }
+
+  @override
+  String get vaultSecurityNote => '保存的暗号将存储在设备安全区域中，除您主动保存的暗号外，零持久化存储';
+
+  @override
+  String get addPassphraseTitle => '添加暗号';
+
+  @override
+  String get passphraseLabelField => '备注名称';
+
+  @override
+  String get passphraseLabelHint => '例如：团队暗号';
+
+  @override
+  String get savePassphraseWarning =>
+      '保存暗号到本地将违反 StrawHut 的“零持久化存储”隐私承诺。虽然暗号会使用设备安全存储机制加密保存，但任何持久化存储都存在理论上的安全风险。';
+
+  @override
+  String get savePassphraseConfirm => '我已了解风险，同意保存';
+
+  @override
+  String get confirmSave => '确认保存';
+
+  @override
+  String get vaultFull => '保险库已满，请删除后重试';
+
+  @override
+  String get duplicatePassphrase => '该暗号已保存';
+
+  @override
+  String get passphraseTooWeak => '暗号强度不足，至少需要 8 个字符';
+
+  @override
+  String get deletePassphraseTitle => '确认删除';
+
+  @override
+  String deletePassphraseMessage(String label) {
+    return '确定要删除暗号\"$label\"吗？删除后，使用此暗号加密的卡片将需要手动输入暗号才能解密。';
+  }
+
+  @override
+  String get clearAllTitle => '清除全部暗号';
+
+  @override
+  String get clearAllWarning => '此操作将删除所有已保存的暗号，且不可撤销。';
+
+  @override
+  String get clearAllConfirmInput => '请输入 DELETE 以确认';
+
+  @override
+  String get autoDecryptProgress => '正在尝试自动解密...';
+
+  @override
+  String autoDecryptProgressWithCount(int current, int total) {
+    return '正在尝试自动解密 ($current/$total)...';
+  }
+
+  @override
+  String autoDecryptSuccess(String label) {
+    return '已使用保存的暗号\"$label\"自动解密';
+  }
+
+  @override
+  String get saveAfterDecrypt => '解密后保存此暗号到保险库';
+
+  @override
+  String passphraseDefaultLabel(int n) {
+    return '暗号 #$n';
+  }
+
+  @override
+  String vaultEntryCount(int count) {
+    return '$count 条暗号';
+  }
+
+  @override
+  String get vaultTooltip => '暗号保险库';
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get clearAll => '清除全部';
+
+  @override
+  String get selectFromVault => '从保险库选择';
+
+  @override
+  String get selectFromVaultDesc => '从已保存的暗号中选择';
+
+  @override
+  String get selectPassphraseTitle => '选择暗号';
+
+  @override
+  String get vaultEmptySelectHint => '保险库为空，请先添加暗号';
+
+  @override
+  String get saveAfterPublish => '保存暗号到保险库？';
+
+  @override
+  String get saveAfterPublishDesc => '您刚刚使用的暗号不在保险库中。保存后，下次加密或解密时可快速使用。';
+
+  @override
+  String get skipSave => '跳过';
+
+  @override
+  String get savePassphraseAction => '保存暗号';
+
+  @override
+  String usedCount(int count) {
+    return '使用 $count 次';
+  }
 }

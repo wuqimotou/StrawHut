@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 
 /// 使用教程对话框
@@ -66,6 +67,8 @@ class HelpDialog extends StatelessWidget {
                           '4. 安全提示',
                           '• 所有加密操作在本地完成，数据不会上传到任何'
                               '服务器。\n'
+                              '• 除您主动保存的暗号外，不保存任何知识卡片、'
+                              '密钥、草稿或历史记录。\n'
                               '• 请妥善保管密钥文件或暗号，遗忘后无法'
                               '恢复内容。\n'
                               '• 支持将加密内容嵌入 PNG 图片元数据中分享。',

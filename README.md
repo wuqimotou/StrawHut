@@ -17,7 +17,7 @@
 
 ### 🏠 产品简介
 
-**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。你的知识内容在离开设备之前就被加密，软件不依赖任何中心化服务器，不发送任何网络请求，不在本地保存任何数据——你的知识、你的密钥、你的控制权。
+**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。你的知识内容在离开设备之前就被加密，软件不依赖任何中心化服务器，不发送任何网络请求，除用户主动保存的暗号外不在本地保存任何数据——你的知识、你的密钥、你的控制权。
 
 **✨ 隐私核心：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。
 
@@ -29,7 +29,7 @@
 |------|------|
 | 🚫 **零网络请求** | 软件运行时不会发送或接收任何网络数据，所有内容在本地处理 |
 | 🚫 **零数据收集** | 不收集任何用户信息、使用数据或分析数据 |
-| 🚫 **零持久化存储** | 不保存任何知识卡片、密钥、草稿或历史记录，关闭后内存完全清空 |
+| 🚫 **除用户主动保存的暗号外，零持久化存储** | 除用户主动保存的暗号外，不保存任何知识卡片、密钥、草稿或历史记录 |
 | 🔒 **端到端加密** | 内容在本地即被 AES-256-GCM 加密，只有持有密钥的人才能解密 |
 | 🕶️ **匿名发布** | 一键切换匿名模式，创作者身份完全隐藏，无任何可追溯信息 |
 | 🗝️ **密钥即权限** | 密钥文件由用户独立保管，无密钥即无访问，无后门、无恢复机制 |
@@ -42,12 +42,13 @@
 | 🖼️ **知识即图片** | 将加密内容嵌入 PNG 图片元数据，封面精美，传输便捷，适合移动端分享 |
 | 🤝 **协商密钥加密** | 通过暗号派生密钥（PBKDF2-HMAC-SHA256），适合口头分享场景 |
 | 📊 **暗号强度评估** | 实时评估暗号强度（极弱/弱/中/强），弱暗号二次确认机制 |
+| 🔐 **暗号保险库** | 本地安全保存常用暗号，自动匹配解密暗号加密的知识卡片 |
 | 🏠 **纯本地运行** | 无服务器、无网络请求，数据永不离开你的设备 |
 | 🗝️ **密钥即权限** | 系统自动生成高强度随机密钥，密钥文件独立存储 |
 | 🕶️ **匿名发布** | 一键切换匿名模式，完全保护创作者身份 |
 | 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
 | 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
-| 🧹 **零痕迹** | 软件不保存任何卡片、密钥或草稿，关闭后内存完全清空 |
+| 🧹 **零痕迹** | 除用户主动保存的暗号外，软件不保存任何卡片、密钥或草稿 |
 
 ### 🖥️ 界面预览
 
@@ -143,10 +144,11 @@
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    应用层 (UI)                        │
-│  HomeScreen │ EditorScreen │ ReaderScreen │ Dialogs  │
+│ HomeScreen │ EditorScreen │ ReaderScreen │ Dialogs  │
 ├──────────────────────────────────────────────────────┤
 │               核心服务层 (Services)                   │
 │ CryptoService │ FileIOService │ DraftManager │ ...    │
+│ PassphraseVaultService（暗号保险库）                   │
 ├──────────────────────────────────────────────────────┤
 │                  数据层 (Data)                        │
 │       StrawFile │ KeyFile │ CardMeta │ Repository     │
@@ -162,6 +164,7 @@
 | **flutter_quill** | 富文本编辑器，支持所见即所得编辑 |
 | **Riverpod** | 状态管理，响应式数据流 |
 | **encrypt** | AES-256-GCM 加密实现 |
+| **flutter_secure_storage** | 平台原生安全存储（暗号保险库） |
 | **image** | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
 | **file_selector** | 跨平台文件选择器 |
 | **go_router** | 声明式路由导航 |
@@ -258,6 +261,7 @@ StrawHut/
 ### 🔮 未来规划
 
 - [x] Android 移动端适配
+- [x] 暗号保险库（v0.4.0）
 - [ ] iOS 移动端适配
 - [ ] P2P 知识卡片网络（可选）
 - [ ] 多媒体内容嵌入
@@ -270,7 +274,7 @@ StrawHut/
 
 ### 🏠 Overview
 
-**StrawHut** is a **fully local** knowledge card encryption tool. Your knowledge content is encrypted before it ever leaves your device. The software doesn't rely on any centralized servers, sends no network requests, and stores nothing locally — your knowledge, your keys, your control.
+**StrawHut** is a **fully local** knowledge card encryption tool. Your knowledge content is encrypted before it ever leaves your device. The software doesn't rely on any centralized servers, sends no network requests, and stores nothing locally except for passphrases you explicitly save — your knowledge, your keys, your control.
 
 **✨ Privacy Core: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Images can be shared via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing.
 
@@ -282,7 +286,7 @@ StrawHut/
 |---------|-------------|
 | 🚫 **Zero Network Requests** | The app never sends or receives any network data; all content is processed locally |
 | 🚫 **Zero Data Collection** | No user information, usage data, or analytics are collected |
-| 🚫 **Zero Persistent Storage** | No knowledge cards, keys, drafts, or history are saved; memory is fully cleared on exit |
+| 🚫 **Zero Persistent Storage (except user-saved passphrases)** | No knowledge cards, keys, drafts, or history are saved except for passphrases the user explicitly saves |
 | 🔒 **End-to-End Encryption** | Content is encrypted locally with AES-256-GCM; only those with the key can decrypt |
 | 🕶️ **Anonymous Publishing** | One-click anonymous mode; creator identity is completely hidden with no traceable information |
 | 🗝️ **Key Is Permission** | Key files are independently managed by users; no key means no access; no backdoors, no recovery |
@@ -295,12 +299,13 @@ StrawHut/
 | 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
 | 🤝 **Negotiated Key Encryption** | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing |
 | 📊 **Passphrase Strength Evaluation** | Real-time strength assessment (Very Weak/Weak/Medium/Strong), weak passphrase confirmation |
+| 🔐 **Passphrase Vault** | Securely save common passphrases locally, auto-match to decrypt passphrase-encrypted knowledge cards |
 | 🏠 **Purely Local** | No servers, no network requests — data never leaves your device |
 | 🗝️ **Key Is Permission** | System generates strong random keys, stored in separate key files |
 | 🕶️ **Anonymous Publishing** | One-click anonymous mode, fully protects creator identity |
 | 📄 **Dual Format Export** | Support `.straw` files and `.png` images, choose by scenario |
 | 🛡️ **Integrity Verification** | SHA-256 hash verification to prevent tampering |
-| 🧹 **Zero Traces** | No cards, keys, or drafts stored — memory fully cleared on exit |
+| 🧹 **Zero Traces** | No cards, keys, or drafts stored except for user-saved passphrases |
 
 ### 🖥️ Interface Preview
 
@@ -400,6 +405,7 @@ Creator                                   Reader
 ├──────────────────────────────────────────────────────┤
 │                  Core Service Layer                   │
 │ CryptoService │ FileIOService │ DraftManager │ ...    │
+│ PassphraseVaultService (Passphrase Vault)             │
 ├──────────────────────────────────────────────────────┤
 │                    Data Layer                         │
 │       StrawFile │ KeyFile │ CardMeta │ Repository     │
@@ -415,6 +421,7 @@ Creator                                   Reader
 | **flutter_quill** | Rich text editor with WYSIWYG support |
 | **Riverpod** | State management with reactive data flow |
 | **encrypt** | AES-256-GCM encryption implementation |
+| **flutter_secure_storage** | Platform-native secure storage (Passphrase Vault) |
 | **file_selector** | Cross-platform file picker |
 | **go_router** | Declarative routing |
 
@@ -500,6 +507,7 @@ StrawHut/
 ### 🔮 Roadmap
 
 - [x] Android mobile support
+- [x] Passphrase Vault (v0.4.0)
 - [ ] iOS mobile support
 - [ ] P2P knowledge card network (optional)
 - [ ] Multimedia content embedding
@@ -510,4 +518,4 @@ StrawHut/
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v0.3.0 | **最后更新**: 2026-05-04
+> **文档版本**: v0.4.0 | **最后更新**: 2026-06-14

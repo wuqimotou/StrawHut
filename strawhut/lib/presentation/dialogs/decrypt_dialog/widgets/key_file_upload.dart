@@ -4,7 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
-import 'package:strawhut/core/file_io/file_selection_service.dart';
+import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
 /// 解密对话框 - 密钥文件上传组件
@@ -90,7 +90,7 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
       final (bytes, fileName) = result;
 
       // ========== 步骤 2：通过 IFileIOService 从字节解析 .key 文件 ==========
-      late final keyFile;
+      late final KeyFile keyFile;
       try {
         keyFile = await fileIOService.readKeyFileFromBytes(bytes);
       } on FileException catch (e) {

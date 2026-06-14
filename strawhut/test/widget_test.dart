@@ -181,7 +181,7 @@ void main() {
           find.byType(MaterialApp),
         );
         expect(
-          materialApp.supportedLocales!.length,
+          materialApp.supportedLocales.length,
           greaterThanOrEqualTo(3),
         );
       });

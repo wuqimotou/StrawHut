@@ -8,7 +8,6 @@ import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
-import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 

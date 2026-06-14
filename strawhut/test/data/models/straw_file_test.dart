@@ -107,9 +107,11 @@ void main() {
     test('StrawFile 与其他类型的对象不应该相等', () {
       // 验证 StrawFile 的 == 运算符正确判断类型
       final file = _createValidStrawFile();
+      // ignore: unrelated_type_equality_checks
       expect(file == 'not a StrawFile', isFalse);
+      // ignore: unrelated_type_equality_checks
       expect(file == 42, isFalse);
-      expect(file == null, isFalse);
+      expect(identical(file, null), isFalse);
     });
   });
 

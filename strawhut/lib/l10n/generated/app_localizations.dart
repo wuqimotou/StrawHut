@@ -326,6 +326,12 @@ abstract class AppLocalizations {
   /// **'请输入加密暗号'**
   String get decryptPassphraseLabel;
 
+  /// 解密时暗号为空的错误提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入暗号后再解密'**
+  String get decryptPassphraseRequired;
+
   /// 解密时暗号输入提示
   ///
   /// In zh, this message translates to:
@@ -391,6 +397,240 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享卡片'**
   String get sharePngCard;
+
+  /// 暗号保险库标题
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号保险库'**
+  String get vaultTitle;
+
+  /// 保险库空状态标题
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号保险库为空'**
+  String get vaultEmptyTitle;
+
+  /// 保险库空状态描述
+  ///
+  /// In zh, this message translates to:
+  /// **'保存常用暗号后，解密暗号加密的卡片时将自动匹配，无需手动输入'**
+  String get vaultEmptyDesc;
+
+  /// 添加暗号按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'添加暗号'**
+  String get vaultAddButton;
+
+  /// 清除全部暗号按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部暗号'**
+  String get vaultClearAllButton;
+
+  /// 暗号数量标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存 {count}/10 条暗号'**
+  String vaultCountLabel(int count);
+
+  /// 保险库安全提示
+  ///
+  /// In zh, this message translates to:
+  /// **'保存的暗号将存储在设备安全区域中，除您主动保存的暗号外，零持久化存储'**
+  String get vaultSecurityNote;
+
+  /// 添加暗号对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'添加暗号'**
+  String get addPassphraseTitle;
+
+  /// 备注名称字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'备注名称'**
+  String get passphraseLabelField;
+
+  /// 备注名称输入提示
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：团队暗号'**
+  String get passphraseLabelHint;
+
+  /// 保存暗号安全风险警告
+  ///
+  /// In zh, this message translates to:
+  /// **'保存暗号到本地将违反 StrawHut 的“零持久化存储”隐私承诺。虽然暗号会使用设备安全存储机制加密保存，但任何持久化存储都存在理论上的安全风险。'**
+  String get savePassphraseWarning;
+
+  /// 保存暗号风险确认复选框
+  ///
+  /// In zh, this message translates to:
+  /// **'我已了解风险，同意保存'**
+  String get savePassphraseConfirm;
+
+  /// 确认保存按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确认保存'**
+  String get confirmSave;
+
+  /// 保险库已满提示
+  ///
+  /// In zh, this message translates to:
+  /// **'保险库已满，请删除后重试'**
+  String get vaultFull;
+
+  /// 暗号重复提示
+  ///
+  /// In zh, this message translates to:
+  /// **'该暗号已保存'**
+  String get duplicatePassphrase;
+
+  /// 暗号强度不足提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号强度不足，至少需要 8 个字符'**
+  String get passphraseTooWeak;
+
+  /// 删除暗号确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除'**
+  String get deletePassphraseTitle;
+
+  /// 删除暗号确认消息
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除暗号\"{label}\"吗？删除后，使用此暗号加密的卡片将需要手动输入暗号才能解密。'**
+  String deletePassphraseMessage(String label);
+
+  /// 清除全部暗号对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部暗号'**
+  String get clearAllTitle;
+
+  /// 清除全部暗号警告
+  ///
+  /// In zh, this message translates to:
+  /// **'此操作将删除所有已保存的暗号，且不可撤销。'**
+  String get clearAllWarning;
+
+  /// 清除全部暗号确认输入提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 DELETE 以确认'**
+  String get clearAllConfirmInput;
+
+  /// 自动解密进度提示
+  ///
+  /// In zh, this message translates to:
+  /// **'正在尝试自动解密...'**
+  String get autoDecryptProgress;
+
+  /// 带进度的自动解密提示
+  ///
+  /// In zh, this message translates to:
+  /// **'正在尝试自动解密 ({current}/{total})...'**
+  String autoDecryptProgressWithCount(int current, int total);
+
+  /// 自动解密成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'已使用保存的暗号\"{label}\"自动解密'**
+  String autoDecryptSuccess(String label);
+
+  /// 解密后保存暗号复选框
+  ///
+  /// In zh, this message translates to:
+  /// **'解密后保存此暗号到保险库'**
+  String get saveAfterDecrypt;
+
+  /// 默认暗号备注名称
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号 #{n}'**
+  String passphraseDefaultLabel(int n);
+
+  /// 暗号数量描述
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条暗号'**
+  String vaultEntryCount(int count);
+
+  /// 暗号保险库按钮提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号保险库'**
+  String get vaultTooltip;
+
+  /// 删除按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get delete;
+
+  /// 清除全部按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部'**
+  String get clearAll;
+
+  /// 从保险库选择按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'从保险库选择'**
+  String get selectFromVault;
+
+  /// 从保险库选择描述
+  ///
+  /// In zh, this message translates to:
+  /// **'从已保存的暗号中选择'**
+  String get selectFromVaultDesc;
+
+  /// 选择暗号对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择暗号'**
+  String get selectPassphraseTitle;
+
+  /// 保险库为空时选择暗号提示
+  ///
+  /// In zh, this message translates to:
+  /// **'保险库为空，请先添加暗号'**
+  String get vaultEmptySelectHint;
+
+  /// 发布后保存暗号提示标题
+  ///
+  /// In zh, this message translates to:
+  /// **'保存暗号到保险库？'**
+  String get saveAfterPublish;
+
+  /// 发布后保存暗号提示描述
+  ///
+  /// In zh, this message translates to:
+  /// **'您刚刚使用的暗号不在保险库中。保存后，下次加密或解密时可快速使用。'**
+  String get saveAfterPublishDesc;
+
+  /// 跳过保存按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get skipSave;
+
+  /// 保存暗号操作按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存暗号'**
+  String get savePassphraseAction;
+
+  /// 使用次数
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 {count} 次'**
+  String usedCount(int count);
 }
 
 class _AppLocalizationsDelegate

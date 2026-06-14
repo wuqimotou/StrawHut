@@ -5,9 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:strawhut/app/routes.dart';
-import 'package:strawhut/presentation/screens/editor/editor_screen.dart';
-import 'package:strawhut/presentation/screens/home/home_screen.dart';
-import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
 
 /// 应用路由单元测试
 ///

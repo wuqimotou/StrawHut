@@ -49,7 +49,8 @@ Widget _buildKeyFileUpload({
 /// 生成有效的 .key 文件 JSON 内容
 ///
 /// 用于测试 .key 文件格式验证。
-String generateValidKeyFileJson({String keyBase64 = 'dGVzdEtleUJhc2U2NFN0cmluZzEyMzQ1Njc4OTAxMjM0'}) {
+String generateValidKeyFileJson(
+    {String keyBase64 = 'dGVzdEtleUJhc2U2NFN0cmluZzEyMzQ1Njc4OTAxMjM0'}) {
   final now = DateTime.now().toUtc();
   final timestamp = '${now.toIso8601String().split('.').first}Z';
 
@@ -122,15 +123,13 @@ void main() {
       expect(find.byType(KeyFileUpload), findsOneWidget);
     });
 
-    testWidgets('应该显示标题"方式 B：上传 .key 密钥文件"',
-        (WidgetTester tester) async {
+    testWidgets('应该显示标题"方式 B：上传 .key 密钥文件"', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.text('方式 B：上传 .key 密钥文件'), findsOneWidget);
     });
 
-    testWidgets('应该渲染"选择 .key 文件"按钮',
-        (WidgetTester tester) async {
+    testWidgets('应该渲染"选择 .key 文件"按钮', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.text('选择 .key 文件'), findsOneWidget);
@@ -142,8 +141,7 @@ void main() {
       expect(find.byIcon(Icons.upload_file), findsOneWidget);
     });
 
-    testWidgets('按钮应该使用 FilledButton.icon 类型',
-        (WidgetTester tester) async {
+    testWidgets('按钮应该使用 FilledButton.icon 类型', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.byType(FilledButton), findsOneWidget);
@@ -158,22 +156,19 @@ void main() {
       expect(button.onPressed, isNotNull);
     });
 
-    testWidgets('初始状态下不应该显示加载指示器',
-        (WidgetTester tester) async {
+    testWidgets('初始状态下不应该显示加载指示器', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('初始状态下不应该显示错误信息',
-        (WidgetTester tester) async {
+    testWidgets('初始状态下不应该显示错误信息', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.byIcon(Icons.error), findsNothing);
     });
 
-    testWidgets('初始状态下不应该显示成功状态',
-        (WidgetTester tester) async {
+    testWidgets('初始状态下不应该显示成功状态', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.byIcon(Icons.check_circle), findsNothing);
@@ -192,8 +187,7 @@ void main() {
       // 这里只验证按钮回调存在，不实际执行
     });
 
-    testWidgets('按钮文本初始为"选择 .key 文件"',
-        (WidgetTester tester) async {
+    testWidgets('按钮文本初始为"选择 .key 文件"', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.text('选择 .key 文件'), findsOneWidget);
@@ -343,7 +337,7 @@ void main() {
 
   group('KeyFileUpload 完整性校验逻辑单元测试', () {
     test('正确计算的内容哈希应该与预期一致', () {
-      final content = 'test content for hashing';
+      const content = 'test content for hashing';
       final hash1 = computeContentHash(content);
       final hash2 = computeContentHash(content);
 
@@ -476,15 +470,13 @@ void main() {
     // 由于成功状态由内部状态 _loadedFileName 控制，
     // 无法通过外部 Widget 测试直接设置，这里验证 UI 结构。
 
-    testWidgets('初始状态下不应该显示"已加载密钥文件"提示',
-        (WidgetTester tester) async {
+    testWidgets('初始状态下不应该显示"已加载密钥文件"提示', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.textContaining('已加载密钥文件：'), findsNothing);
     });
 
-    testWidgets('成功状态容器应该使用绿色主题',
-        (WidgetTester tester) async {
+    testWidgets('成功状态容器应该使用绿色主题', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       // 初始状态下没有成功容器，但我们可以验证组件结构
@@ -493,8 +485,7 @@ void main() {
   });
 
   group('KeyFileUpload 错误状态 UI 测试', () {
-    testWidgets('初始状态下不应该显示错误容器',
-        (WidgetTester tester) async {
+    testWidgets('初始状态下不应该显示错误容器', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
       expect(find.textContaining('完整性校验失败'), findsNothing);
@@ -513,7 +504,7 @@ void main() {
   group('KeyFileUpload 错误消息格式测试', () {
     test('无效 JSON 的错误消息应该包含文件名', () {
       const fileName = 'broken.key';
-      final errorMessage = '$fileName 不是有效的 JSON 文件，可能已损坏';
+      const errorMessage = '$fileName 不是有效的 JSON 文件，可能已损坏';
       expect(errorMessage, contains('broken.key'));
       expect(errorMessage, contains('不是有效的 JSON'));
     });
@@ -521,8 +512,7 @@ void main() {
     test('格式不正确的错误消息应该包含文件名和错误详情', () {
       const fileName = 'invalid.key';
       final errors = ['缺少 format_version 字段', '缺少 key_metadata 字段'];
-      final errorMessage =
-          '$fileName 格式不正确：\n${errors.join('\n')}';
+      final errorMessage = '$fileName 格式不正确：\n${errors.join('\n')}';
 
       expect(errorMessage, contains('invalid.key'));
       expect(errorMessage, contains('格式不正确'));
@@ -532,8 +522,7 @@ void main() {
 
     test('完整性校验失败的错误消息应该提示文件可能被篡改', () {
       const fileName = 'tampered.key';
-      final errorMessage =
-          '$fileName 完整性校验失败，文件可能已被篡改，请勿使用';
+      const errorMessage = '$fileName 完整性校验失败，文件可能已被篡改，请勿使用';
 
       expect(errorMessage, contains('tampered.key'));
       expect(errorMessage, contains('完整性校验失败'));
@@ -542,7 +531,7 @@ void main() {
 
     test('密钥为空的错误消息应该明确提示', () {
       const fileName = 'empty_key.key';
-      final errorMessage = '$fileName 中的密钥数据为空';
+      const errorMessage = '$fileName 中的密钥数据为空';
 
       expect(errorMessage, contains('empty_key.key'));
       expect(errorMessage, contains('密钥数据为空'));

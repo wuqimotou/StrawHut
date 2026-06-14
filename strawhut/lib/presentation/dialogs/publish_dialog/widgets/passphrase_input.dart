@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
+import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 发布对话框 - 暗号输入组件
 ///
@@ -11,6 +16,7 @@ import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
 /// 使用场景：PublishDialog 中选择协商密钥模式时显示
 ///
 /// 功能：
+/// - 从保险库选择已保存暗号（快速填充）
 /// - 暗号输入框（带密码可见性切换）
 /// - 确认暗号输入框（带密码可见性切换）
 /// - 实时暗号强度评估与可视化指示
@@ -22,18 +28,18 @@ import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
 /// - passphrase: 获取当前暗号值
 /// - strength: 获取当前暗号强度
 /// - clear(): 清空所有输入
-class PassphraseInput extends StatefulWidget {
+class PassphraseInput extends ConsumerStatefulWidget {
   /// 创建暗号输入组件实例
   const PassphraseInput({super.key});
 
   @override
-  State<PassphraseInput> createState() => PassphraseInputState();
+  ConsumerState<PassphraseInput> createState() => PassphraseInputState();
 }
 
 /// PassphraseInput 的公开状态类
 ///
 /// 通过 GlobalKey 暴露给父组件，提供验证、取值和清空功能。
-class PassphraseInputState extends State<PassphraseInput> {
+class PassphraseInputState extends ConsumerState<PassphraseInput> {
   /// 暗号输入控制器
   final _passphraseController = TextEditingController();
 
@@ -96,6 +102,19 @@ class PassphraseInputState extends State<PassphraseInput> {
 
     setState(() {
       _mismatch = newMismatch;
+    });
+  }
+
+  /// 从保险库条目填充暗号
+  ///
+  /// 将选中的保险库条目的暗号自动填充到输入框和确认框中，
+  /// 并更新强度指示器，清除不一致状态。
+  void setPassphraseFromVault(PassphraseEntry entry) {
+    _passphraseController.text = entry.passphrase;
+    _confirmController.text = entry.passphrase;
+    _onPassphraseChanged();
+    setState(() {
+      _mismatch = false;
     });
   }
 
@@ -190,15 +209,192 @@ class PassphraseInputState extends State<PassphraseInput> {
     }
   }
 
+  /// 显示保险库暗号选择器
+  ///
+  /// 桌面端使用 SimpleDialog，Android 端使用 ModalBottomSheet。
+  /// 每个条目显示图标、备注名称和使用次数，不显示明文暗号。
+  Future<void> _showVaultPicker(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final entriesAsync = ref.read(passphraseEntriesProvider);
+
+    final entries = entriesAsync.when(
+      data: (data) => data,
+      loading: () => <PassphraseEntry>[],
+      error: (_, __) => <PassphraseEntry>[],
+    );
+
+    if (entries.isEmpty) {
+      // 保险库为空，显示提示
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.vaultEmptySelectHint),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android: 使用 ModalBottomSheet
+      final selected = await showModalBottomSheet<PassphraseEntry>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (context) => _buildVaultBottomSheet(context, entries, l10n),
+      );
+      if (selected != null) {
+        setPassphraseFromVault(selected);
+      }
+    } else {
+      // 桌面端: 使用 SimpleDialog
+      final selected = await showDialog<PassphraseEntry>(
+        context: context,
+        builder: (context) => _buildVaultSimpleDialog(context, entries, l10n),
+      );
+      if (selected != null) {
+        setPassphraseFromVault(selected);
+      }
+    }
+  }
+
+  /// 构建桌面端保险库选择对话框
+  Widget _buildVaultSimpleDialog(
+    BuildContext context,
+    List<PassphraseEntry> entries,
+    AppLocalizations l10n,
+  ) {
+    return SimpleDialog(
+      title: Text(l10n.selectPassphraseTitle),
+      children: entries.map((entry) {
+        return SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, entry),
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline, size: 20, color: Colors.grey[600]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entry.label,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              Text(
+                l10n.usedCount(entry.useCount),
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// 构建 Android 端保险库选择底部弹窗
+  Widget _buildVaultBottomSheet(
+    BuildContext context,
+    List<PassphraseEntry> entries,
+    AppLocalizations l10n,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 拖拽指示条
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            l10n.selectPassphraseTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        const Divider(height: 1),
+        Flexible(
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              return ListTile(
+                leading: Icon(Icons.lock_outline, color: Colors.grey[600]),
+                title: Text(entry.label),
+                subtitle: Text(l10n.usedCount(entry.useCount)),
+                onTap: () => Navigator.pop(context, entry),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: MediaQuery.viewInsetsOf(context).bottom + 16),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final strengthColor = _getStrengthColor();
+    final entriesAsync = ref.watch(passphraseEntriesProvider);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 从保险库选择按钮
+        entriesAsync.when(
+          data: (entries) {
+            if (entries.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.password, size: 18),
+                  label: Text(l10n.selectFromVault),
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OutlinedButton.icon(
+                onPressed: () => _showVaultPicker(context),
+                icon: const Icon(Icons.password, size: 18),
+                label: Text(l10n.selectFromVault),
+              ),
+            );
+          },
+          loading: () => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: OutlinedButton.icon(
+              onPressed: null,
+              icon: const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              label: Text(l10n.selectFromVault),
+            ),
+          ),
+          error: (_, __) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.password, size: 18),
+              label: Text(l10n.selectFromVault),
+            ),
+          ),
+        ),
+
         // 暗号输入框
         TextField(
           controller: _passphraseController,

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -8,9 +7,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:media_scanner/media_scanner.dart';
-import 'package:strawhut/core/file_io/file_selection_service.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
@@ -20,12 +17,14 @@ import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/export_options.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/key_display.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/meta_form.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/passphrase_input.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 发布对话框
 ///
@@ -146,8 +145,6 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   /// 11. 清理敏感数据
   /// 12. 显示密钥
   Future<void> _handlePublish() async {
-    final l10n = AppLocalizations.of(context)!;
-
     // 步骤 1：验证表单
     if (!_metaFormKey.currentState!.validate()) return;
 
@@ -387,6 +384,11 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         ref.read(editorContentProvider.notifier).clear();
       }
 
+      // 协商密钥模式：保存暗号引用（在清空之前）
+      final negotiatedPassphrase = _encryptionMode == 'negotiated'
+          ? _passphraseInputKey.currentState?.passphrase
+          : null;
+
       // 协商密钥模式：清空暗号输入
       if (_encryptionMode == 'negotiated') {
         _passphraseInputKey.currentState?.clear();
@@ -399,6 +401,27 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         _generatedKeyBase64 = keyBase64;
         _savedFilePath = savePath;
       });
+
+      // 协商密钥模式发布成功后，提示保存暗号到保险库
+      if (negotiatedPassphrase != null &&
+          negotiatedPassphrase.isNotEmpty &&
+          mounted) {
+        final vaultService = ref.read(passphraseVaultServiceProvider);
+        final alreadySaved =
+            await vaultService.containsPassphrase(negotiatedPassphrase);
+        if (!alreadySaved && mounted) {
+          final shouldSave = await _showSavePassphrasePrompt();
+          if (shouldSave == true && mounted) {
+            final saved = await AddPassphraseDialog.show(
+              context,
+              initialPassphrase: negotiatedPassphrase,
+            );
+            if (saved == true) {
+              ref.invalidate(passphraseEntriesProvider);
+            }
+          }
+        }
+      }
 
       // 步骤 14：显示成功提示
       if (defaultTargetPlatform == TargetPlatform.android) {
@@ -493,6 +516,33 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     return result ?? false;
   }
 
+  /// 显示发布后保存暗号提示对话框
+  ///
+  /// 当协商密钥模式发布成功后，如果暗号不在保险库中，
+  /// 提示用户是否保存暗号到保险库。
+  ///
+  /// 返回：true 表示用户选择保存，false 表示跳过
+  Future<bool?> _showSavePassphrasePrompt() async {
+    final l10n = AppLocalizations.of(context)!;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.saveAfterPublish),
+        content: Text(l10n.saveAfterPublishDesc),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.skipSave),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.savePassphraseAction),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 检查编辑器是否有实际内容（非空白文档）
   ///
   /// Quill 的 Delta JSON 根结构为 ops 数组，直接解码为 List。
@@ -569,7 +619,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     final random = Random.secure();
     return List.generate(
       length,
-      (_) => random.nextInt(16).toRadixString(16).padLeft(2, '0'),
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
     ).join();
   }
 
@@ -1438,6 +1488,11 @@ class _PublishDialogMobileState extends State<_PublishDialogMobile> {
         ).read(editorContentProvider.notifier).clear();
       }
 
+      // 协商密钥模式：保存暗号引用（在清空之前）
+      final negotiatedPassphrase = _encryptionMode == 'negotiated'
+          ? _passphraseInputKey.currentState?.passphrase
+          : null;
+
       if (_encryptionMode == 'negotiated') {
         _passphraseInputKey.currentState?.clear();
       }
@@ -1448,6 +1503,29 @@ class _PublishDialogMobileState extends State<_PublishDialogMobile> {
         _generatedKeyBase64 = keyBase64;
         _savedFilePath = savePath;
       });
+
+      // 协商密钥模式发布成功后，提示保存暗号到保险库
+      if (negotiatedPassphrase != null &&
+          negotiatedPassphrase.isNotEmpty &&
+          mounted) {
+        final vaultService = ProviderScope.containerOf(context)
+            .read(passphraseVaultServiceProvider);
+        final alreadySaved =
+            await vaultService.containsPassphrase(negotiatedPassphrase);
+        if (!alreadySaved && mounted) {
+          final shouldSave = await _showMobileSavePassphrasePrompt();
+          if (shouldSave == true && mounted) {
+            final saved = await AddPassphraseDialog.show(
+              context,
+              initialPassphrase: negotiatedPassphrase,
+            );
+            if (saved == true) {
+              final container = ProviderScope.containerOf(context);
+              container.invalidate(passphraseEntriesProvider);
+            }
+          }
+        }
+      }
 
       // Show success message
       if (mounted) {
@@ -1531,6 +1609,33 @@ class _PublishDialogMobileState extends State<_PublishDialogMobile> {
     return result ?? false;
   }
 
+  /// 显示移动端发布后保存暗号提示对话框
+  ///
+  /// 当协商密钥模式发布成功后，如果暗号不在保险库中，
+  /// 提示用户是否保存暗号到保险库。
+  ///
+  /// 返回：true 表示用户选择保存，false 表示跳过
+  Future<bool?> _showMobileSavePassphrasePrompt() async {
+    final l10n = AppLocalizations.of(context)!;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.saveAfterPublish),
+        content: Text(l10n.saveAfterPublishDesc),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.skipSave),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.savePassphraseAction),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _hasActualContent(String deltaJson) {
     if (deltaJson.isEmpty) return false;
 
@@ -1586,7 +1691,7 @@ class _PublishDialogMobileState extends State<_PublishDialogMobile> {
     final random = Random.secure();
     return List.generate(
       length,
-      (_) => random.nextInt(16).toRadixString(16).padLeft(2, '0'),
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
     ).join();
   }
 

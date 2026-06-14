@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
@@ -124,9 +122,6 @@ void main() {
         of: find.byType(DropTarget),
         matching: find.byType(Container),
       );
-
-      // 获取 Container 实例
-      final container = tester.widget<Container>(containerFinder);
 
       // 验证高度约束
       // 注意：高度是通过 decoration 或 constraints 设置的

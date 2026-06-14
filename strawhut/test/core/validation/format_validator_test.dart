@@ -838,8 +838,8 @@ void main() {
         'meta': {
           'title': '',
         },
-        'content': {},
-        'integrity': {},
+        'content': <String, dynamic>{},
+        'integrity': <String, dynamic>{},
       };
 
       final result = formatValidator.validateStrawFormat(invalidJson);
@@ -1377,10 +1377,10 @@ void main() {
     // ========== 收集多个错误测试用例 ==========
 
     test('应收集所有验证错误而非在第一个错误处停止', () {
-      final invalidJson = {
-        'key_metadata': {},
-        'key_data': {},
-        'integrity': {},
+      final invalidJson = <String, dynamic>{
+        'key_metadata': <String, dynamic>{},
+        'key_data': <String, dynamic>{},
+        'integrity': <String, dynamic>{},
       };
 
       final result = formatValidator.validateKeyFormat(invalidJson);

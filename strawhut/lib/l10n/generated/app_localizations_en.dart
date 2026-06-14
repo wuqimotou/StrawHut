@@ -128,6 +128,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get decryptPassphraseLabel => 'Enter Encryption Passphrase';
 
   @override
+  String get decryptPassphraseRequired =>
+      'Please enter a passphrase to decrypt';
+
+  @override
   String get decryptPassphraseHint => 'Confirm the passphrase with the creator';
 
   @override
@@ -164,4 +168,143 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharePngCard => 'Share Card';
+
+  @override
+  String get vaultTitle => 'Passphrase Vault';
+
+  @override
+  String get vaultEmptyTitle => 'Vault is Empty';
+
+  @override
+  String get vaultEmptyDesc =>
+      'Save passphrases to auto-decrypt cards encrypted with them';
+
+  @override
+  String get vaultAddButton => 'Add Passphrase';
+
+  @override
+  String get vaultClearAllButton => 'Clear All Passphrases';
+
+  @override
+  String vaultCountLabel(int count) {
+    return '$count/10 passphrases saved';
+  }
+
+  @override
+  String get vaultSecurityNote =>
+      'Saved passphrases are stored in device secure storage. Zero persistent storage except your saved passphrases.';
+
+  @override
+  String get addPassphraseTitle => 'Add Passphrase';
+
+  @override
+  String get passphraseLabelField => 'Label';
+
+  @override
+  String get passphraseLabelHint => 'e.g. Team Passphrase';
+
+  @override
+  String get savePassphraseWarning =>
+      'Saving passphrases locally will modify StrawHut\'s \"zero persistent storage\" privacy commitment. Although passphrases are encrypted using device secure storage, any persistent storage carries theoretical security risks.';
+
+  @override
+  String get savePassphraseConfirm => 'I understand the risk and agree to save';
+
+  @override
+  String get confirmSave => 'Confirm Save';
+
+  @override
+  String get vaultFull => 'Vault is full, please delete before adding';
+
+  @override
+  String get duplicatePassphrase => 'This passphrase is already saved';
+
+  @override
+  String get passphraseTooWeak =>
+      'Passphrase is too weak, minimum 8 characters required';
+
+  @override
+  String get deletePassphraseTitle => 'Confirm Delete';
+
+  @override
+  String deletePassphraseMessage(String label) {
+    return 'Delete passphrase \"$label\"? Cards encrypted with this passphrase will require manual input to decrypt.';
+  }
+
+  @override
+  String get clearAllTitle => 'Clear All Passphrases';
+
+  @override
+  String get clearAllWarning =>
+      'This will delete all saved passphrases and cannot be undone.';
+
+  @override
+  String get clearAllConfirmInput => 'Type DELETE to confirm';
+
+  @override
+  String get autoDecryptProgress => 'Trying auto-decrypt...';
+
+  @override
+  String autoDecryptProgressWithCount(int current, int total) {
+    return 'Trying auto-decrypt ($current/$total)...';
+  }
+
+  @override
+  String autoDecryptSuccess(String label) {
+    return 'Auto-decrypted with saved passphrase \"$label\"';
+  }
+
+  @override
+  String get saveAfterDecrypt =>
+      'Save this passphrase to vault after decryption';
+
+  @override
+  String passphraseDefaultLabel(int n) {
+    return 'Passphrase #$n';
+  }
+
+  @override
+  String vaultEntryCount(int count) {
+    return '$count passphrase(s)';
+  }
+
+  @override
+  String get vaultTooltip => 'Passphrase Vault';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get clearAll => 'Clear All';
+
+  @override
+  String get selectFromVault => 'Select from Vault';
+
+  @override
+  String get selectFromVaultDesc => 'Select from saved passphrases';
+
+  @override
+  String get selectPassphraseTitle => 'Select Passphrase';
+
+  @override
+  String get vaultEmptySelectHint =>
+      'Vault is empty, please add a passphrase first';
+
+  @override
+  String get saveAfterPublish => 'Save Passphrase to Vault?';
+
+  @override
+  String get saveAfterPublishDesc =>
+      'The passphrase you just used is not in the vault. Save it for quick access next time.';
+
+  @override
+  String get skipSave => 'Skip';
+
+  @override
+  String get savePassphraseAction => 'Save Passphrase';
+
+  @override
+  String usedCount(int count) {
+    return 'Used $count time(s)';
+  }
 }

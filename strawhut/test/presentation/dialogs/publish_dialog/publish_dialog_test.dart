@@ -23,7 +23,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -35,7 +34,6 @@ import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_file.dart';
-import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
 /// Mock CryptoService

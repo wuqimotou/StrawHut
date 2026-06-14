@@ -3,11 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:go_router/go_router.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:file_selector/file_selector.dart';
 
 /// 操作按钮 Widget 单元测试
 ///

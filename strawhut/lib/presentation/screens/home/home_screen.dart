@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 import 'package:strawhut/presentation/screens/home/widgets/help_dialog.dart';
@@ -90,6 +91,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           title: const Text('StrawHut - 草棚'),
           centerTitle: true,
           actions: [
+            // 暗号保险库按钮
+            IconButton(
+              icon: const Icon(Icons.password),
+              onPressed: () => PassphraseVaultDialog.show(context),
+              tooltip: '暗号保险库',
+            ),
             // 帮助按钮
             IconButton(
               icon: const Icon(Icons.help_outline),

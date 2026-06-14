@@ -1,11 +1,13 @@
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
+import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/quill_viewer.dart';
 
@@ -195,10 +197,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   ///
   /// 自动弹出 DecryptDialog，让用户输入密钥进行解密。
   ///
-  /// 解密成功后的处理：
-  /// 1. 保存解密后的 Delta JSON
-  /// 2. 更新状态为 decrypted
-  /// 3. 切换到 QuillViewer 展示内容
+  /// 对于暗号加密的卡片，会先尝试从保险库自动匹配暗号解密：
+  /// 1. 如果 kdfAlgorithm != null（暗号加密模式）且保险库不为空，
+  ///    先尝试自动匹配解密
+  /// 2. 自动匹配成功：直接展示内容，不弹出对话框
+  /// 3. 自动匹配失败或保险库为空：弹出原有的解密对话框
+  /// 4. 随机密钥模式：直接弹出解密对话框
   void _showDecryptDialog() {
     // 防止重复弹出对话框
     if (_hasShownDecryptDialog || _strawFile == null) {
@@ -206,11 +210,151 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
     _hasShownDecryptDialog = true;
 
+    final strawFile = _strawFile!;
+
+    // 判断是否为暗号加密模式
+    final isNegotiatedMode = strawFile.content.kdfAlgorithm != null;
+
+    if (isNegotiatedMode) {
+      // 暗号加密模式：尝试自动匹配
+      _tryAutoDecrypt();
+    } else {
+      // 随机密钥模式：直接弹出解密对话框
+      DecryptDialog.show(
+        context,
+        strawFile: strawFile,
+        onDecryptSuccess: (deltaJson) {
+          if (mounted) {
+            setState(() {
+              _decryptedContent = deltaJson;
+              _status = ReaderStatus.decrypted;
+            });
+          }
+        },
+      );
+    }
+  }
+
+  /// 尝试从保险库自动匹配暗号解密
+  ///
+  /// 流程：
+  /// 1. 从保险库获取暗号列表
+  /// 2. 如果保险库为空，直接弹出解密对话框
+  /// 3. 如果保险库不为空，显示加载状态并尝试自动匹配
+  /// 4. 匹配成功：直接展示解密内容
+  /// 5. 匹配失败：弹出解密对话框
+  Future<void> _tryAutoDecrypt() async {
+    final strawFile = _strawFile;
+    if (strawFile == null || !mounted) return;
+
+    try {
+      final vaultService = ref.read(passphraseVaultServiceProvider);
+      final entryCount = await vaultService.getEntryCount();
+
+      if (entryCount == 0) {
+        // 保险库为空，直接弹出解密对话框
+        if (mounted) {
+          DecryptDialog.show(
+            context,
+            strawFile: strawFile,
+            onDecryptSuccess: (deltaJson) {
+              if (mounted) {
+                setState(() {
+                  _decryptedContent = deltaJson;
+                  _status = ReaderStatus.decrypted;
+                });
+              }
+            },
+          );
+        }
+        return;
+      }
+
+      // 保险库不为空，显示自动匹配加载状态
+      if (mounted) {
+        setState(() {
+          _status = ReaderStatus.loading;
+        });
+      }
+
+      final cryptoService = ref.read(cryptoServiceProvider);
+
+      final autoDecryptResult = await vaultService.tryAutoDecrypt(
+        encryptedContent: strawFile.content,
+        cryptoService: cryptoService,
+        onProgress: (current, total) {
+          // 进度回调（可用于后续优化显示进度）
+        },
+      );
+
+      if (!mounted) return;
+
+      if (autoDecryptResult != null) {
+        // 自动匹配成功：校验完整性
+        final integrityService = ref.read(integrityServiceProvider);
+        final strawFileForHash = StrawFile(
+          formatVersion: strawFile.formatVersion,
+          meta: strawFile.meta,
+          content: strawFile.content,
+          integrity: IntegrityInfo(
+            hash: '',
+            hashAlgorithm: strawFile.integrity.hashAlgorithm,
+          ),
+        );
+        final strawFileJson = strawFileForHash.assembleToJson();
+        final isIntegrityValid = integrityService.verifyIntegrity(
+          content: strawFileJson,
+          expectedHash: strawFile.integrity.hash,
+        );
+
+        if (isIntegrityValid) {
+          // 完整性校验通过，展示解密内容
+          setState(() {
+            _decryptedContent = autoDecryptResult.deltaJson;
+            _status = ReaderStatus.decrypted;
+          });
+          // 刷新保险库数据（使用统计已更新）
+          ref.invalidate(passphraseEntriesProvider);
+          // 显示自动解密成功提示
+          if (mounted) {
+            final l10n = AppLocalizations.of(context)!;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    l10n.autoDecryptSuccess(autoDecryptResult.matchedLabel)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          // 完整性校验失败，弹出解密对话框
+          _showManualDecryptDialog();
+        }
+      } else {
+        // 自动匹配失败，弹出解密对话框
+        _showManualDecryptDialog();
+      }
+    } on Exception {
+      // 保险库读取异常，回退到手动解密
+      if (mounted) {
+        _showManualDecryptDialog();
+      }
+    }
+  }
+
+  /// 弹出手动解密对话框
+  void _showManualDecryptDialog() {
+    final strawFile = _strawFile;
+    if (strawFile == null || !mounted) return;
+
+    setState(() {
+      _status = ReaderStatus.metaOnly;
+    });
+
     DecryptDialog.show(
       context,
-      strawFile: _strawFile!,
+      strawFile: strawFile,
       onDecryptSuccess: (deltaJson) {
-        // 解密成功后，保存解密内容并更新 UI
         if (mounted) {
           setState(() {
             _decryptedContent = deltaJson;

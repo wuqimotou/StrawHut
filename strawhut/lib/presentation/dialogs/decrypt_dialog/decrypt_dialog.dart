@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/data/models/card_meta.dart';
@@ -16,7 +15,9 @@ import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_file_upload.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_input.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/passphrase_decrypt_input.dart';
+import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 解密对话框
 ///
@@ -151,6 +152,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 当前输入的密钥字符串
   String? _currentKey;
 
+  /// 是否勾选"保存此暗号到保险库"
+  bool _savePassphrase = false;
+
   /// 是否为协商密钥模式
   bool get _isNegotiatedMode => widget.strawFile.content.kdfAlgorithm != null;
 
@@ -190,7 +194,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
       final passphrase = _passphraseInputKey.currentState?.passphrase;
       if (passphrase == null || passphrase.isEmpty) {
         setState(() {
-          _errorMessage = l10n.decryptPassphraseLabel;
+          _errorMessage = l10n.decryptPassphraseRequired;
         });
         return;
       }
@@ -277,6 +281,17 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
         // 清除暗号输入框中的敏感内容
         _passphraseInputKey.currentState?.clear();
+
+        // 如果用户勾选了"保存此暗号"，弹出保存对话框
+        if (_savePassphrase && mounted) {
+          final saved = await AddPassphraseDialog.show(
+            context,
+            initialPassphrase: passphrase,
+          );
+          if (saved == true) {
+            ref.invalidate(passphraseEntriesProvider);
+          }
+        }
 
         // 调用成功回调，传入解密后的 Delta JSON
         if (mounted) {
@@ -440,6 +455,25 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
             if (_isNegotiatedMode) ...[
               // 协商密钥模式：显示暗号输入
               PassphraseDecryptInput(key: _passphraseInputKey),
+              const SizedBox(height: 8),
+              // 保存暗号到保险库复选框
+              CheckboxListTile(
+                value: _savePassphrase,
+                onChanged: _isLoading
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _savePassphrase = value ?? false;
+                        });
+                      },
+                title: Text(
+                  l10n.saveAfterDecrypt,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+              ),
             ] else ...[
               // 随机密钥模式：显示密钥输入和文件上传
               // ========== 方式 A：手动输入密钥 ==========
@@ -683,6 +717,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _currentKey;
+  bool _savePassphrase = false;
 
   bool get _isNegotiatedMode => widget.strawFile.content.kdfAlgorithm != null;
 
@@ -707,7 +742,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
       final passphrase = _passphraseInputKey.currentState?.passphrase;
       if (passphrase == null || passphrase.isEmpty) {
         setState(() {
-          _errorMessage = l10n.decryptPassphraseLabel;
+          _errorMessage = l10n.decryptPassphraseRequired;
         });
         return;
       }
@@ -786,6 +821,17 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         cryptoService.clearSensitiveData();
 
         _passphraseInputKey.currentState?.clear();
+
+        // 如果用户勾选了"保存此暗号"，弹出保存对话框
+        if (_savePassphrase && mounted) {
+          final saved = await AddPassphraseDialog.show(
+            context,
+            initialPassphrase: passphrase,
+          );
+          if (saved == true) {
+            ref.invalidate(passphraseEntriesProvider);
+          }
+        }
 
         if (mounted) {
           widget.onDecryptSuccess(deltaJson);
@@ -945,6 +991,25 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                   // Input area based on encryption mode
                   if (_isNegotiatedMode) ...[
                     PassphraseDecryptInput(key: _passphraseInputKey),
+                    const SizedBox(height: 8),
+                    // 保存暗号到保险库复选框
+                    CheckboxListTile(
+                      value: _savePassphrase,
+                      onChanged: _isLoading
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _savePassphrase = value ?? false;
+                              });
+                            },
+                      title: Text(
+                        l10n.saveAfterDecrypt,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                    ),
                   ] else ...[
                     KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
                     const SizedBox(height: 16),

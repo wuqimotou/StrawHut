@@ -57,7 +57,7 @@ void main() {
       addTearDown(container.dispose);
 
       final integrityService = container.read(integrityServiceProvider);
-      final content = 'test content for verification';
+      const content = 'test content for verification';
       final hash = integrityService.computeHash(content);
 
       expect(

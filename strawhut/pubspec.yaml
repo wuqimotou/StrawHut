@@ -2,7 +2,7 @@ name: strawhut
 description: 去中心化加密知识分享平台
 publish_to: 'none'
 
-version: 0.3.0+1
+version: 0.4.0+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -45,6 +45,9 @@ dependencies:
   permission_handler: ^11.3.1
   media_scanner: ^2.1.0
   image_picker: ^1.1.2
+
+  # 安全存储
+  flutter_secure_storage: ^9.2.4
 
   # JSON 序列化
   json_annotation: ^4.9.0

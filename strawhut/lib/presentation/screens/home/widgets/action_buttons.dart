@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:strawhut/core/file_io/file_selection_service.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
@@ -122,7 +121,7 @@ class ActionButtons extends ConsumerWidget {
 
   /// 在 Android 上弹出文件来源选择对话框
   void _showOpenCardOptions(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       builder: (BuildContext sheetContext) {
         return SafeArea(
@@ -162,8 +161,8 @@ class ActionButtons extends ConsumerWidget {
   /// 从相册选择 .png 文件（Android 使用 image_picker，Desktop 使用 FilePicker）
   Future<void> _doOpenCardFromGallery(
       BuildContext context, WidgetRef ref) async {
-    Uint8List? bytes;
-    String? fileName;
+    Uint8List bytes;
+    String fileName;
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       // Android: 使用 image_picker 可靠地从相册读取图片
@@ -183,8 +182,6 @@ class ActionButtons extends ConsumerWidget {
       bytes = result.$1;
       fileName = result.$2;
     }
-
-    if (bytes == null || fileName == null) return;
 
     if (context.mounted) {
       ref.read(pendingFileBytesProvider.notifier).state = (bytes, fileName);

@@ -220,7 +220,7 @@ void main() {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    MaterialPageRoute<void>(
                       builder: (_) => const EditorScreen(),
                     ),
                   );
