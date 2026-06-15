@@ -114,13 +114,6 @@ Creator                                   Reader
 - **CSPRNG** — Cryptographically secure random number generation (Android SecureRandom / Windows BCryptGenRandom)
 - **Native-first architecture** — Platform native crypto APIs with automatic fallback to pure Dart implementation
 
-### 🔮 Roadmap
-
-- [x] Android mobile support
-- [x] Passphrase Vault
-- [ ] iOS mobile support
-- [ ] P2P knowledge card network (optional)
-- [ ] Multimedia content embedding
 
 ***
 
@@ -227,13 +220,6 @@ Creator                                   Reader
 - **CSPRNG** — 密码学安全伪随机数生成（Android SecureRandom / Windows BCryptGenRandom）
 - **原生优先架构** — 优先使用平台原生加密 API，不可用时自动回退到纯 Dart 实现
 
-### 🔮 未来规划
-
-- [x] Android 移动端适配
-- [x] 暗号保险库
-- [ ] iOS 移动端适配
-- [ ] P2P 知识卡片网络（可选）
-- [ ] 多媒体内容嵌入
 
 ***
 
