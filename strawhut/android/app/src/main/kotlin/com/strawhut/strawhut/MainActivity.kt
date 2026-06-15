@@ -17,6 +17,9 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // 注册原生加密插件
+        flutterEngine.plugins.add(CryptoPlugin())
+
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL

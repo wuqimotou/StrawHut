@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
+import 'package:strawhut/core/crypto/native/fallback_crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/file_io/file_selection_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
@@ -8,8 +9,8 @@ part 'crypto_provider.g.dart';
 
 /// 加密服务 Provider
 ///
-/// 提供全局单例的 CryptoService 实例，用于加密/解密操作。
-/// 依赖 IntegrityService，通过 Riverpod 的依赖注入机制自动获取。
+/// 提供全局单例的加密服务实例，优先使用原生平台 API。
+/// 使用 [FallbackCryptoService] 实现，原生 API 不可用时自动回退到纯 Dart 实现。
 ///
 /// 使用方式：
 /// ```dart
@@ -17,9 +18,13 @@ part 'crypto_provider.g.dart';
 /// final key = await crypto.generateKey();
 /// ```
 @riverpod
-CryptoService cryptoService(CryptoServiceRef ref) {
+ICryptoService cryptoService(CryptoServiceRef ref) {
   final integrityService = ref.watch(integrityServiceProvider);
-  return CryptoService(integrityService);
+  final service = FallbackCryptoService(integrityService);
+  // Provider 创建时主动初始化，避免首次加密操作时的冷启动延迟
+  // initialize() 是幂等的，重复调用无副作用
+  service.initialize();
+  return service;
 }
 
 /// 完整性校验服务 Provider

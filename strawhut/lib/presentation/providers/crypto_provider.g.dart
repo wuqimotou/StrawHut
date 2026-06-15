@@ -6,12 +6,12 @@ part of 'crypto_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cryptoServiceHash() => r'f040797ca9c5f7f5724597d3b44fbde6c3049fee';
+String _$cryptoServiceHash() => r'c6b078f084bf42b84cad25e21f12c06e92e8b242';
 
 /// 加密服务 Provider
 ///
-/// 提供全局单例的 CryptoService 实例，用于加密/解密操作。
-/// 依赖 IntegrityService，通过 Riverpod 的依赖注入机制自动获取。
+/// 提供全局单例的加密服务实例，优先使用原生平台 API。
+/// 使用 [FallbackCryptoService] 实现，原生 API 不可用时自动回退到纯 Dart 实现。
 ///
 /// 使用方式：
 /// ```dart
@@ -21,7 +21,7 @@ String _$cryptoServiceHash() => r'f040797ca9c5f7f5724597d3b44fbde6c3049fee';
 ///
 /// Copied from [cryptoService].
 @ProviderFor(cryptoService)
-final cryptoServiceProvider = AutoDisposeProvider<CryptoService>.internal(
+final cryptoServiceProvider = AutoDisposeProvider<ICryptoService>.internal(
   cryptoService,
   name: r'cryptoServiceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -33,7 +33,7 @@ final cryptoServiceProvider = AutoDisposeProvider<CryptoService>.internal(
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef CryptoServiceRef = AutoDisposeProviderRef<CryptoService>;
+typedef CryptoServiceRef = AutoDisposeProviderRef<ICryptoService>;
 String _$integrityServiceHash() => r'672377d60eb48c2dbe6e4f1cae2914a5b6a0b9a0';
 
 /// 完整性校验服务 Provider

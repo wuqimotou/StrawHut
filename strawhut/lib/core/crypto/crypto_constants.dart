@@ -21,17 +21,23 @@ const String ENCRYPTION_ALGORITHM_AES_256_GCM = 'AES-256-GCM';
 /// - 理论上无法通过暴力穷举破解
 const int KEY_LENGTH_BYTES = 32; // 256 bits
 
-/// IV/Nonce 长度（字节）
+/// IV/Nonce 长度（字节）- 旧版兼容
 ///
 /// 初始化向量（Initialization Vector）用于确保相同的明文每次加密产生不同的密文。
-/// GCM 模式下推荐使用 12 字节（96 位）Nonce，但本项目采用 16 字节
-/// 以兼容 `encrypt` 包的默认实现。
+/// 此为旧版 `encrypt` 包使用的 16 字节 IV 长度，新加密使用 [NATIVE_IV_LENGTH_BYTES]（12 字节）。
 ///
 /// 安全说明：
 /// - IV 必须是加密安全的随机数
 /// - 同一密钥下 IV 不可重复使用
 /// - IV 不需要保密，可随密文一起传输
+@Deprecated('Use NATIVE_IV_LENGTH_BYTES instead')
 const int IV_LENGTH_BYTES = 16;
+
+/// 原生加密 IV/Nonce 长度（字节）
+///
+/// NIST SP 800-38D 推荐的 GCM 模式标准 IV 长度（96 位）。
+/// 新加密使用此长度，解密同时支持 12 字节和 16 字节 IV。
+const int NATIVE_IV_LENGTH_BYTES = 12;
 
 /// 哈希算法标识
 ///

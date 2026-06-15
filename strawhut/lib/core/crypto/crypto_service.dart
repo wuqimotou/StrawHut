@@ -152,6 +152,9 @@ class CryptoService implements ICryptoService {
   /// 解密后需要验证完整性，因此作为依赖注入。
   final IntegrityService integrityService;
 
+  /// Isolate 阈值：超过此大小的加密/解密操作移入 Isolate 执行
+  static const int _isolateThreshold = 64 * 1024; // 64KB
+
   /// 生成加密密钥
   ///
   /// 实现步骤：
@@ -210,18 +213,28 @@ class CryptoService implements ICryptoService {
     required String deltaJson,
     required Uint8List key,
   }) async {
-    // 创建 AES-256-GCM 加密器（使用 encrypt 包的高层 API）
+    final plaintext = Uint8List.fromList(utf8.encode(deltaJson));
+
+    // 大内容（>64KB）使用 Isolate，小内容直接执行
+    if (plaintext.length > _isolateThreshold) {
+      return compute(
+        _encryptInIsolate,
+        _EncryptParams(plaintext: plaintext, key: key),
+      );
+    }
+
+    return _encryptDirect(plaintext, key);
+  }
+
+  /// 直接加密（小内容或 Isolate 内调用）
+  EncryptedContent _encryptDirect(Uint8List plaintext, Uint8List key) {
     final encrypter = encrypt.Encrypter(
       encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.gcm),
     );
 
-    // 生成 16 字节安全随机 IV
     final iv = encrypt.IV.fromSecureRandom(IV_LENGTH_BYTES);
+    final encrypted = encrypter.encryptBytes(plaintext, iv: iv);
 
-    // 执行加密操作，将 Delta JSON 字符串转为 UTF-8 字节后加密
-    final encrypted = encrypter.encrypt(deltaJson, iv: iv);
-
-    // 将密文和 IV 分别 Base64 编码，便于序列化到 .straw 文件
     return EncryptedContent(
       encryptedDataBase64: base64Encode(encrypted.bytes),
       ivBase64: base64Encode(iv.bytes),
@@ -272,6 +285,14 @@ class CryptoService implements ICryptoService {
       // Base64 解码 IV 和密文数据
       final ivBytes = base64Decode(ivBase64);
       final encryptedBytes = base64Decode(encryptedDataBase64);
+
+      // 大内容（>64KB）使用 Isolate
+      if (encryptedBytes.length > _isolateThreshold) {
+        return compute(
+          _decryptInIsolate,
+          _DecryptParams(ciphertext: encryptedBytes, key: key, iv: ivBytes),
+        );
+      }
 
       // 创建 AES-256-GCM 解密器（使用 encrypt 包的高层 API）
       final encrypter = encrypt.Encrypter(
@@ -384,6 +405,27 @@ class _DeriveKeyParams {
   });
 }
 
+/// Isolate 加密参数
+class _EncryptParams {
+  const _EncryptParams({required this.plaintext, required this.key});
+
+  final Uint8List plaintext;
+  final Uint8List key;
+}
+
+/// Isolate 解密参数
+class _DecryptParams {
+  const _DecryptParams({
+    required this.ciphertext,
+    required this.key,
+    required this.iv,
+  });
+
+  final Uint8List ciphertext;
+  final Uint8List key;
+  final Uint8List iv;
+}
+
 /// Top-level function for PBKDF2 key derivation in a background Isolate.
 ///
 /// Must be a top-level function because [compute] requires functions that are
@@ -396,4 +438,34 @@ Uint8List _deriveKeyFromPassphraseIsolate(_DeriveKeyParams params) {
   return Uint8List.fromList(
     derivator.process(Uint8List.fromList(utf8.encode(params.passphrase))),
   );
+}
+
+/// Isolate 内执行加密
+EncryptedContent _encryptInIsolate(_EncryptParams params) {
+  final encrypter = encrypt.Encrypter(
+    encrypt.AES(encrypt.Key(params.key), mode: encrypt.AESMode.gcm),
+  );
+
+  final iv = encrypt.IV.fromSecureRandom(IV_LENGTH_BYTES);
+  final encrypted = encrypter.encryptBytes(params.plaintext, iv: iv);
+
+  return EncryptedContent(
+    encryptedDataBase64: base64Encode(encrypted.bytes),
+    ivBase64: base64Encode(iv.bytes),
+    algorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+  );
+}
+
+/// Isolate 内执行解密
+String _decryptInIsolate(_DecryptParams params) {
+  final encrypter = encrypt.Encrypter(
+    encrypt.AES(encrypt.Key(params.key), mode: encrypt.AESMode.gcm),
+  );
+
+  final decrypted = encrypter.decrypt(
+    encrypt.Encrypted(params.ciphertext),
+    iv: encrypt.IV(params.iv),
+  );
+
+  return decrypted;
 }

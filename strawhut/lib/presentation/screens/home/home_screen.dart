@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
@@ -43,6 +44,29 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 上次按返回键的时间，用于双击退出逻辑
   DateTime? _lastBackPress;
+
+  /// 软件版本号
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  /// 加载软件版本号
+  Future<void> _loadVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _version = 'v${packageInfo.version}';
+        });
+      }
+    } catch (e) {
+      // 忽略错误，版本号显示为空
+    }
+  }
 
   /// 处理 Android 返回键：双击退出应用
   Future<bool> _handleBack() async {
@@ -163,6 +187,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ],
                     const SizedBox(height: 24),
+                    // 版本号显示
+                    if (_version.isNotEmpty)
+                      Text(
+                        _version,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[400],
+                            ),
+                      ),
                   ],
                 ),
               ),

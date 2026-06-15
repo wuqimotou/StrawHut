@@ -57,6 +57,10 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# 移除 jni 插件的 bundled libraries（jni 在 Windows 端不需要）
+# 注意：add_subdirectory 仍会执行，但 jni 的库文件不会被打包到最终产物中
+list(FILTER PLUGIN_BUNDLED_LIBRARIES EXCLUDE REGEX ".*jni.*")
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

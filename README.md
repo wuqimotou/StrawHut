@@ -147,7 +147,11 @@
 │ HomeScreen │ EditorScreen │ ReaderScreen │ Dialogs  │
 ├──────────────────────────────────────────────────────┤
 │               核心服务层 (Services)                   │
-│ CryptoService │ FileIOService │ DraftManager │ ...    │
+│ FallbackCryptoService (原生优先 + 自动回退)           │
+│   ├── NativeCryptoService (Android: javax.crypto)    │
+│   ├── NativeCryptoService (Windows: BCrypt API)      │
+│   └── CryptoService (纯 Dart 回退实现)               │
+│ FileIOService │ DraftManager │ ...                   │
 │ PassphraseVaultService（暗号保险库）                   │
 ├──────────────────────────────────────────────────────┤
 │                  数据层 (Data)                        │
@@ -163,7 +167,9 @@
 | **Flutter** | 跨平台 UI 框架，一套代码多端运行 |
 | **flutter_quill** | 富文本编辑器，支持所见即所得编辑 |
 | **Riverpod** | 状态管理，响应式数据流 |
-| **encrypt** | AES-256-GCM 加密实现 |
+| **encrypt / pointycastle** | AES-256-GCM 加密实现（纯 Dart 回退层） |
+| **dart:ffi** | Windows 平台原生加密 API 调用（BCrypt CNG） |
+| **平台原生 API** | Android: javax.crypto / Windows: BCrypt API（硬件加速） |
 | **flutter_secure_storage** | 平台原生安全存储（暗号保险库） |
 | **image** | 纯 Dart 图片处理（压缩 + PNG 编码，全平台通用） |
 | **file_selector** | 跨平台文件选择器 |
@@ -200,9 +206,10 @@
 
 | 算法 | 说明 |
 |------|------|
-| **AES-256-GCM** | 对称加密算法，256 位密钥，GCM 认证加密模式 |
-| **PBKDF2-HMAC-SHA256** | 密钥派生函数，100,000 次迭代（协商密钥模式） |
-| **CSPRNG** | 密码学安全伪随机数生成器，用于生成密钥和盐值 |
+| **AES-256-GCM** | 对称加密算法，256 位密钥，GCM 认证加密模式，原生 API 硬件加速（AES-NI） |
+| **PBKDF2-HMAC-SHA256** | 密钥派生函数，100,000 次迭代（协商密钥模式），原生 API 加速 5-10 倍 |
+| **CSPRNG** | 密码学安全伪随机数生成器（Android SecureRandom / Windows BCryptGenRandom） |
+| **12 字节 IV** | NIST SP 800-38D 推荐值，新加密使用 12 字节 IV；解密兼容 12/16 字节 |
 | **16 字节随机盐值** | CSPRNG 生成的盐值，确保相同暗号派生不同密钥 |
 | **SHA-256** | 哈希校验算法，确保文件完整性 |
 
@@ -295,7 +302,7 @@ StrawHut/
 
 | Feature | Description |
 |---------|-------------|
-| 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, content encrypted locally |
+| 🔒 **End-to-End Encryption** | AES-256-GCM strong encryption, native API hardware acceleration, content encrypted locally |
 | 🖼️ **Knowledge as Image** | Encrypted content embedded in PNG metadata, beautiful cover, easy sharing for mobile |
 | 🤝 **Negotiated Key Encryption** | Derive key from passphrase (PBKDF2-HMAC-SHA256), suitable for verbal sharing |
 | 📊 **Passphrase Strength Evaluation** | Real-time strength assessment (Very Weak/Weak/Medium/Strong), weak passphrase confirmation |
@@ -404,7 +411,11 @@ Creator                                   Reader
 │  HomeScreen │ EditorScreen │ ReaderScreen │ Dialogs  │
 ├──────────────────────────────────────────────────────┤
 │                  Core Service Layer                   │
-│ CryptoService │ FileIOService │ DraftManager │ ...    │
+│ FallbackCryptoService (Native-first + Auto-fallback) │
+│   ├── NativeCryptoService (Android: javax.crypto)    │
+│   ├── NativeCryptoService (Windows: BCrypt API)      │
+│   └── CryptoService (Pure Dart fallback)             │
+│ FileIOService │ DraftManager │ ...                   │
 │ PassphraseVaultService (Passphrase Vault)             │
 ├──────────────────────────────────────────────────────┤
 │                    Data Layer                         │
@@ -420,7 +431,9 @@ Creator                                   Reader
 | **Flutter** | Cross-platform UI framework, one codebase for all platforms |
 | **flutter_quill** | Rich text editor with WYSIWYG support |
 | **Riverpod** | State management with reactive data flow |
-| **encrypt** | AES-256-GCM encryption implementation |
+| **encrypt / pointycastle** | AES-256-GCM encryption (pure Dart fallback layer) |
+| **dart:ffi** | Windows native crypto API calls (BCrypt CNG) |
+| **Platform Native APIs** | Android: javax.crypto / Windows: BCrypt API (hardware acceleration) |
 | **flutter_secure_storage** | Platform-native secure storage (Passphrase Vault) |
 | **file_selector** | Cross-platform file picker |
 | **go_router** | Declarative routing |
@@ -518,4 +531,4 @@ StrawHut/
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v0.4.0 | **最后更新**: 2026-06-14
+> **文档版本**: v1.0.0 | **最后更新**: 2026-06-15
