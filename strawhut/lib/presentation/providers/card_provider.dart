@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 part 'card_provider.g.dart';
 
@@ -11,8 +11,8 @@ part 'card_provider.g.dart';
 /// 使用 Riverpod 的 @Riverpod 注解定义，用于管理 ReaderScreen 中
 /// 当前正在查看的知识卡片文件状态。
 ///
-/// 架构位置：应用层 → Riverpod Provider
-/// 状态类型：AsyncValue<StrawFile?>（异步数据流，支持 loading/success/error 状态）
+/// 架构位置：应用层 - Riverpod Provider
+/// 状态类型：AsyncValue<ParsedStrawFile?>（异步数据流，支持 loading/success/error 状态）
 /// keepAlive: false（页面销毁后自动清空，不保留缓存）
 ///
 /// 使用场景：
@@ -26,7 +26,7 @@ part 'card_provider.g.dart';
 /// // 读取状态
 /// final cardAsync = ref.watch(currentCardProvider);
 /// cardAsync.when(
-///   data: (strawFile) => showMeta(strawFile),
+///   data: (parsed) => showMeta(parsed?.strawFile),
 ///   loading: () => showLoading(),
 ///   error: (e, st) => showError(e),
 /// );
@@ -35,8 +35,30 @@ part 'card_provider.g.dart';
 class CurrentCard extends _$CurrentCard {
   /// 初始状态：返回 null 表示尚未加载任何文件
   @override
-  AsyncValue<StrawFile?> build() {
+  AsyncValue<ParsedStrawFile?> build() {
     return const AsyncValue.data(null);
+  }
+
+  /// 流式加载知识卡片文件头部（不加载分块数据）
+  ///
+  /// 只读取文件头部信息，不将加密分块加载到内存。
+  /// 适用于大文件场景，解密时需使用 decryptStream()。
+  ///
+  /// 参数：[filePath] - .straw 或 .png 文件的完整路径
+  Future<ParsedStrawFile?> loadFileHeader(String filePath) async {
+    state = const AsyncValue.loading();
+    try {
+      final extension = filePath.split('.').last.toLowerCase();
+      final fileIOService = ref.read(fileIOServiceProvider);
+      final parsedFile = extension == 'png'
+          ? await fileIOService.readStrawPng(filePath) // PNG 仍全量加载
+          : await fileIOService.readStrawFileHeader(filePath); // .straw 流式加载
+      state = AsyncValue.data(parsedFile);
+      return parsedFile;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
   }
 
   /// 加载知识卡片文件
@@ -45,21 +67,21 @@ class CurrentCard extends _$CurrentCard {
   ///
   /// 流程：
   /// 1. 设置状态为 loading
-  /// 2. 调用 FileIOService.readStrawFile 读取文件
-  /// 3. 成功 → 更新 state 为 AsyncValue.data(file)
-  /// 4. 失败 → 更新 state 为 AsyncValue.error(e, st)
+  /// 2. 调用 FileIOService.readStrawFile/readStrawPng 读取文件
+  /// 3. 成功 - 更新 state 为 AsyncValue.data(parsedFile)
+  /// 4. 失败 - 更新 state 为 AsyncValue.error(e, st)
   ///
   /// 参数：[filePath] - .straw 文件的完整路径
-  Future<StrawFile?> loadFile(String filePath) async {
+  Future<ParsedStrawFile?> loadFile(String filePath) async {
     state = const AsyncValue.loading();
     try {
       final extension = filePath.split('.').last.toLowerCase();
       final fileIOService = ref.read(fileIOServiceProvider);
-      final file = extension == 'png'
+      final parsedFile = extension == 'png'
           ? await fileIOService.readStrawPng(filePath)
           : await fileIOService.readStrawFile(filePath);
-      state = AsyncValue.data(file);
-      return file;
+      state = AsyncValue.data(parsedFile);
+      return parsedFile;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
@@ -74,13 +96,13 @@ class CurrentCard extends _$CurrentCard {
   /// 1. 设置状态为 loading
   /// 2. 根据文件名判断是否为 PNG 文件
   /// 3. 调用 FileIOService.readStrawFileFromBytes 或 readStrawPngFromBytes
-  /// 4. 成功 → 更新 state 为 AsyncValue.data(file)
-  /// 5. 失败 → 更新 state 为 AsyncValue.error(e, st)
+  /// 4. 成功 - 更新 state 为 AsyncValue.data(parsedFile)
+  /// 5. 失败 - 更新 state 为 AsyncValue.error(e, st)
   ///
   /// 参数：
   /// - [bytes] - 文件字节数据
   /// - [fileName] - 文件名（用于判断文件类型）
-  Future<StrawFile?> loadFileFromBytes(
+  Future<ParsedStrawFile?> loadFileFromBytes(
     Uint8List bytes, {
     String? fileName,
   }) async {
@@ -88,11 +110,11 @@ class CurrentCard extends _$CurrentCard {
     try {
       final fileIOService = ref.read(fileIOServiceProvider);
       final isPng = fileName?.toLowerCase().endsWith('.png') ?? false;
-      final file = isPng
+      final parsedFile = isPng
           ? await fileIOService.readStrawPngFromBytes(bytes)
           : await fileIOService.readStrawFileFromBytes(bytes);
-      state = AsyncValue.data(file);
-      return file;
+      state = AsyncValue.data(parsedFile);
+      return parsedFile;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;

@@ -27,17 +27,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
-/// Mock CryptoService
-class MockCryptoService extends Mock implements CryptoService {}
+/// Mock ICryptoService
+class MockCryptoService extends Mock implements ICryptoService {}
 
 /// Mock FileIOService
 class MockFileIOService extends Mock implements FileIOService {}
@@ -48,14 +50,24 @@ class MockIntegrityService extends Mock implements IntegrityService {}
 /// Fake GeneratedKey（用于 mocktail registerFallbackValue）
 class FakeGeneratedKey extends Fake implements GeneratedKey {}
 
-/// Fake EncryptedContent（用于 mocktail registerFallbackValue）
-class FakeEncryptedContent extends Fake implements EncryptedContent {}
+/// Fake StrawContent（用于 mocktail registerFallbackValue）
+class FakeStrawContent extends Fake implements StrawContent {}
+
+/// Fake StrawFile（用于 mocktail registerFallbackValue）
+class FakeStrawFile extends Fake implements StrawFile {}
+
+/// Fake List<ChunkInfo>（用于 mocktail registerFallbackValue）
+class FakeChunkInfoList extends Fake implements List<ChunkInfo> {}
 
 void main() {
   // 注册 mocktail 的 fallback 值
   setUpAll(() {
     registerFallbackValue(FakeGeneratedKey());
-    registerFallbackValue(FakeEncryptedContent());
+    registerFallbackValue(FakeStrawContent());
+    registerFallbackValue(FakeStrawFile());
+    registerFallbackValue(FakeChunkInfoList());
+    // Uint8List 是 final 类，无法使用 Fake，直接传入空实例
+    registerFallbackValue(Uint8List(0));
   });
 
   group('PublishDialog 对话框渲染测试', () {
@@ -134,7 +146,7 @@ void main() {
 
       // 验证容器可以正常创建
       final crypto = container.read(cryptoServiceProvider);
-      expect(crypto, isA<CryptoService>());
+      expect(crypto, isA<ICryptoService>());
     });
 
     testWidgets('错误发生后应该恢复非加载状态', (WidgetTester tester) async {
@@ -212,7 +224,7 @@ void main() {
 
       // 验证 mock 服务可以正常读取
       final crypto = container.read(cryptoServiceProvider);
-      expect(crypto, isA<CryptoService>());
+      expect(crypto, isA<ICryptoService>());
     });
   });
 
@@ -327,10 +339,11 @@ void main() {
           isAnonymous: false,
           tags: ['test'],
         ),
-        content: EncryptedContent(
-          encryptedDataBase64: 'dGVzdA==',
-          ivBase64: 'dGVzdA==',
-          algorithm: 'AES-256-GCM',
+        content: StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 65536,
+          totalChunks: 1,
+          originalPayloadSize: 100,
         ),
         integrity: IntegrityInfo(
           hash: 'sha256:test',
@@ -363,7 +376,9 @@ void main() {
       // 验证 content 字段（使用正确的 JSON key 名称）
       final content = decoded['content'] as Map<String, dynamic>;
       expect(content['encryption_algorithm'], equals('AES-256-GCM'));
-      expect(content['encrypted_data'], equals('dGVzdA=='));
+      expect(content['chunk_size'], equals(65536));
+      expect(content['total_chunks'], equals(1));
+      expect(content['original_payload_size'], equals(100));
 
       // 验证 integrity 字段
       final integrity = decoded['integrity'] as Map<String, dynamic>;
@@ -379,10 +394,11 @@ void main() {
           title: 'Anonymous Card',
           isAnonymous: true,
         ),
-        content: EncryptedContent(
-          encryptedDataBase64: 'dGVzdA==',
-          ivBase64: 'dGVzdA==',
-          algorithm: 'AES-256-GCM',
+        content: StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 65536,
+          totalChunks: 1,
+          originalPayloadSize: 100,
         ),
         integrity: IntegrityInfo(
           hash: 'sha256:test',
@@ -403,6 +419,8 @@ void main() {
   group('PublishDialog 敏感数据清理测试', () {
     test('发布成功后应该调用 clearSensitiveData', () {
       final mockCryptoService = MockCryptoService();
+      final mockIntegrityService = MockIntegrityService();
+      final mockFileIOService = MockFileIOService();
 
       // 设置 mock 返回一个 GeneratedKey
       when(mockCryptoService.generateKey).thenAnswer(
@@ -415,8 +433,32 @@ void main() {
       // 设置 clearSensitiveData 的 mock
       when(mockCryptoService.clearSensitiveData).thenReturn(null);
 
+      // Mock computeHashFromBytes 方法
+      when(
+        () => mockIntegrityService.computeHashFromBytes(any()),
+      ).thenReturn('sha256:mocked_hash');
+
+      // Mock buildBinaryFileBytes 方法
+      when(
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+        ),
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
       // 验证 clearSensitiveData 方法存在且可调用
       expect(mockCryptoService.clearSensitiveData, isA<Function>());
+
+      // 验证 mock 设置正确
+      expect(mockIntegrityService.computeHashFromBytes(Uint8List(0)),
+          'sha256:mocked_hash');
+      expect(
+        mockFileIOService.buildBinaryFileBytes(
+          strawFile: FakeStrawFile(),
+          chunks: FakeChunkInfoList(),
+        ),
+        isA<Uint8List>(),
+      );
     });
   });
 

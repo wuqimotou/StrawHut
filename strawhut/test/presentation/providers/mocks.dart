@@ -9,7 +9,7 @@ import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_file.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 
 /// FileIOService 的 Mock 类（扩展 Mock 并实现 FileIOService）
 class MockFileIOService extends Mock implements FileIOService {}
@@ -29,10 +29,11 @@ StrawFile createTestStrawFile({String title = 'Test Card'}) {
       tags: ['test'],
       description: 'Test Description',
     ),
-    content: const EncryptedContent(
-      encryptedDataBase64: 'dGVzdA==',
-      ivBase64: 'dGVzdA==',
-      algorithm: 'AES-256-GCM',
+    content: const StrawContent(
+      encryptionAlgorithm: 'AES-256-GCM',
+      chunkSize: 65536,
+      totalChunks: 1,
+      originalPayloadSize: 100,
     ),
     integrity: const IntegrityInfo(
       hash: 'sha256:test',

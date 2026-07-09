@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart'
@@ -7,10 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
+import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_file_upload.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_input.dart';
@@ -42,9 +46,9 @@ import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 /// 1. 展示当前卡片的元数据预览
 /// 2. 根据加密模式显示不同输入区域
 /// 3. 点击"解密"按钮
-/// 4. 调用 CryptoService.decryptContent() 解密
+/// 4. 调用 CryptoService.decrypt() 解密（新接口，返回 DecryptResult）
 /// 5. 调用 IntegrityService.verifyIntegrity() 校验完整性
-/// 6. 解密成功 → 关闭对话框，调用 onDecryptSuccess 回调
+/// 6. 解密成功 → 关闭对话框，调用 onDecryptSuccess 回调（传入 DecryptResult）
 /// 7. 解密失败 → 显示错误提示
 ///
 /// 使用示例：
@@ -52,8 +56,9 @@ import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 /// await DecryptDialog.show(
 ///   context,
 ///   strawFile: strawFile,
-///   onDecryptSuccess: (deltaJson) {
-///     // 处理解密后的 Delta JSON
+///   parsedFile: parsedFile,
+///   onDecryptSuccess: (result) {
+///     // 处理解密结果（包含 PayloadMetadata + payloadBytes）
 ///     Navigator.push(context, ...);
 ///   },
 /// );
@@ -63,22 +68,36 @@ class DecryptDialog extends ConsumerStatefulWidget {
   ///
   /// 参数：
   /// - [strawFile] - 要解密的 .straw 文件对象，必填
+  /// - [parsedFile] - 解析后的 .straw 文件对象（包含分块数据），必填
   /// - [onDecryptSuccess] - 解密成功后的回调函数，
-  ///   参数为解密后的 Delta JSON 字符串
+  ///   参数为解密结果（包含 PayloadMetadata 和 payloadBytes）
+  /// - [strawFilePath] - .straw 文件路径，用于流式解密大文件，可选
   const DecryptDialog({
     super.key,
     required this.strawFile,
+    required this.parsedFile,
     required this.onDecryptSuccess,
+    this.strawFilePath,
   });
 
-  /// 要解密的 .straw 文件对象
+  /// 要解密的 .straw 文件对象（JSON Header 部分）
   final StrawFile strawFile;
+
+  /// 解析后的 .straw 文件对象（包含分块数据）
+  final ParsedStrawFile parsedFile;
 
   /// 解密成功回调
   ///
   /// 解密和完整性校验全部通过后触发。
-  /// 参数为解密后的 Delta JSON 字符串，可用于渲染富文本内容。
-  final void Function(String deltaJson) onDecryptSuccess;
+  /// 参数为解密结果，包含载荷元数据和解密后的字节。
+  final void Function(DecryptResult result) onDecryptSuccess;
+
+  /// .straw 文件路径，用于流式解密大文件
+  ///
+  /// 当文件路径可用且文件为大文件（originalPayloadSize > 10MB）时，
+  /// 使用 [CryptoService.decryptStream] 流式解密，避免 OOM。
+  /// 路径不可用时（如 Android Intent 接收的字节数据），使用内存解密。
+  final String? strawFilePath;
 
   /// 弹出解密对话框
   ///
@@ -87,11 +106,15 @@ class DecryptDialog extends ConsumerStatefulWidget {
   /// 参数：
   /// - [context] - BuildContext 对象
   /// - [strawFile] - 要解密的 .straw 文件对象
+  /// - [parsedFile] - 解析后的 .straw 文件对象（包含分块数据）
   /// - [onDecryptSuccess] - 解密成功后的回调函数
+  /// - [strawFilePath] - .straw 文件路径，用于流式解密大文件，可选
   static Future<void> show(
     BuildContext context, {
     required StrawFile strawFile,
-    required void Function(String deltaJson) onDecryptSuccess,
+    required ParsedStrawFile parsedFile,
+    required void Function(DecryptResult result) onDecryptSuccess,
+    String? strawFilePath,
   }) {
     // On Android, use bottom sheet for better mobile UX
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -109,7 +132,9 @@ class DecryptDialog extends ConsumerStatefulWidget {
           builder: (context, scrollController) => _DecryptDialogMobile(
             scrollController: scrollController,
             strawFile: strawFile,
+            parsedFile: parsedFile,
             onDecryptSuccess: onDecryptSuccess,
+            strawFilePath: strawFilePath,
           ),
         ),
       );
@@ -119,7 +144,9 @@ class DecryptDialog extends ConsumerStatefulWidget {
       barrierDismissible: false,
       builder: (context) => DecryptDialog(
         strawFile: strawFile,
+        parsedFile: parsedFile,
         onDecryptSuccess: onDecryptSuccess,
+        strawFilePath: strawFilePath,
       ),
     );
   }
@@ -145,6 +172,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
   /// 加载状态（解密进行中）
   bool _isLoading = false;
+
+  /// 解密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
+  double _decryptProgress = 0.0;
 
   /// 错误消息
   String? _errorMessage;
@@ -177,14 +207,122 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     _keyInputKey.currentState?.setKey(keyBase64);
   }
 
+  /// 执行解密操作并校验完整性
+  ///
+  /// 统一封装解密+完整性校验逻辑。
+  /// 对于大文件（originalPayloadSize > 10MB）且有文件路径时，使用流式解密避免 OOM。
+  /// 当 chunks 为空（流式头部加载）且文件路径可用时，必须使用流式解密。
+  /// 返回解密成功的结果或 null（如果完整性校验失败）。
+  Future<DecryptResult?> _performDecryptAndVerify(Uint8List keyBytes) async {
+    final cryptoService = ref.read(cryptoServiceProvider);
+    final integrityService = ref.read(integrityServiceProvider);
+
+    // 判断是否使用流式解密
+    // 条件1：有文件路径（可以流式读取）
+    // 条件2：分块数据为空（流式加载的头部）或文件较大（>10MB）
+    const streamThreshold = 10 * 1024 * 1024; // 10MB
+    final useStream = widget.strawFilePath != null &&
+        (widget.parsedFile.chunks.isEmpty ||
+            widget.strawFile.content.originalPayloadSize > streamThreshold);
+
+    DecryptResult decryptResult;
+
+    if (useStream) {
+      // ========== 流式解密：直接写入临时文件，避免 OOM ==========
+      final tempDir = await TempFileManager.getTempDirectory();
+      final tempPath =
+          '$tempDir${Platform.pathSeparator}decrypt_temp_${DateTime.now().millisecondsSinceEpoch}';
+
+      final streamResult = await cryptoService.decryptStream(
+        strawFilePath: widget.strawFilePath!,
+        key: keyBytes,
+        targetPath: tempPath,
+        chunkSize: widget.strawFile.content.chunkSize,
+        originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        onProgress: (current, total) {
+          if (mounted && total > 0) {
+            setState(() {
+              _decryptProgress = current / total;
+            });
+          }
+        },
+      );
+
+      decryptResult = DecryptResult(
+        payloadMetadata: streamResult.payloadMetadata,
+        payloadBytes: Uint8List(0), // 流式解密不返回内存数据
+        decryptedFilePath: tempPath,
+      );
+    } else {
+      // ========== 内存解密 ==========
+      decryptResult = await cryptoService.decrypt(
+        chunks: widget.parsedFile.chunks,
+        key: keyBytes,
+        chunkSize: widget.strawFile.content.chunkSize,
+        originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        onProgress: (current, total) {
+          if (mounted && total > 0) {
+            setState(() {
+              _decryptProgress = current / total;
+            });
+          }
+        },
+      );
+    }
+
+    // ========== 完整性校验 ==========
+    final strawFileForHash = StrawFile(
+      formatVersion: widget.strawFile.formatVersion,
+      meta: widget.strawFile.meta,
+      content: widget.strawFile.content,
+      integrity: IntegrityInfo(
+        hash: '',
+        hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
+      ),
+    );
+
+    String computedHash;
+    if (useStream) {
+      // 流式完整性校验：直接读取 .straw 文件逐块计算哈希，避免 OOM
+      computedHash = await integrityService.computeHashFromStrawFile(
+        strawFile: strawFileForHash,
+        filePath: widget.strawFilePath!,
+      );
+    } else {
+      // 内存完整性校验
+      final fileIOService = ref.read(fileIOServiceProvider);
+      final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
+        strawFile: strawFileForHash,
+        chunks: widget.parsedFile.chunks,
+      );
+      computedHash =
+          integrityService.computeHashFromBytes(fileBytesWithoutHash);
+    }
+
+    final isIntegrityValid = computedHash == widget.strawFile.integrity.hash;
+
+    if (!isIntegrityValid) {
+      // 清理临时文件
+      if (decryptResult.decryptedFilePath != null) {
+        await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
+      }
+      // 清理敏感数据
+      MemoryUtils.wipeBytes(keyBytes);
+      cryptoService.clearSensitiveData();
+      return null; // 完整性校验失败
+    }
+
+    return decryptResult;
+  }
+
   /// 处理解密流程
   ///
   /// 完整的解密流程：
   /// 1. 根据加密模式获取密钥/暗号
   /// 2. 将密钥解码或从暗号派生密钥
-  /// 3. 调用 CryptoService.decryptContent() 解密
+  /// 3. 调用 CryptoService.decrypt() 解密（新接口）
   /// 4. 调用 IntegrityService.verifyIntegrity() 校验完整性
-  /// 5. 解密成功 → 清理敏感数据 → 关闭对话框 → 调用成功回调
+  /// 5. 解密成功 → 清理敏感数据 → 关闭对话框 → 调用成功回调（传入 DecryptResult）
   /// 6. 解密失败 → 显示错误提示
   Future<void> _handleDecrypt() async {
     final l10n = AppLocalizations.of(context)!;
@@ -201,6 +339,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
       setState(() {
         _isLoading = true;
+        _decryptProgress = 0.0;
         _errorMessage = null;
       });
 
@@ -208,7 +347,6 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
       try {
         // ========== 步骤 1：获取服务实例 ==========
         final cryptoService = ref.read(cryptoServiceProvider);
-        final integrityService = ref.read(integrityServiceProvider);
 
         // ========== 步骤 2：从暗号派生密钥 ==========
         // 读取 salt 和 kdfIterations
@@ -218,6 +356,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         if (saltBase64 == null || kdfIterations == null) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.passphraseDecryptFailed;
           });
           return;
@@ -229,6 +368,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         } on FormatException {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.passphraseDecryptFailed;
           });
           return;
@@ -241,40 +381,20 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           iterations: kdfIterations,
         );
 
-        // ========== 步骤 3：调用 CryptoService.decryptContent() 解密 ==========
-        final deltaJson = await cryptoService.decryptContent(
-          encryptedDataBase64: widget.strawFile.content.encryptedDataBase64,
-          ivBase64: widget.strawFile.content.ivBase64,
-          key: keyBytes,
-        );
+        // ========== 步骤 3：执行解密 + 完整性校验 ==========
+        final decryptResult = await _performDecryptAndVerify(keyBytes);
 
-        // ========== 步骤 4：调用 IntegrityService.verifyIntegrity() 校验 ==========
-        final strawFileForHash = StrawFile(
-          formatVersion: widget.strawFile.formatVersion,
-          meta: widget.strawFile.meta,
-          content: widget.strawFile.content,
-          integrity: IntegrityInfo(
-            hash: '',
-            hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
-          ),
-        );
-        final strawFileJson = strawFileForHash.assembleToJson();
-        final isIntegrityValid = integrityService.verifyIntegrity(
-          content: strawFileJson,
-          expectedHash: widget.strawFile.integrity.hash,
-        );
-
-        if (!isIntegrityValid) {
+        if (decryptResult == null) {
+          // 完整性校验失败
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.integrityError;
           });
-          MemoryUtils.wipeBytes(keyBytes);
-          cryptoService.clearSensitiveData();
           return;
         }
 
-        // ========== 步骤 5：解密成功，清理敏感数据 ==========
+        // ========== 步骤 4：解密成功，清理敏感数据 ==========
         MemoryUtils.wipeBytes(keyBytes);
         keyBytes = null;
         cryptoService.clearSensitiveData();
@@ -293,9 +413,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           }
         }
 
-        // 调用成功回调，传入解密后的 Delta JSON
+        // 调用成功回调，传入 DecryptResult
         if (mounted) {
-          widget.onDecryptSuccess(deltaJson);
+          widget.onDecryptSuccess(decryptResult);
           // 关闭对话框
           Navigator.pop(context);
         }
@@ -303,12 +423,14 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         // 加密服务抛出的异常（暗号错误、解密失败等）
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = l10n.passphraseDecryptFailed;
         });
       } on Exception catch (e) {
         // 其他已知异常
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = '解密过程中发生错误：$e';
         });
       } finally {
@@ -330,6 +452,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
       setState(() {
         _isLoading = true;
+        _decryptProgress = 0.0;
         _errorMessage = null;
       });
 
@@ -337,7 +460,6 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
       try {
         // ========== 步骤 1：获取服务实例 ==========
         final cryptoService = ref.read(cryptoServiceProvider);
-        final integrityService = ref.read(integrityServiceProvider);
 
         // ========== 步骤 2：将 Base64 密钥解码为字节数组 ==========
         final Uint8List decodedKey;
@@ -346,6 +468,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         } on FormatException {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = '密钥格式不正确，无法解析为有效的 Base64 数据';
           });
           return;
@@ -355,6 +478,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         if (decodedKey.length != KEY_LENGTH_BYTES) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = '密钥长度不正确：期望 $KEY_LENGTH_BYTES '
                 '字节，实际 ${decodedKey.length} 字节';
           });
@@ -364,42 +488,20 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
         keyBytes = decodedKey;
 
-        // ========== 步骤 3：调用 CryptoService.decryptContent() 解密 ==========
-        final deltaJson = await cryptoService.decryptContent(
-          encryptedDataBase64: widget.strawFile.content.encryptedDataBase64,
-          ivBase64: widget.strawFile.content.ivBase64,
-          key: keyBytes,
-        );
+        // ========== 步骤 3：执行解密 + 完整性校验 ==========
+        final decryptResult = await _performDecryptAndVerify(keyBytes);
 
-        // ========== 步骤 4：调用 IntegrityService.verifyIntegrity() 校验 ==========
-        final strawFileForHash = StrawFile(
-          formatVersion: widget.strawFile.formatVersion,
-          meta: widget.strawFile.meta,
-          content: widget.strawFile.content,
-          integrity: IntegrityInfo(
-            hash: '',
-            hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
-          ),
-        );
-        final strawFileJson = strawFileForHash.assembleToJson();
-        final isIntegrityValid = integrityService.verifyIntegrity(
-          content: strawFileJson,
-          expectedHash: widget.strawFile.integrity.hash,
-        );
-
-        if (!isIntegrityValid) {
-          // 完整性校验失败，文件可能被篡改
+        if (decryptResult == null) {
+          // 完整性校验失败
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.integrityError;
           });
-          // 清理敏感数据
-          MemoryUtils.wipeBytes(keyBytes);
-          cryptoService.clearSensitiveData();
           return;
         }
 
-        // ========== 步骤 5：解密成功，清理敏感数据 ==========
+        // ========== 步骤 4：解密成功，清理敏感数据 ==========
         MemoryUtils.wipeBytes(keyBytes);
         keyBytes = null;
         cryptoService.clearSensitiveData();
@@ -407,9 +509,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         // 清除密钥输入框中的敏感内容
         _keyInputKey.currentState?.clear();
 
-        // 调用成功回调，传入解密后的 Delta JSON
+        // 调用成功回调，传入 DecryptResult
         if (mounted) {
-          widget.onDecryptSuccess(deltaJson);
+          widget.onDecryptSuccess(decryptResult);
           // 关闭对话框
           Navigator.pop(context);
         }
@@ -417,12 +519,14 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         // 加密服务抛出的异常（密钥错误、解密失败等）
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = l10n.keyError;
         });
       } on Exception catch (e) {
         // 其他已知异常
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = '解密过程中发生错误：$e';
         });
       } finally {
@@ -525,10 +629,24 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         FilledButton(
           onPressed: _isLoading ? null : _handleDecrypt,
           child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        value: _decryptProgress > 0 ? _decryptProgress : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _decryptProgress > 0
+                          ? '${(_decryptProgress * 100).toInt()}%'
+                          : '解密中...',
+                    ),
+                  ],
                 )
               : Text(l10n.decrypt),
         ),
@@ -698,12 +816,16 @@ class _DecryptDialogMobile extends ConsumerStatefulWidget {
   const _DecryptDialogMobile({
     required this.scrollController,
     required this.strawFile,
+    required this.parsedFile,
     required this.onDecryptSuccess,
+    this.strawFilePath,
   });
 
   final ScrollController scrollController;
   final StrawFile strawFile;
-  final void Function(String deltaJson) onDecryptSuccess;
+  final ParsedStrawFile parsedFile;
+  final void Function(DecryptResult result) onDecryptSuccess;
+  final String? strawFilePath;
 
   @override
   ConsumerState<_DecryptDialogMobile> createState() =>
@@ -715,6 +837,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   final _passphraseInputKey = GlobalKey<PassphraseDecryptInputState>();
 
   bool _isLoading = false;
+  double _decryptProgress = 0.0;
   String? _errorMessage;
   String? _currentKey;
   bool _savePassphrase = false;
@@ -735,6 +858,111 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     _keyInputKey.currentState?.setKey(keyBase64);
   }
 
+  /// 执行解密操作并校验完整性
+  ///
+  /// 对于大文件（originalPayloadSize > 10MB）且有文件路径时，使用流式解密避免 OOM。
+  /// 当 chunks 为空（流式头部加载）且文件路径可用时，必须使用流式解密。
+  Future<DecryptResult?> _performDecryptAndVerify(Uint8List keyBytes) async {
+    final cryptoService = ref.read(cryptoServiceProvider);
+    final integrityService = ref.read(integrityServiceProvider);
+
+    // 判断是否使用流式解密
+    // 条件1：有文件路径（可以流式读取）
+    // 条件2：分块数据为空（流式加载的头部）或文件较大（>10MB）
+    const streamThreshold = 10 * 1024 * 1024; // 10MB
+    final useStream = widget.strawFilePath != null &&
+        (widget.parsedFile.chunks.isEmpty ||
+            widget.strawFile.content.originalPayloadSize > streamThreshold);
+
+    DecryptResult decryptResult;
+
+    if (useStream) {
+      // ========== 流式解密：直接写入临时文件，避免 OOM ==========
+      final tempDir = await TempFileManager.getTempDirectory();
+      final tempPath =
+          '$tempDir${Platform.pathSeparator}decrypt_temp_${DateTime.now().millisecondsSinceEpoch}';
+
+      final streamResult = await cryptoService.decryptStream(
+        strawFilePath: widget.strawFilePath!,
+        key: keyBytes,
+        targetPath: tempPath,
+        chunkSize: widget.strawFile.content.chunkSize,
+        originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        onProgress: (current, total) {
+          if (mounted && total > 0) {
+            setState(() {
+              _decryptProgress = current / total;
+            });
+          }
+        },
+      );
+
+      decryptResult = DecryptResult(
+        payloadMetadata: streamResult.payloadMetadata,
+        payloadBytes: Uint8List(0), // 流式解密不返回内存数据
+        decryptedFilePath: tempPath,
+      );
+    } else {
+      // ========== 内存解密 ==========
+      decryptResult = await cryptoService.decrypt(
+        chunks: widget.parsedFile.chunks,
+        key: keyBytes,
+        chunkSize: widget.strawFile.content.chunkSize,
+        originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        onProgress: (current, total) {
+          if (mounted && total > 0) {
+            setState(() {
+              _decryptProgress = current / total;
+            });
+          }
+        },
+      );
+    }
+
+    // ========== 完整性校验 ==========
+    final strawFileForHash = StrawFile(
+      formatVersion: widget.strawFile.formatVersion,
+      meta: widget.strawFile.meta,
+      content: widget.strawFile.content,
+      integrity: IntegrityInfo(
+        hash: '',
+        hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
+      ),
+    );
+
+    String computedHash;
+    if (useStream) {
+      // 流式完整性校验：直接读取 .straw 文件逐块计算哈希，避免 OOM
+      computedHash = await integrityService.computeHashFromStrawFile(
+        strawFile: strawFileForHash,
+        filePath: widget.strawFilePath!,
+      );
+    } else {
+      // 内存完整性校验
+      final fileIOService = ref.read(fileIOServiceProvider);
+      final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
+        strawFile: strawFileForHash,
+        chunks: widget.parsedFile.chunks,
+      );
+      computedHash =
+          integrityService.computeHashFromBytes(fileBytesWithoutHash);
+    }
+
+    final isIntegrityValid = computedHash == widget.strawFile.integrity.hash;
+
+    if (!isIntegrityValid) {
+      // 清理临时文件
+      if (decryptResult.decryptedFilePath != null) {
+        await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
+      }
+      MemoryUtils.wipeBytes(keyBytes);
+      cryptoService.clearSensitiveData();
+      return null;
+    }
+
+    return decryptResult;
+  }
+
   Future<void> _handleDecrypt() async {
     final l10n = AppLocalizations.of(context)!;
 
@@ -749,13 +977,13 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
       setState(() {
         _isLoading = true;
+        _decryptProgress = 0.0;
         _errorMessage = null;
       });
 
       Uint8List? keyBytes;
       try {
         final cryptoService = ref.read(cryptoServiceProvider);
-        final integrityService = ref.read(integrityServiceProvider);
 
         final saltBase64 = widget.strawFile.content.saltBase64;
         final kdfIterations = widget.strawFile.content.kdfIterations;
@@ -763,6 +991,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         if (saltBase64 == null || kdfIterations == null) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.passphraseDecryptFailed;
           });
           return;
@@ -774,6 +1003,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         } on FormatException {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.passphraseDecryptFailed;
           });
           return;
@@ -785,34 +1015,14 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           iterations: kdfIterations,
         );
 
-        final deltaJson = await cryptoService.decryptContent(
-          encryptedDataBase64: widget.strawFile.content.encryptedDataBase64,
-          ivBase64: widget.strawFile.content.ivBase64,
-          key: keyBytes,
-        );
+        final decryptResult = await _performDecryptAndVerify(keyBytes);
 
-        final strawFileForHash = StrawFile(
-          formatVersion: widget.strawFile.formatVersion,
-          meta: widget.strawFile.meta,
-          content: widget.strawFile.content,
-          integrity: IntegrityInfo(
-            hash: '',
-            hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
-          ),
-        );
-        final strawFileJson = strawFileForHash.assembleToJson();
-        final isIntegrityValid = integrityService.verifyIntegrity(
-          content: strawFileJson,
-          expectedHash: widget.strawFile.integrity.hash,
-        );
-
-        if (!isIntegrityValid) {
+        if (decryptResult == null) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.integrityError;
           });
-          MemoryUtils.wipeBytes(keyBytes);
-          cryptoService.clearSensitiveData();
           return;
         }
 
@@ -834,17 +1044,19 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         }
 
         if (mounted) {
-          widget.onDecryptSuccess(deltaJson);
+          widget.onDecryptSuccess(decryptResult);
           Navigator.pop(context);
         }
       } on CryptoException {
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = l10n.passphraseDecryptFailed;
         });
       } on Exception catch (e) {
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = '解密过程中发生错误：$e';
         });
       } finally {
@@ -863,13 +1075,13 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
       setState(() {
         _isLoading = true;
+        _decryptProgress = 0.0;
         _errorMessage = null;
       });
 
       Uint8List? keyBytes;
       try {
         final cryptoService = ref.read(cryptoServiceProvider);
-        final integrityService = ref.read(integrityServiceProvider);
 
         final Uint8List decodedKey;
         try {
@@ -877,6 +1089,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         } on FormatException {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = '密钥格式不正确，无法解析为有效的 Base64 数据';
           });
           return;
@@ -885,6 +1098,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         if (decodedKey.length != KEY_LENGTH_BYTES) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = '密钥长度不正确：期望 $KEY_LENGTH_BYTES '
                 '字节，实际 ${decodedKey.length} 字节';
           });
@@ -894,34 +1108,14 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
         keyBytes = decodedKey;
 
-        final deltaJson = await cryptoService.decryptContent(
-          encryptedDataBase64: widget.strawFile.content.encryptedDataBase64,
-          ivBase64: widget.strawFile.content.ivBase64,
-          key: keyBytes,
-        );
+        final decryptResult = await _performDecryptAndVerify(keyBytes);
 
-        final strawFileForHash = StrawFile(
-          formatVersion: widget.strawFile.formatVersion,
-          meta: widget.strawFile.meta,
-          content: widget.strawFile.content,
-          integrity: IntegrityInfo(
-            hash: '',
-            hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
-          ),
-        );
-        final strawFileJson = strawFileForHash.assembleToJson();
-        final isIntegrityValid = integrityService.verifyIntegrity(
-          content: strawFileJson,
-          expectedHash: widget.strawFile.integrity.hash,
-        );
-
-        if (!isIntegrityValid) {
+        if (decryptResult == null) {
           setState(() {
             _isLoading = false;
+            _decryptProgress = 0.0;
             _errorMessage = l10n.integrityError;
           });
-          MemoryUtils.wipeBytes(keyBytes);
-          cryptoService.clearSensitiveData();
           return;
         }
 
@@ -932,17 +1126,19 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         _keyInputKey.currentState?.clear();
 
         if (mounted) {
-          widget.onDecryptSuccess(deltaJson);
+          widget.onDecryptSuccess(decryptResult);
           Navigator.pop(context);
         }
       } on CryptoException {
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = l10n.keyError;
         });
       } on Exception catch (e) {
         setState(() {
           _isLoading = false;
+          _decryptProgress = 0.0;
           _errorMessage = '解密过程中发生错误：$e';
         });
       } finally {
@@ -1070,10 +1266,26 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                   child: FilledButton(
                     onPressed: _isLoading ? null : _handleDecrypt,
                     child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: _decryptProgress > 0
+                                      ? _decryptProgress
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _decryptProgress > 0
+                                    ? '${(_decryptProgress * 100).toInt()}%'
+                                    : '解密中...',
+                              ),
+                            ],
                           )
                         : Text(l10n.decrypt),
                   ),

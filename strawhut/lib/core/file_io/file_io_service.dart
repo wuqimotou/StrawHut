@@ -2,17 +2,20 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
+import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
 import 'package:strawhut/core/file_io/file_extensions.dart';
 import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/validation/format_validator.dart';
 import 'package:strawhut/data/models/key_file.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
 /// 文件 I/O 服务接口
 ///
 /// 定义 StrawHut 文件系统操作的契约，负责：
-/// - 读取和写入 .straw 知识卡片文件
+/// - 读取和写入二进制 .straw 知识卡片文件（v2.0 格式）
 /// - 读取和写入 .key 密钥文件
 /// - 验证文件扩展名的正确性
 ///
@@ -23,26 +26,32 @@ abstract class IFileIOService {
   ///
   /// 流程：
   /// 1. 验证文件扩展名是否为 .straw
-  /// 2. 读取文件内容（JSON 字符串）
-  /// 3. 解析 JSON 为 `Map<String, dynamic>`
-  /// 4. 调用 FormatValidator.validateStrawFormat() 验证格式
-  /// 5. 反序列化为 StrawFile 对象并返回
+  /// 2. 读取文件内容为字节数据
+  /// 3. 验证 Magic Bytes（"STRAWHUT"）
+  /// 4. 读取二进制版本号
+  /// 5. 读取 JSON Header 并验证格式
+  /// 6. 解析二进制分块数据
+  /// 7. 返回 ParsedStrawFile（包含 StrawFile + List<ChunkInfo>）
   ///
   /// 参数：[filePath] - 文件的完整路径
-  /// 返回：解析后的 StrawFile 对象
+  /// 返回：解析后的 ParsedStrawFile 对象
   /// 异常：文件不存在、格式错误、扩展名不正确时抛出异常
-  Future<StrawFile> readStrawFile(String filePath);
+  Future<ParsedStrawFile> readStrawFile(String filePath);
 
   /// 写入 .straw 知识卡片文件
   ///
-  /// 将完整的 .straw JSON 字符串写入指定路径。
+  /// 将二进制 .straw 文件写入指定路径，支持原子写入。
   ///
   /// 参数：
-  /// - [content] - 完整的 .straw JSON 字符串
+  /// - [strawFile] - StrawFile 对象（包含 JSON Header 信息）
+  /// - [chunks] - 加密分块列表
   /// - [targetPath] - 目标文件路径
+  /// - [atomic] - 是否使用原子写入（先写临时文件再重命名），默认为 true
   Future<void> writeStrawFile({
-    required String content,
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
     required String targetPath,
+    bool atomic = true,
   });
 
   /// 读取 .key 密钥文件
@@ -88,10 +97,10 @@ abstract class IFileIOService {
   /// 流程：
   /// 1. 验证文件扩展名是否为 .png
   /// 2. 读取文件为字节数据
-  /// 3. 调用 CoverImageService.extractStrawData 提取嵌入的 .straw JSON
-  /// 4. 解析 JSON 并验证格式
-  /// 5. 反序列化为 StrawFile 对象并返回
-  Future<StrawFile> readStrawPng(String filePath);
+  /// 3. 调用 CoverImageService.extractStrawData 提取嵌入的二进制数据
+  /// 4. 解码 Base64 为字节数据，然后按二进制 .straw 格式解析
+  /// 5. 返回 ParsedStrawFile 对象
+  Future<ParsedStrawFile> readStrawPng(String filePath);
 
   /// 验证文件是否为有效的 .png 文件
   ///
@@ -99,18 +108,29 @@ abstract class IFileIOService {
   /// 返回 true 表示扩展名正确，但不保证文件格式有效。
   bool isValidPngFile(String filePath);
 
+  /// 从文件流式读取 .straw 文件头部信息（不加载分块数据）
+  ///
+  /// 只读取文件头部（Magic Bytes + Version + Header JSON），
+  /// 不解析加密分块数据，适用于大文件场景。
+  /// 分块数据为空列表，解密时需使用 decryptStream() 而非 decrypt()。
+  ///
+  /// 参数：[filePath] - 文件路径
+  /// 返回：ParsedStrawFile（chunks 为空列表）
+  Future<ParsedStrawFile> readStrawFileHeader(String filePath);
+
   /// 从字节数据读取 .straw 知识卡片文件（Android content:// URI 支持）
   ///
   /// 流程：
-  /// 1. 将字节数据解码为 JSON 字符串
-  /// 2. 解析 JSON 为 `Map<String, dynamic>`
-  /// 3. 调用 FormatValidator.validateStrawFormat() 验证格式
-  /// 4. 反序列化为 StrawFile 对象并返回
+  /// 1. 验证 Magic Bytes
+  /// 2. 读取二进制版本号
+  /// 3. 读取 JSON Header 并验证格式
+  /// 4. 解析二进制分块数据
+  /// 5. 返回 ParsedStrawFile 对象
   ///
   /// 参数：[bytes] - .straw 文件的字节数据
-  /// 返回：解析后的 StrawFile 对象
+  /// 返回：解析后的 ParsedStrawFile 对象
   /// 异常：格式错误时抛出异常
-  Future<StrawFile> readStrawFileFromBytes(Uint8List bytes);
+  Future<ParsedStrawFile> readStrawFileFromBytes(Uint8List bytes);
 
   /// 从字节数据读取 .key 密钥文件（Android content:// URI 支持）
   ///
@@ -128,40 +148,61 @@ abstract class IFileIOService {
   /// 从字节数据读取内嵌 .straw 数据的 PNG 图片（Android content:// URI 支持）
   ///
   /// 流程：
-  /// 1. 将字节数据传给 CoverImageService.extractStrawData 提取嵌入的 .straw JSON
-  /// 2. 解析 JSON 并验证格式
-  /// 3. 反序列化为 StrawFile 对象并返回
+  /// 1. 将字节数据传给 CoverImageService.extractStrawData 提取嵌入的二进制数据
+  /// 2. 按二进制 .straw 格式解析
+  /// 3. 返回 ParsedStrawFile 对象
   ///
   /// 参数：[bytes] - PNG 图片的字节数据
-  /// 返回：解析后的 StrawFile 对象
+  /// 返回：解析后的 ParsedStrawFile 对象
   /// 异常：图片不包含嵌入数据或格式错误时抛出异常
-  Future<StrawFile> readStrawPngFromBytes(Uint8List bytes);
+  Future<ParsedStrawFile> readStrawPngFromBytes(Uint8List bytes);
+
+  /// 构建二进制 .straw 文件字节数据（不写入磁盘）
+  ///
+  /// 将 StrawFile 和加密分块列表组装为完整的二进制 .straw 字节序列。
+  /// 用于需要获取字节数据但不写入文件的场景（如嵌入到 PNG 中）。
+  ///
+  /// 参数：
+  /// - [strawFile] - StrawFile 对象（包含 JSON Header 信息）
+  /// - [chunks] - 加密分块列表
+  /// 返回：完整的二进制 .straw 文件字节数据
+  Uint8List buildBinaryFileBytes({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+  });
 }
 
 /// 文件 I/O 服务实现
 ///
 /// 实现 [IFileIOService] 接口，使用 dart:io 的 File 类执行实际的文件操作。
+/// 支持 .straw v2.0 二进制容器格式的读写。
 ///
 /// 依赖的第三方库：
 /// - `path`：跨平台路径操作（提取扩展名、拼接路径等）
 /// - `dart:io`：原生文件系统操作
 /// - `dart:convert`：JSON 编解码
+/// - `dart:typed_data`：二进制数据处理
 ///
 /// 架构职责：
 /// - 作为核心服务层，负责文件读写的底层 I/O 操作
 /// - 所有读取操作都会自动进行格式验证（安全防线）
 /// - 所有写入操作信任调用方传入的内容（格式由调用方保证）
 ///
-/// 使用示例：
-/// ```dart
-/// final fileIOService = FileIOService();
-/// // 读取 .straw 文件
-/// final strawFile = await fileIOService.readStrawFile('/path/to/card.straw');
-/// // 写入 .straw 文件
-/// await fileIOService.writeStrawFile(
-///   content: strawFile.assembleToJson(),
-///   targetPath: '/path/to/output.straw',
-/// );
+/// 二进制 .straw v2.0 文件格式：
+/// ```
+/// 0x00000000    Magic Bytes            8 bytes    "STRAWHUT" (ASCII)
+/// 0x00000008    Format Version Major   2 bytes    uint16 LE, value = 2
+/// 0x0000000A    Format Version Minor   2 bytes    uint16 LE, value = 0
+/// 0x0000000C    Header Size            4 bytes    uint32 LE, JSON header bytes
+/// 0x00000010    JSON Header            variable   UTF-8 JSON metadata
+/// 0x00000010+H  Chunk 1..N            variable   encrypted chunks
+/// ```
+///
+/// 每个分块格式：
+/// ```
+/// 0x00    Chunk IV           16 bytes
+/// 0x10    Chunk Data Size    4 bytes    uint32 LE
+/// 0x14    Encrypted Data     variable   ciphertext + GCM Tag
 /// ```
 class FileIOService implements IFileIOService {
   /// 格式验证器实例，用于读取文件后自动验证格式
@@ -183,31 +224,11 @@ class FileIOService implements IFileIOService {
   /// 返回：true 表示扩展名为 .straw（不区分大小写），false 表示扩展名不匹配
   @override
   bool isValidStrawFile(String filePath) {
-    // 使用 path 包提取文件扩展名，自动处理跨平台路径差异
-    // 例如："/path/to/file.straw" -> ".straw"
-    //       "C:\\Users\\file.STRaw" -> ".STRaw"（大小写保留）
     final extension = p.extension(filePath);
-
-    // 不区分大小写匹配扩展名
-    // 兼容 Windows/macOS 文件系统（不区分大小写）
-    // .straw 是我们定义的知识卡片文件标准扩展名
     return extension.toLowerCase() == FileExtensions.straw;
   }
 
   /// 验证文件路径是否为有效的 .key 文件
-  ///
-  /// 工作原理：
-  /// 1. 使用 path 包的 extension() 方法从完整路径中提取文件扩展名
-  /// 2. 将提取的扩展名转为小写后与 FileExtensions.key（'.key'）进行比较
-  ///
-  /// 安全意义：
-  /// - 密钥文件包含敏感的加密密钥，扩展名校验可以防止误读无关文件
-  /// - 不区分大小写匹配，兼容各种文件系统
-  /// - 与 isValidStrawFile 类似，仅作为初步筛选机制
-  /// - 真正的密钥格式验证在 readKeyFile() 中完成
-  ///
-  /// 参数：[filePath] - 文件的完整路径（包含文件名和扩展名）
-  /// 返回：true 表示扩展名为 .key（不区分大小写），false 表示扩展名不匹配
   @override
   bool isValidKeyFile(String filePath) {
     final extension = p.extension(filePath);
@@ -220,106 +241,15 @@ class FileIOService implements IFileIOService {
     return extension.toLowerCase() == FileExtensions.png;
   }
 
-  @override
-  Future<StrawFile> readStrawPng(String filePath) async {
-    if (!isValidPngFile(filePath)) {
-      throw FileException(
-        '无效的文件扩展名：期望 .png，'
-        '实际为 "${p.extension(filePath)}"。'
-        '请确保选择的是 StrawHut 知识卡片图片。',
-        code: 'INVALID_EXTENSION',
-      );
-    }
-
-    final file = File(filePath);
-    if (!await file.exists()) {
-      throw FileException(
-        '文件不存在："$filePath"。\n'
-        '可能原因：文件已被删除、移动，或路径输入有误。',
-        code: 'FILE_NOT_FOUND',
-      );
-    }
-
-    Uint8List fileBytes;
-    try {
-      fileBytes = await file.readAsBytes();
-    } on FileSystemException catch (e) {
-      throw FileException(
-        '读取文件失败："$filePath"。\n'
-        '系统错误：${e.message}\n'
-        '可能原因：权限不足、文件被占用或磁盘故障。',
-        code: 'ACCESS_DENIED',
-      );
-    }
-
-    return readStrawPngFromBytes(fileBytes);
-  }
-
-  @override
-  Future<StrawFile> readStrawPngFromBytes(Uint8List bytes) async {
-    final strawJson = await CoverImageService.extractStrawData(bytes);
-    if (strawJson == null) {
-      throw FileException(
-        '该图片不是知识卡片或传输的不是原图，请确认文件来源后重试',
-        code: 'NOT_STRAWHUT_PNG',
-      );
-    }
-
-    Map<String, dynamic> jsonData;
-    try {
-      jsonData = jsonDecode(strawJson) as Map<String, dynamic>;
-    } on FormatException catch (e) {
-      throw FileException(
-        'JSON 解析失败。\n'
-        '文件内容不是有效的 JSON 格式。\n'
-        '详细信息：${e.message}\n'
-        '可能原因：文件已损坏或被篡改。',
-        code: 'INVALID_FORMAT',
-      );
-    }
-
-    final validationResult = _formatValidator.validateStrawFormat(jsonData);
-    if (!validationResult.isValid) {
-      final errorDetails = validationResult.errors.join('\n');
-      throw FileException(
-        '文件格式验证失败。\n'
-        '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
-        code: 'VALIDATION_FAILED',
-      );
-    }
-
-    return StrawFile.fromJson(jsonData);
-  }
-
   /// 读取 .straw 知识卡片文件
   ///
   /// 完整的读取流程（每一步都有安全考量）：
   /// 1. 扩展名校验 —— 防止误读非 .straw 文件
   /// 2. 文件存在性检查 —— 避免无效 I/O 操作，提供清晰的错误信息
-  /// 3. 读取文件内容为字符串 —— 将磁盘数据加载到内存
-  /// 4. JSON 解析 —— 将字符串反序列化为结构化数据
-  /// 5. 格式验证 —— 确保文件结构符合规范，防止恶意/损坏文件进入系统
-  /// 6. 模型反序列化 —— 转换为强类型的 StrawFile 对象供业务层使用
-  ///
-  /// 安全考量：
-  /// - 扩展名校验：快速过滤明显不匹配的文件，减少不必要的 I/O 开销
-  /// - 存在性检查：在读取前确认文件存在，避免无意义的异常
-  /// - 格式验证：这是最核心的安全验证，确保文件结构完整、算法正确
-  ///   - 验证加密算法必须为 AES-256-GCM（防止降级攻击）
-  ///   - 验证哈希算法必须为 SHA-256（确保完整性校验强度）
-  ///   - 验证所有必填字段存在（确保文件结构完整）
-  ///   - 验证字段长度限制（防止缓冲区溢出或拒绝服务攻击）
-  ///
-  /// 参数：[filePath] - .straw 文件的完整路径
-  /// 返回：解析并验证后的 StrawFile 对象
-  /// 异常：
-  /// - FileException（扩展名不正确）
-  /// - FileException（文件不存在）
-  /// - FileException（JSON 格式错误）
-  /// - FileException（格式验证失败，包含详细错误列表）
-  /// - FileException（其他 I/O 异常）
+  /// 3. 读取文件内容为字节数据 —— 将磁盘数据加载到内存
+  /// 4. 委托给 readStrawFileFromBytes 完成二进制解析
   @override
-  Future<StrawFile> readStrawFile(String filePath) async {
+  Future<ParsedStrawFile> readStrawFile(String filePath) async {
     // ========== 步骤 1：验证文件扩展名 ==========
     if (!isValidStrawFile(filePath)) {
       throw FileException(
@@ -356,35 +286,190 @@ class FileIOService implements IFileIOService {
     return readStrawFileFromBytes(bytes);
   }
 
+  /// 从文件流式读取 .straw 文件头部信息（不加载分块数据）
+  ///
+  /// 使用 RandomAccessFile 只读取文件头部（Magic Bytes + Version + Header JSON），
+  /// 不将整个文件加载到内存，适用于大文件场景。
+  /// 分块数据为空列表，解密时需使用 decryptStream() 而非 decrypt()。
   @override
-  Future<StrawFile> readStrawFileFromBytes(Uint8List bytes) async {
-    // ========== 步骤 1：解码 UTF-8 并解析 JSON ==========
-    String fileContent;
+  Future<ParsedStrawFile> readStrawFileHeader(String filePath) async {
+    // ========== 步骤 1：验证文件扩展名 ==========
+    if (!isValidStrawFile(filePath)) {
+      throw FileException(
+        '无效的文件扩展名：期望 .straw，'
+        '实际为 "${p.extension(filePath)}"。'
+        '请确保选择的是 StrawHut 知识卡片文件。',
+        code: 'INVALID_EXTENSION',
+      );
+    }
+
+    // ========== 步骤 2：检查文件是否存在 ==========
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileException(
+        '文件不存在："$filePath"。\n'
+        '可能原因：文件已被删除、移动，或路径输入有误。',
+        code: 'FILE_NOT_FOUND',
+      );
+    }
+
+    // ========== 步骤 3：使用 RandomAccessFile 只读取头部 ==========
+    final raf = await file.open();
     try {
-      fileContent = utf8.decode(bytes);
+      // 读取 Magic Bytes (8 bytes)
+      final magicData = await raf.read(MAGIC_BYTES_LENGTH);
+      final magicString = String.fromCharCodes(magicData);
+      if (magicString != 'STRAWHUT') {
+        throw FileException(
+          'Magic Bytes 不匹配：期望 "STRAWHUT"，实际为 "$magicString"。\n'
+          '该文件不是有效的 StrawHut 二进制格式文件。',
+          code: 'INVALID_FORMAT',
+        );
+      }
+
+      // 读取版本号 (4 bytes: major 2B + minor 2B)
+      final versionData = await raf.read(4);
+      final majorVersion = _readUint16LEFromBytes(versionData, 0);
+      final minorVersion = _readUint16LEFromBytes(versionData, 2);
+      if (majorVersion != BINARY_FORMAT_MAJOR) {
+        throw FileException(
+          '不兼容的二进制格式版本: v$majorVersion.$minorVersion，'
+          '仅支持 v$BINARY_FORMAT_MAJOR.$BINARY_FORMAT_MINOR',
+          code: 'INCOMPATIBLE_VERSION',
+        );
+      }
+
+      // 读取 Header Size (4 bytes)
+      final headerSizeData = await raf.read(4);
+      final headerSize = _readUint32LEFromBytes(headerSizeData, 0);
+
+      // 读取 JSON Header
+      final headerJsonData = await raf.read(headerSize);
+      String headerJson;
+      try {
+        headerJson = utf8.decode(headerJsonData);
+      } on FormatException catch (e) {
+        throw FileException(
+          'JSON Header 不是有效的 UTF-8 编码。\n'
+          '详细信息：${e.message}\n'
+          '可能原因：文件已损坏或被篡改。',
+          code: 'INVALID_FORMAT',
+        );
+      }
+
+      Map<String, dynamic> jsonData;
+      try {
+        jsonData = jsonDecode(headerJson) as Map<String, dynamic>;
+      } on FormatException catch (e) {
+        throw FileException(
+          'JSON Header 解析失败。\n'
+          '文件内容不是有效的 JSON 格式。\n'
+          '详细信息：${e.message}\n'
+          '可能原因：文件已损坏或被篡改。',
+          code: 'INVALID_FORMAT',
+        );
+      }
+
+      // ========== 步骤 4：验证 JSON Header 格式 ==========
+      final validationResult = _formatValidator.validateStrawFormat(jsonData);
+      if (!validationResult.isValid) {
+        final errorDetails = validationResult.errors.join('\n');
+        throw FileException(
+          '文件格式验证失败。\n'
+          '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
+          code: 'VALIDATION_FAILED',
+        );
+      }
+
+      final strawFile = StrawFile.fromJson(jsonData);
+      // 分块数据为空列表 - 解密时需使用 decryptStream()
+      return ParsedStrawFile(strawFile: strawFile, chunks: []);
+    } finally {
+      await raf.close();
+    }
+  }
+
+  /// 从字节数据读取 .straw 知识卡片文件
+  ///
+  /// 完整的二进制解析流程：
+  /// 1. 验证 Magic Bytes（"STRAWHUT"）
+  /// 2. 读取二进制格式版本号
+  /// 3. 读取 Header Size，提取 JSON Header 字节
+  /// 4. 解析 JSON Header 并验证格式
+  /// 5. 解析二进制分块数据
+  /// 6. 返回 ParsedStrawFile
+  @override
+  Future<ParsedStrawFile> readStrawFileFromBytes(Uint8List bytes) async {
+    // ========== 步骤 1：验证 Magic Bytes ==========
+    final binaryValidation = _formatValidator.validateBinaryFormat(bytes);
+    if (!binaryValidation.isValid) {
+      final errorDetails = binaryValidation.errors.join('\n');
+      throw FileException(
+        '文件格式验证失败。\n'
+        '以下字段或格式不符合 StrawHut 规范：\n$errorDetails',
+        code: 'VALIDATION_FAILED',
+      );
+    }
+
+    // ========== 步骤 2：读取二进制格式版本号 ==========
+    if (bytes.length < MAGIC_BYTES_LENGTH + 4) {
+      throw FileException(
+        '文件数据过短，无法读取格式版本号。\n'
+        '至少需要 ${MAGIC_BYTES_LENGTH + 4} 字节。',
+        code: 'INVALID_FORMAT',
+      );
+    }
+    final majorVersion = _readUint16LE(bytes, MAGIC_BYTES_LENGTH);
+    final minorVersion = _readUint16LE(bytes, MAGIC_BYTES_LENGTH + 2);
+
+    if (majorVersion != BINARY_FORMAT_MAJOR) {
+      throw FileException(
+        '不兼容的二进制格式版本: v$majorVersion.$minorVersion，'
+        '仅支持 v$BINARY_FORMAT_MAJOR.$BINARY_FORMAT_MINOR',
+        code: 'INCOMPATIBLE_VERSION',
+      );
+    }
+
+    // ========== 步骤 3：读取 Header Size 和 JSON Header ==========
+    if (bytes.length < MAGIC_BYTES_LENGTH + 4 + 4) {
+      throw FileException(
+        '文件数据过短，无法读取 Header Size。\n'
+        '至少需要 ${MAGIC_BYTES_LENGTH + 4 + 4} 字节。',
+        code: 'INVALID_FORMAT',
+      );
+    }
+    final headerSize = _readUint32LE(bytes, MAGIC_BYTES_LENGTH + 4);
+
+    const headerOffset = MAGIC_BYTES_LENGTH + 4 + 4; // 16
+    if (bytes.length < headerOffset + headerSize) {
+      throw FileException(
+        '文件数据过短，无法读取完整的 JSON Header。\n'
+        'Header Size: $headerSize 字节，但文件仅剩 ${bytes.length - headerOffset} 字节。',
+        code: 'INVALID_FORMAT',
+      );
+    }
+
+    // ========== 步骤 4：解析 JSON Header ==========
+    String headerJson;
+    try {
+      headerJson = utf8.decode(
+        bytes.sublist(headerOffset, headerOffset + headerSize),
+      );
     } on FormatException catch (e) {
       throw FileException(
-        '文件内容不是有效的 UTF-8 编码。\n'
+        'JSON Header 不是有效的 UTF-8 编码。\n'
         '详细信息：${e.message}\n'
         '可能原因：文件已损坏或被篡改。',
         code: 'INVALID_FORMAT',
       );
     }
 
-    if (fileContent.trim().isEmpty) {
-      throw FileException(
-        '文件内容为空。\n'
-        '可能原因：文件尚未写入完成或文件已损坏。',
-        code: 'EMPTY_FILE',
-      );
-    }
-
     Map<String, dynamic> jsonData;
     try {
-      jsonData = jsonDecode(fileContent) as Map<String, dynamic>;
+      jsonData = jsonDecode(headerJson) as Map<String, dynamic>;
     } on FormatException catch (e) {
       throw FileException(
-        'JSON 解析失败。\n'
+        'JSON Header 解析失败。\n'
         '文件内容不是有效的 JSON 格式。\n'
         '详细信息：${e.message}\n'
         '可能原因：文件已损坏或被篡改。',
@@ -392,7 +477,7 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 2：验证文件格式 ==========
+    // ========== 步骤 5：验证 JSON Header 格式 ==========
     final validationResult = _formatValidator.validateStrawFormat(jsonData);
     if (!validationResult.isValid) {
       final errorDetails = validationResult.errors.join('\n');
@@ -403,58 +488,132 @@ class FileIOService implements IFileIOService {
       );
     }
 
-    // ========== 步骤 3：反序列化为 StrawFile 对象 ==========
-    return StrawFile.fromJson(jsonData);
+    // ========== 步骤 6：解析二进制分块数据 ==========
+    final chunksDataStart = headerOffset + headerSize;
+    final chunks = _parseChunks(bytes, chunksDataStart);
+
+    // ========== 步骤 7：组装 ParsedStrawFile ==========
+    final strawFile = StrawFile.fromJson(jsonData);
+    return ParsedStrawFile(strawFile: strawFile, chunks: chunks);
   }
 
   /// 写入 .straw 知识卡片文件
   ///
-  /// 将完整的 .straw JSON 字符串写入指定文件路径。
-  ///
-  /// 设计决策 —— 为什么写入时不验证格式？
-  /// - content 参数应由调用方通过 StrawFile.assembleToJson() 生成
-  /// - StrawFile 对象本身是通过 readStrawFile() 读取或程序内部构造的
-  /// - 内部构造的数据已经经过格式验证，无需重复检查
-  /// - 这样可以避免不必要的性能开销
-  /// - 如果调用方传入非法内容，责任在调用方
+  /// 将 StrawFile 和加密分块组装为二进制 .straw 格式并写入指定路径。
+  /// 支持原子写入模式：先写入临时文件，再重命名为目标文件，
+  /// 防止写入过程中崩溃导致文件损坏。
   ///
   /// 参数：
-  /// - [content] - 完整的 .straw JSON 字符串（由调用方保证格式正确）
-  /// - [targetPath] - 目标文件的完整路径
-  /// 异常：
-  /// - FileException（写入失败，包含系统级错误详情）
+  /// - [strawFile] - StrawFile 对象（包含 JSON Header 信息）
+  /// - [chunks] - 加密分块列表
+  /// - [targetPath] - 目标文件路径
+  /// - [atomic] - 是否使用原子写入，默认为 true
   @override
   Future<void> writeStrawFile({
-    required String content,
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
     required String targetPath,
+    bool atomic = true,
   }) async {
-    // ========== 创建/覆盖文件并写入内容 ==========
-    // File.writeAsString() 的行为：
-    // - 如果文件不存在，会自动创建
-    // - 如果文件已存在，会覆盖原有内容
-    // - 写入是原子操作（在大多数文件系统上）
-    //
-    // 安全考量：
-    // - 覆盖操作不可逆，调用方应确保 targetPath 是正确的目标路径
-    // - 在生产环境中，可考虑先写入临时文件再重命名，实现安全覆盖
-    final file = File(targetPath);
-    try {
-      await file.writeAsString(content);
-    } on FileSystemException catch (e) {
-      // FileSystemException 可能由以下原因触发：
-      // - 权限不足（无写入权限到目标目录）
-      // - 磁盘空间不足（无法写入新数据）
-      // - 目标路径无效（如指向只读目录）
-      // - 文件被其他进程锁定
-      //
-      // 包装为 FileException，保留原始系统错误信息供调试使用
+    final binaryData = _buildBinaryFile(strawFile, chunks);
+
+    if (atomic) {
+      // 原子写入：先写入临时文件，再重命名
+      // 临时文件名格式：目标文件名 + .tmp + 时间戳
+      final tempPath =
+          '$targetPath.tmp.${DateTime.now().millisecondsSinceEpoch}';
+      final tempFile = File(tempPath);
+
+      try {
+        await tempFile.writeAsBytes(binaryData);
+        await tempFile.rename(targetPath);
+      } on FileSystemException catch (e) {
+        // 清理临时文件
+        try {
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+        } on FileSystemException {
+          // 忽略清理失败
+        }
+        throw FileException(
+          '写入文件失败："$targetPath"。\n'
+          '系统错误：${e.message}\n'
+          '可能原因：权限不足、磁盘空间已满或目标路径无效。',
+          code: 'WRITE_FAILED',
+        );
+      }
+    } else {
+      // 非原子写入：直接写入目标文件
+      final file = File(targetPath);
+      try {
+        await file.writeAsBytes(binaryData);
+      } on FileSystemException catch (e) {
+        throw FileException(
+          '写入文件失败："$targetPath"。\n'
+          '系统错误：${e.message}\n'
+          '可能原因：权限不足、磁盘空间已满或目标路径无效。',
+          code: 'WRITE_FAILED',
+        );
+      }
+    }
+  }
+
+  @override
+  Uint8List buildBinaryFileBytes({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+  }) {
+    return _buildBinaryFile(strawFile, chunks);
+  }
+
+  @override
+  Future<ParsedStrawFile> readStrawPng(String filePath) async {
+    if (!isValidPngFile(filePath)) {
       throw FileException(
-        '写入文件失败："$targetPath"。\n'
-        '系统错误：${e.message}\n'
-        '可能原因：权限不足、磁盘空间已满或目标路径无效。',
-        code: 'WRITE_FAILED',
+        '无效的文件扩展名：期望 .png，'
+        '实际为 "${p.extension(filePath)}"。'
+        '请确保选择的是 StrawHut 知识卡片图片。',
+        code: 'INVALID_EXTENSION',
       );
     }
+
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw FileException(
+        '文件不存在："$filePath"。\n'
+        '可能原因：文件已被删除、移动，或路径输入有误。',
+        code: 'FILE_NOT_FOUND',
+      );
+    }
+
+    Uint8List fileBytes;
+    try {
+      fileBytes = await file.readAsBytes();
+    } on FileSystemException catch (e) {
+      throw FileException(
+        '读取文件失败："$filePath"。\n'
+        '系统错误：${e.message}\n'
+        '可能原因：权限不足、文件被占用或磁盘故障。',
+        code: 'ACCESS_DENIED',
+      );
+    }
+
+    return readStrawPngFromBytes(fileBytes);
+  }
+
+  @override
+  Future<ParsedStrawFile> readStrawPngFromBytes(Uint8List bytes) async {
+    final strawBinaryData = await CoverImageService.extractStrawData(bytes);
+    if (strawBinaryData == null) {
+      throw FileException(
+        '该图片不是知识卡片或传输的不是原图，请确认文件来源后重试',
+        code: 'NOT_STRAWHUT_PNG',
+      );
+    }
+
+    // 提取的是 Base64 编码的二进制 .straw 数据，直接按二进制格式解析
+    return readStrawFileFromBytes(strawBinaryData);
   }
 
   /// 读取 .key 密钥文件
@@ -466,23 +625,6 @@ class FileIOService implements IFileIOService {
   /// 4. JSON 解析 —— 反序列化为结构化数据
   /// 5. 格式验证 —— 确保密钥文件结构符合规范
   /// 6. 模型反序列化 —— 转换为强类型的 KeyFile 对象
-  ///
-  /// 安全考量（密钥文件的特殊性）：
-  /// - 密钥文件包含敏感的加密密钥，泄露会导致所有关联卡片可被解密
-  /// - 格式验证确保密钥算法为 AES-256-GCM、密钥长度为 256 位
-  /// - 完整性校验确保密钥在存储/传输过程中未被篡改
-  /// - 如果密钥文件格式错误，可能导致：
-  ///   1. 解密失败（数据不可用）
-  ///   2. 使用错误密钥解密后产生乱码（用户可能误以为数据损坏）
-  ///
-  /// 参数：[filePath] - .key 密钥文件的完整路径
-  /// 返回：解析并验证后的 KeyFile 对象
-  /// 异常：
-  /// - FileException（扩展名不正确）
-  /// - FileException（文件不存在）
-  /// - FileException（JSON 格式错误）
-  /// - FileException（格式验证失败）
-  /// - FileException（其他 I/O 异常）
   @override
   Future<KeyFile> readKeyFile(String filePath) async {
     if (!isValidKeyFile(filePath)) {
@@ -559,36 +701,15 @@ class FileIOService implements IFileIOService {
   }
 
   /// 写入 .key 密钥文件
-  ///
-  /// 将完整的 .key JSON 字符串写入指定文件路径。
-  ///
-  /// 安全注意事项：
-  /// - 密钥文件包含敏感的加密密钥，写入操作应谨慎处理
-  /// - 调用方应确保 targetPath 是安全的存储位置
-  /// - 建议将密钥文件存储在用户指定的安全目录中
-  /// - 写入失败时抛出异常，调用方应妥善处理并通知用户
-  ///
-  /// 参数：
-  /// - [content] - 完整的 .key JSON 字符串（由调用方保证格式正确）
-  /// - [targetPath] - 目标密钥文件的完整路径
-  /// 异常：
-  /// - FileException（写入失败，包含系统级错误详情）
   @override
   Future<void> writeKeyFile({
     required String content,
     required String targetPath,
   }) async {
-    // ========== 创建/覆盖密钥文件并写入内容 ==========
-    // 与 writeStrawFile 相同的写入逻辑
-    // 但需要更加注意目标路径的安全性，因为这是密钥文件
     final file = File(targetPath);
     try {
       await file.writeAsString(content);
     } on FileSystemException catch (e) {
-      // 密钥文件写入失败可能导致：
-      // - 用户无法保存密钥，影响后续解密操作
-      // - 如果是在密钥生成流程中，可能需要重新生成密钥
-      // 保留原始系统错误信息供调试和日志记录使用
       throw FileException(
         '写入密钥文件失败："$targetPath"。\n'
         '系统错误：${e.message}\n'
@@ -596,5 +717,152 @@ class FileIOService implements IFileIOService {
         code: 'WRITE_FAILED',
       );
     }
+  }
+
+  // =========================================================================
+  // 二进制格式辅助方法
+  // =========================================================================
+
+  /// 组装二进制 .straw 文件
+  ///
+  /// 将 StrawFile 和加密分块列表组装为完整的二进制 .straw 文件字节数据。
+  ///
+  /// 文件结构：
+  /// ```
+  /// Magic Bytes (8B) + Version Major (2B) + Version Minor (2B) +
+  /// Header Size (4B) + JSON Header (variable) + Chunks (variable)
+  /// ```
+  Uint8List _buildBinaryFile(StrawFile strawFile, List<ChunkInfo> chunks) {
+    final builder = BytesBuilder();
+
+    // 1. Magic Bytes: "STRAWHUT" (8 bytes)
+    builder.add(STRAW_MAGIC_BYTES);
+
+    // 2. Format Version Major (2 bytes uint16 LE)
+    _writeUint16LE(builder, BINARY_FORMAT_MAJOR);
+
+    // 3. Format Version Minor (2 bytes uint16 LE)
+    _writeUint16LE(builder, BINARY_FORMAT_MINOR);
+
+    // 4. JSON Header
+    final headerJson = strawFile.assembleHeaderToJson();
+    final headerBytes = Uint8List.fromList(utf8.encode(headerJson));
+
+    // 5. Header Size (4 bytes uint32 LE)
+    _writeUint32LE(builder, headerBytes.length);
+
+    // 6. JSON Header bytes
+    builder.add(headerBytes);
+
+    // 7. 分块数据
+    for (final chunk in chunks) {
+      // Chunk IV (16 bytes)
+      builder.add(chunk.iv);
+
+      // Chunk Data Size (4 bytes uint32 LE)
+      _writeUint32LE(builder, chunk.encryptedData.length);
+
+      // Encrypted Data (variable)
+      builder.add(chunk.encryptedData);
+    }
+
+    return builder.toBytes();
+  }
+
+  /// 解析二进制分块数据
+  ///
+  /// 从 JSON Header 之后的字节偏移开始，逐个解析加密分块。
+  /// 每个分块格式：
+  /// - IV: 16 字节
+  /// - Data Size: 4 字节 uint32 LE
+  /// - Encrypted Data: Data Size 字节
+  List<ChunkInfo> _parseChunks(Uint8List bytes, int startOffset) {
+    final chunks = <ChunkInfo>[];
+    var offset = startOffset;
+
+    while (offset + CHUNK_IV_LENGTH_BYTES + 4 <= bytes.length) {
+      // 读取 Chunk IV (16 bytes)
+      final iv = Uint8List.fromList(
+        bytes.sublist(offset, offset + CHUNK_IV_LENGTH_BYTES),
+      );
+      offset += CHUNK_IV_LENGTH_BYTES;
+
+      // 读取 Chunk Data Size (4 bytes uint32 LE)
+      final dataSize = _readUint32LE(bytes, offset);
+      offset += 4;
+
+      // 读取 Encrypted Data (dataSize bytes)
+      if (offset + dataSize > bytes.length) {
+        throw FileException(
+          '分块数据不完整：期望 $dataSize 字节加密数据，'
+          '但仅剩 ${bytes.length - offset} 字节。\n'
+          '可能原因：文件已损坏或被截断。',
+          code: 'INVALID_FORMAT',
+        );
+      }
+
+      final encryptedData = Uint8List.fromList(
+        bytes.sublist(offset, offset + dataSize),
+      );
+      offset += dataSize;
+
+      chunks.add(ChunkInfo(iv: iv, encryptedData: encryptedData));
+    }
+
+    return chunks;
+  }
+
+  /// 读取 2 字节小端序 uint16
+  ///
+  /// 从 [data] 的 [offset] 位置读取 2 字节，按小端序解析为 uint16。
+  int _readUint16LE(Uint8List data, int offset) {
+    return data[offset] | (data[offset + 1] << 8);
+  }
+
+  /// 从字节列表读取 2 字节小端序 uint16
+  ///
+  /// 与 [_readUint16LE] 功能相同，但接受 List<int> 而非 Uint8List，
+  /// 用于 RandomAccessFile.read() 返回的 List<int> 数据。
+  int _readUint16LEFromBytes(List<int> bytes, int offset) {
+    return bytes[offset] | (bytes[offset + 1] << 8);
+  }
+
+  /// 读取 4 字节小端序 uint32
+  ///
+  /// 从 [data] 的 [offset] 位置读取 4 字节，按小端序解析为 uint32。
+  int _readUint32LE(Uint8List data, int offset) {
+    return data[offset] |
+        (data[offset + 1] << 8) |
+        (data[offset + 2] << 16) |
+        (data[offset + 3] << 24);
+  }
+
+  /// 从字节列表读取 4 字节小端序 uint32
+  ///
+  /// 与 [_readUint32LE] 功能相同，但接受 List<int> 而非 Uint8List，
+  /// 用于 RandomAccessFile.read() 返回的 List<int> 数据。
+  int _readUint32LEFromBytes(List<int> bytes, int offset) {
+    return bytes[offset] |
+        (bytes[offset + 1] << 8) |
+        (bytes[offset + 2] << 16) |
+        (bytes[offset + 3] << 24);
+  }
+
+  /// 写入 4 字节小端序 uint32
+  ///
+  /// 将 [value] 以 4 字节小端序格式写入 [builder]。
+  void _writeUint32LE(BytesBuilder builder, int value) {
+    builder.addByte(value & 0xFF);
+    builder.addByte((value >> 8) & 0xFF);
+    builder.addByte((value >> 16) & 0xFF);
+    builder.addByte((value >> 24) & 0xFF);
+  }
+
+  /// 写入 2 字节小端序 uint16
+  ///
+  /// 将 [value] 以 2 字节小端序格式写入 [builder]。
+  void _writeUint16LE(BytesBuilder builder, int value) {
+    builder.addByte(value & 0xFF);
+    builder.addByte((value >> 8) & 0xFF);
   }
 }

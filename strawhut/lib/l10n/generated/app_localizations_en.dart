@@ -307,4 +307,170 @@ class AppLocalizationsEn extends AppLocalizations {
   String usedCount(int count) {
     return 'Used $count time(s)';
   }
+
+  @override
+  String get contentSource => 'Content Source';
+
+  @override
+  String get editorContent => 'Editor Content';
+
+  @override
+  String get uploadFile => 'Upload File';
+
+  @override
+  String get selectFile => 'Select File';
+
+  @override
+  String get dragFileHere => 'Drag file here or click to select';
+
+  @override
+  String get anyFileType => 'Any file type supported';
+
+  @override
+  String selectedFile(String fileName, String fileSize) {
+    return 'Selected: $fileName ($fileSize)';
+  }
+
+  @override
+  String get removeFile => 'Remove';
+
+  @override
+  String get fileSizeHint =>
+      'Large file, encryption may take several seconds. Continue?';
+
+  @override
+  String get fileSizeWarning =>
+      'Large file, encryption/decryption may take a long time. Better on powerful devices. Continue?';
+
+  @override
+  String get fileSizeStrongWarning =>
+      'Very large file, long encryption/decryption, high memory usage, may lag on low-end devices. Continue?';
+
+  @override
+  String get fileSizeSevereWarning =>
+      'Extremely large file, very long encryption/decryption, may use lots of memory and storage. Strongly recommend splitting the file first. Continue anyway?';
+
+  @override
+  String get saveFile => 'Save File';
+
+  @override
+  String get saveToLocale => 'Save to Local';
+
+  @override
+  String get viewSource => 'View Source';
+
+  @override
+  String get renderView => 'Render View';
+
+  @override
+  String get contentTooLong =>
+      'Content too long, suggest saving as file for full view';
+
+  @override
+  String get imageLoadFailed => 'Image load failed';
+
+  @override
+  String audioLoadFailed(String error) {
+    return 'Audio load failed: $error';
+  }
+
+  @override
+  String videoLoadFailed(String error) {
+    return 'Video load failed: $error';
+  }
+
+  @override
+  String get saveAudio => 'Save Audio';
+
+  @override
+  String get saveVideo => 'Save Video';
+
+  @override
+  String get savePdf => 'Save PDF';
+
+  @override
+  String get cannotPreview =>
+      'This file type cannot be previewed, please save and open with the appropriate program.';
+
+  @override
+  String get saveToLocal => 'Save to Local';
+
+  @override
+  String fileSize(String size) {
+    return 'File size: $size';
+  }
+
+  @override
+  String fileType(String type) {
+    return 'File type: $type';
+  }
+
+  @override
+  String get migrationTitle => 'Migrate Legacy File';
+
+  @override
+  String get migrationSuccess =>
+      'Migration complete. Original file is preserved. You may delete the old file after confirming the new one works.';
+
+  @override
+  String migrationFailed(String error) {
+    return 'Migration failed: $error';
+  }
+
+  @override
+  String get oldFormatDetected =>
+      'This file uses an old format and needs migration to view. Migrate now?';
+
+  @override
+  String get migrateNow => 'Migrate Now';
+
+  @override
+  String get exportFormatStraw => '.straw only';
+
+  @override
+  String get strawFormatOnly =>
+      'File encryption mode only supports .straw format';
+
+  @override
+  String get legacyFileFormatTitle => 'Legacy File Format';
+
+  @override
+  String get legacyFileFormatMessage =>
+      'This file is in legacy format and needs to be migrated before viewing. Please use the \'Migrate Legacy File\' function.';
+
+  @override
+  String get legacyFileMigrationRequired =>
+      'This file needs to be migrated before viewing';
+
+  @override
+  String get migrate => 'Migrate';
+
+  @override
+  String get migrateLegacyFile => 'Migrate Legacy File';
+
+  @override
+  String get migrateLegacyFileDescription =>
+      'Select a legacy .straw file and migrate it to the new format';
+
+  @override
+  String get selectLegacyFile => 'Select Legacy File';
+
+  @override
+  String get notOldFormat =>
+      'This file is not in legacy format, no migration needed';
+
+  @override
+  String get migrationKeyRequired => 'Please enter the key';
+
+  @override
+  String get performMigration => 'Perform Migration';
+
+  @override
+  String get contentSourceLabel => 'Content Source';
+
+  @override
+  String get editorContentLabel => 'Editor';
+
+  @override
+  String get fileUploadLabel => 'Upload File';
 }

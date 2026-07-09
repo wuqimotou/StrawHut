@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/validation/validation_result.dart';
@@ -12,31 +13,33 @@ import 'package:strawhut/core/validation/validation_result.dart';
 /// - 顶层必填字段（format_version, meta, content, integrity）
 /// - 元数据字段长度限制（标题、标签、描述等）
 /// - 版本号兼容性检查
-/// - 加密内容必填字段
+/// - 加密内容必填字段（二进制分块格式）
 /// - 完整性校验必填字段
+/// - 二进制 Magic Bytes 校验
 ///
 /// 架构位置：核心服务层（Core Service Layer）
 /// 被依赖方：FileIOService（读写文件时自动验证）
 abstract class IFormatValidator {
   /// 验证 .straw 知识卡片文件格式
   ///
-  /// 检查 JSON 是否包含所有必填字段且格式正确。
+  /// 检查 JSON Header 是否包含所有必填字段且格式正确。
   ///
   /// 验证项包括：
-  /// - format_version 存在且主版本兼容
+  /// - format_version 存在且主版本兼容（v2.x）
   /// - meta.publisher_alias 存在
   /// - meta.publish_date 存在且为有效日期
   /// - meta.title 非空
   /// - meta.is_anonymous 存在
-  /// - content.encrypted_data 存在
   /// - content.encryption_algorithm 为 "AES-256-GCM"
-  /// - content.iv 存在
+  /// - content.chunk_size 存在
+  /// - content.total_chunks 存在
+  /// - content.original_payload_size 存在
   /// - integrity.hash 存在且格式正确
   /// - integrity.hash_algorithm 为 "SHA-256"
   /// - tags 数量和长度限制
   /// - description 长度限制
   ///
-  /// 参数：[json] - 解析后的 .straw 文件 JSON 映射
+  /// 参数：[json] - 解析后的 .straw 文件 JSON Header 映射
   /// 返回：[ValidationResult]，isValid 为 true 表示格式正确
   ValidationResult validateStrawFormat(Map<String, dynamic> json);
 
@@ -57,12 +60,21 @@ abstract class IFormatValidator {
   /// 参数：[json] - 解析后的 .key 文件 JSON 映射
   /// 返回：[ValidationResult]，isValid 为 true 表示格式正确
   ValidationResult validateKeyFormat(Map<String, dynamic> json);
+
+  /// 验证二进制 .straw 文件的 Magic Bytes
+  ///
+  /// 检查字节数据的起始位置是否为 "STRAWHUT" Magic Bytes，
+  /// 用于快速判断文件是否为 StrawHut 二进制格式。
+  ///
+  /// 参数：[bytes] - 二进制 .straw 文件的字节数据
+  /// 返回：[ValidationResult]，isValid 为 true 表示 Magic Bytes 匹配
+  ValidationResult validateBinaryFormat(Uint8List bytes);
 }
 
 /// 格式验证器实现类
 ///
 /// 实现 [IFormatValidator] 接口，提供对 .straw 知识卡片文件和 .key 密钥文件的
-/// JSON 格式验证能力。
+/// JSON 格式验证能力，以及二进制 .straw 文件的 Magic Bytes 校验。
 ///
 /// 设计原则：
 /// - 收集所有验证错误（不在第一个错误处停止），以便一次性向用户展示全部问题
@@ -74,17 +86,17 @@ abstract class IFormatValidator {
 /// - 确保加密算法和哈希算法符合预期，防止降级攻击
 /// - 验证字段长度限制，防止缓冲区溢出或拒绝服务攻击
 class FormatValidator implements IFormatValidator {
-  /// 验证 .straw 知识卡片文件格式
+  /// 验证 .straw 知识卡片文件格式（v2.0 二进制容器 JSON Header）
   ///
-  /// 对解析后的 .straw 文件 JSON 进行全面的格式检查，确保所有必填字段
+  /// 对解析后的 .straw 文件 JSON Header 进行全面的格式检查，确保所有必填字段
   /// 存在且值符合规范。此验证是文件安全处理的第一道防线。
   ///
   /// 验证流程：
-  /// 1. 检查 format_version 是否存在且主版本为 "1"（向前兼容）
+  /// 1. 检查 format_version 是否存在且主版本为 "2"（v2.0 二进制格式）
   /// 2. 检查 meta 对象及其必填字段（publisher_alias、publish_date、
   ///    title、is_anonymous）
-  /// 3. 检查 content 对象及其必填字段（encrypted_data、
-  ///    encryption_algorithm、iv）
+  /// 3. 检查 content 对象及其必填字段（encryption_algorithm、chunk_size、
+  ///    total_chunks、original_payload_size）
   /// 4. 检查 integrity 对象及其必填字段（hash、hash_algorithm）
   /// 5. 验证加密算法必须为 AES-256-GCM（防止降级攻击）
   /// 6. 验证哈希算法必须为 SHA-256（确保完整性校验强度）
@@ -92,7 +104,7 @@ class FormatValidator implements IFormatValidator {
   /// 8. 验证 tags 数量和长度限制
   /// 9. 验证 description 长度限制
   ///
-  /// 参数：[json] - 通过 jsonDecode 解析后的 .straw 文件 JSON 映射
+  /// 参数：[json] - 通过 jsonDecode 解析后的 .straw 文件 JSON Header 映射
   /// 返回：[ValidationResult]，isValid 为 true 表示格式完全正确
   @override
   ValidationResult validateStrawFormat(Map<String, dynamic> json) {
@@ -100,7 +112,7 @@ class FormatValidator implements IFormatValidator {
 
     // ========== 1. 验证 format_version 是否存在且主版本兼容 ==========
     // format_version 采用语义化版本控制（major.minor.patch）
-    // 只要主版本为 "1" 就认为兼容，允许次版本和修订号不同
+    // v2.0 二进制格式主版本为 "2"，与旧版 v1.x JSON 格式不兼容
     // 主版本不同表示格式发生了不兼容的变更，应拒绝处理
     if (!json.containsKey('format_version')) {
       errors.add('缺少必填字段: format_version（文件格式版本号）');
@@ -110,9 +122,9 @@ class FormatValidator implements IFormatValidator {
         errors.add('format_version 不能为空');
       } else {
         final majorVersion = version.split('.').first;
-        if (majorVersion != '1') {
+        if (majorVersion != BINARY_FORMAT_MAJOR.toString()) {
           errors.add(
-            '不兼容的格式版本号: $version，仅支持主版本为 1 的文件格式',
+            '不兼容的格式版本号: $version，仅支持主版本为 ${BINARY_FORMAT_MAJOR} 的文件格式',
           );
         }
       }
@@ -161,22 +173,15 @@ class FormatValidator implements IFormatValidator {
     }
 
     // ========== 3. 验证 content 对象及其必填字段 ==========
-    // content 包含加密后的知识卡片核心内容，是文件最重要的部分
-    // 所有字段都与加密解密过程直接相关，缺一不可
+    // content 包含加密内容的元信息，不包含密文本身（密文在二进制分块载荷中）
+    // v2.0 格式中不再有 encrypted_data 和 iv 字段，改为分块结构
     if (!json.containsKey('content')) {
-      errors.add('缺少必填对象: content（加密内容）');
+      errors.add('缺少必填对象: content（加密内容元信息）');
     } else {
       final content = json['content'];
       if (content is! Map<String, dynamic>) {
         errors.add('content 必须是一个对象（键值对集合）');
       } else {
-        // 验证 content.encrypted_data —— 加密数据
-        // 这是卡片的实际内容，经过 AES-256-GCM 加密后的 Base64 编码字符串
-        // 缺少此字段意味着文件没有有效内容
-        if (!content.containsKey('encrypted_data')) {
-          errors.add('缺少必填字段: content.encrypted_data（加密数据）');
-        }
-
         // 验证 content.encryption_algorithm —— 加密算法
         // 必须为 AES-256-GCM，使用常量比较防止降级攻击
         // 如果允许其他算法，攻击者可能强制使用弱加密算法
@@ -191,11 +196,37 @@ class FormatValidator implements IFormatValidator {
           }
         }
 
-        // 验证 content.iv —— 初始化向量
-        // IV（Initialization Vector）用于确保相同明文每次加密产生不同密文
-        // 在 GCM 模式下，IV 也作为 Nonce 使用，必须存在且正确
-        if (!content.containsKey('iv')) {
-          errors.add('缺少必填字段: content.iv（初始化向量）');
+        // 验证 content.chunk_size —— 分块大小
+        // v2.0 二进制格式新增字段，表示每个加密分块的明文大小（字节）
+        if (!content.containsKey('chunk_size')) {
+          errors.add('缺少必填字段: content.chunk_size（分块大小）');
+        } else {
+          final chunkSize = content['chunk_size'];
+          if (chunkSize is! int || chunkSize <= 0) {
+            errors.add('content.chunk_size 必须为正整数');
+          }
+        }
+
+        // 验证 content.total_chunks —— 总分块数
+        // v2.0 二进制格式新增字段，表示加密分块的总数
+        if (!content.containsKey('total_chunks')) {
+          errors.add('缺少必填字段: content.total_chunks（总分块数）');
+        } else {
+          final totalChunks = content['total_chunks'];
+          if (totalChunks is! int || totalChunks <= 0) {
+            errors.add('content.total_chunks 必须为正整数');
+          }
+        }
+
+        // 验证 content.original_payload_size —— 原始载荷大小
+        // v2.0 二进制格式新增字段，表示未加密的原始数据大小（字节）
+        if (!content.containsKey('original_payload_size')) {
+          errors.add('缺少必填字段: content.original_payload_size（原始载荷大小）');
+        } else {
+          final payloadSize = content['original_payload_size'];
+          if (payloadSize is! int || payloadSize < 0) {
+            errors.add('content.original_payload_size 必须为非负整数');
+          }
         }
       }
     }
@@ -279,8 +310,7 @@ class FormatValidator implements IFormatValidator {
     // ========== 6. 验证 description 长度限制 ==========
     // description 在未解密状态下可见，用于帮助用户快速识别卡片内容
     // 限制长度防止元数据文件过大，同时避免潜在的缓冲区攻击
-    if (meta is Map<String, dynamic> &&
-        meta.containsKey('description')) {
+    if (meta is Map<String, dynamic> && meta.containsKey('description')) {
       final description = meta['description'];
       if (description is String &&
           description.length > MAX_DESCRIPTION_LENGTH) {
@@ -470,6 +500,54 @@ class FormatValidator implements IFormatValidator {
     // ========== 返回验证结果 ==========
     // 如果 errors 为空，表示所有检查通过，返回成功结果
     // 否则返回失败结果，携带所有收集到的错误信息
+    if (errors.isEmpty) {
+      return ValidationResult.success();
+    }
+    return ValidationResult.failure(errors);
+  }
+
+  /// 验证二进制 .straw 文件的 Magic Bytes
+  ///
+  /// 检查字节数据的起始 8 字节是否为 "STRAWHUT"（ASCII），
+  /// 用于快速判断文件是否为 StrawHut 二进制容器格式。
+  ///
+  /// 验证流程：
+  /// 1. 检查字节数据长度是否至少包含 Magic Bytes（8 字节）
+  /// 2. 逐字节比较起始位置与预定义的 STRAW_MAGIC_BYTES
+  ///
+  /// 安全意义：
+  /// - Magic Bytes 是二进制文件识别的第一道防线
+  /// - 防止将非 .straw 文件误识别为 StrawHut 文件
+  /// - 在执行昂贵的 JSON 解析前快速拒绝不匹配的文件
+  ///
+  /// 参数：[bytes] - 二进制 .straw 文件的字节数据
+  /// 返回：[ValidationResult]，isValid 为 true 表示 Magic Bytes 匹配
+  @override
+  ValidationResult validateBinaryFormat(Uint8List bytes) {
+    final errors = <String>[];
+
+    // 检查最小长度
+    if (bytes.length < MAGIC_BYTES_LENGTH) {
+      errors.add(
+        '文件数据过短: ${bytes.length} 字节，至少需要 $MAGIC_BYTES_LENGTH 字节的 Magic Bytes',
+      );
+      return ValidationResult.failure(errors);
+    }
+
+    // 逐字节比较 Magic Bytes
+    for (var i = 0; i < MAGIC_BYTES_LENGTH; i++) {
+      if (bytes[i] != STRAW_MAGIC_BYTES[i]) {
+        final actual = String.fromCharCodes(
+          bytes.sublist(0, MAGIC_BYTES_LENGTH),
+        );
+        errors.add(
+          'Magic Bytes 不匹配: 期望 "STRAWHUT"，实际为 "$actual"。\n'
+          '该文件不是有效的 StrawHut 二进制格式文件。',
+        );
+        break;
+      }
+    }
+
     if (errors.isEmpty) {
       return ValidationResult.success();
     }

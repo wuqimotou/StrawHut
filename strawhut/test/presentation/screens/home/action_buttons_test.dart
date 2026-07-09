@@ -10,8 +10,8 @@ import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 ///
 /// 测试目标：验证 ActionButtons 的按钮点击行为是否符合任务 3.3 验收标准
 /// 覆盖范围：
-/// - "新建知识卡片" 按钮使用 ElevatedButton 样式
-/// - "打开知识卡片" 按钮使用 OutlinedButton 样式
+/// - "发布知识卡片" 按钮使用 ElevatedButton 样式
+/// - "解密知识卡片" 按钮使用 OutlinedButton 样式
 /// - 按钮点击后触发正确的导航
 /// - 按钮布局结构正确（Column、间距等）
 void main() {
@@ -43,47 +43,45 @@ void main() {
   }
 
   group('ActionButtons 按钮样式测试', () {
-    testWidgets('"新建知识卡片"按钮应为 ElevatedButton 类型',
-        (WidgetTester tester) async {
+    testWidgets('"发布知识卡片"按钮应为 ElevatedButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找"新建知识卡片"文字所在的 ElevatedButton
-      final elevatedButton = find.text('新建知识卡片');
+      // 查找"发布知识卡片"文字所在的 ElevatedButton
+      final elevatedButton = find.text('发布知识卡片');
       expect(elevatedButton, findsOneWidget);
 
       // 验证该文字在 ElevatedButton 内部
       expect(
         find.descendant(
           of: find.byType(ElevatedButton),
-          matching: find.text('新建知识卡片'),
+          matching: find.text('发布知识卡片'),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('"打开知识卡片"按钮应为 OutlinedButton 类型',
-        (WidgetTester tester) async {
+    testWidgets('"解密知识卡片"按钮应为 ElevatedButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找"打开知识卡片"文字
-      final outlinedButton = find.text('打开知识卡片');
-      expect(outlinedButton, findsOneWidget);
+      // 查找"解密知识卡片"文字
+      final elevatedButton = find.text('解密知识卡片');
+      expect(elevatedButton, findsOneWidget);
 
-      // 验证该文字在 OutlinedButton 内部
+      // 验证该文字在 ElevatedButton 内部
       expect(
         find.descendant(
-          of: find.byType(OutlinedButton),
-          matching: find.text('打开知识卡片'),
+          of: find.byType(ElevatedButton),
+          matching: find.text('解密知识卡片'),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('"新建知识卡片"按钮应包含 add_circle_outline 图标',
+    testWidgets('"发布知识卡片"按钮应包含 add_circle_outline 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
@@ -99,7 +97,7 @@ void main() {
       );
     });
 
-    testWidgets('"打开知识卡片"按钮应包含 folder_open_outlined 图标',
+    testWidgets('"解密知识卡片"按钮应包含 folder_open_outlined 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
@@ -108,23 +106,20 @@ void main() {
       // 验证按钮图标存在
       expect(
         find.descendant(
-          of: find.byType(OutlinedButton),
+          of: find.byType(ElevatedButton),
           matching: find.byIcon(Icons.folder_open_outlined),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('按钮应使用 icon 和 label 的排列方式',
-        (WidgetTester tester) async {
+    testWidgets('按钮应使用 icon 和 label 的排列方式', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证使用了 ElevatedButton.icon
-      expect(find.byType(ElevatedButton), findsOneWidget);
-      // 验证使用了 OutlinedButton.icon
-      expect(find.byType(OutlinedButton), findsOneWidget);
+      // 验证使用了两个 ElevatedButton.icon
+      expect(find.byType(ElevatedButton), findsNWidgets(2));
     });
   });
 
@@ -164,8 +159,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // 获取两个按钮的位置
-      final createButton = find.text('新建知识卡片');
-      final openButton = find.text('打开知识卡片');
+      final createButton = find.text('发布知识卡片');
+      final openButton = find.text('解密知识卡片');
 
       final createRect = tester.getRect(createButton);
       final openRect = tester.getRect(openButton);
@@ -179,9 +174,12 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 获取 ElevatedButton 实例
+      // 获取第一个 ElevatedButton 实例（"发布知识卡片"按钮）
       final elevatedButton = tester.widget<ElevatedButton>(
-        find.byType(ElevatedButton),
+        find.ancestor(
+          of: find.text('发布知识卡片'),
+          matching: find.byType(ElevatedButton),
+        ),
       );
 
       // 验证按钮样式中的 padding
@@ -190,38 +188,51 @@ void main() {
   });
 
   group('ActionButtons 导航功能测试', () {
-    testWidgets('点击"新建知识卡片"按钮应导航到 /editor',
-        (WidgetTester tester) async {
+    testWidgets('点击"发布知识卡片"按钮应弹出内容来源选择对话框', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
-      expect(
-          appRouter.routerDelegate.currentConfiguration.uri.path, '/');
+      expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/');
 
-      // 点击"新建知识卡片"按钮
-      await tester.tap(find.text('新建知识卡片'));
+      // 点击"发布知识卡片"按钮
+      await tester.tap(find.text('发布知识卡片'));
+      await tester.pumpAndSettle();
+
+      // 验证弹出了选择对话框（包含"富文本编辑"和"直接加密文件"选项）
+      expect(find.text('富文本编辑'), findsOneWidget);
+      expect(find.text('直接加密文件'), findsOneWidget);
+    });
+
+    testWidgets('选择"富文本编辑"应导航到 /editor', (WidgetTester tester) async {
+      // 构建包含 ActionButtons 的测试 Widget
+      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpAndSettle();
+
+      // 点击"发布知识卡片"按钮
+      await tester.tap(find.text('发布知识卡片'));
+      await tester.pumpAndSettle();
+
+      // 点击"富文本编辑"按钮
+      await tester.tap(find.text('富文本编辑'));
       await tester.pumpAndSettle();
 
       // 验证已导航到编辑器页面
-      expect(
-          appRouter.routerDelegate.currentConfiguration.uri.path, '/editor');
+      expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/editor');
     });
 
-    testWidgets('点击"打开知识卡片"按钮后取消选择应留在首页',
-        (WidgetTester tester) async {
+    testWidgets('点击"解密知识卡片"按钮后取消选择应留在首页', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
-      expect(
-          appRouter.routerDelegate.currentConfiguration.uri.path, '/');
+      expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/');
 
-      // 点击"打开知识卡片"按钮（会触发文件选择器，但测试中无法交互）
+      // 点击"解密知识卡片"按钮（会触发文件选择器，但测试中无法交互）
       // 在测试环境中，file_selector 的 openFile 会返回 null（模拟取消）
-      await tester.tap(find.text('打开知识卡片'));
+      await tester.tap(find.text('解密知识卡片'));
       await tester.pumpAndSettle();
 
       // 验证仍停留在首页
@@ -230,43 +241,48 @@ void main() {
   });
 
   group('ActionButtons 按钮存在性测试', () {
-    testWidgets('页面应显示"新建知识卡片"文字', (WidgetTester tester) async {
+    testWidgets('页面应显示"发布知识卡片"文字', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证文字存在
-      expect(find.text('新建知识卡片'), findsOneWidget);
+      expect(find.text('发布知识卡片'), findsOneWidget);
     });
 
-    testWidgets('页面应显示"打开知识卡片"文字', (WidgetTester tester) async {
+    testWidgets('页面应显示"解密知识卡片"文字', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证文字存在
-      expect(find.text('打开知识卡片'), findsOneWidget);
+      expect(find.text('解密知识卡片'), findsOneWidget);
     });
 
-    testWidgets('两个按钮都应可点击（onPressed 不为 null）',
-        (WidgetTester tester) async {
+    testWidgets('两个按钮都应可点击（onPressed 不为 null）', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 获取 ElevatedButton 实例
-      final elevatedButton = tester.widget<ElevatedButton>(
-        find.byType(ElevatedButton),
+      // 获取第一个 ElevatedButton 实例（"发布知识卡片"按钮）
+      final firstButton = tester.widget<ElevatedButton>(
+        find.ancestor(
+          of: find.text('发布知识卡片'),
+          matching: find.byType(ElevatedButton),
+        ),
       );
 
-      // 获取 OutlinedButton 实例
-      final outlinedButton = tester.widget<OutlinedButton>(
-        find.byType(OutlinedButton),
+      // 获取第二个 ElevatedButton 实例（"解密知识卡片"按钮）
+      final secondButton = tester.widget<ElevatedButton>(
+        find.ancestor(
+          of: find.text('解密知识卡片'),
+          matching: find.byType(ElevatedButton),
+        ),
       );
 
       // 验证 onPressed 不为 null
-      expect(elevatedButton.onPressed, isNotNull);
-      expect(outlinedButton.onPressed, isNotNull);
+      expect(firstButton.onPressed, isNotNull);
+      expect(secondButton.onPressed, isNotNull);
     });
   });
 }

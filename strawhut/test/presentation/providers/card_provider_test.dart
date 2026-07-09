@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
-import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
@@ -28,7 +28,7 @@ void main() {
 
       final state = container.read(currentCardProvider);
 
-      expect(state, isA<AsyncValue<StrawFile?>>());
+      expect(state, isA<AsyncValue<ParsedStrawFile?>>());
       expect(state.valueOrNull, isNull);
     });
 
@@ -57,7 +57,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => testStrawFile,
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
       );
 
       final container = ProviderContainer(
@@ -75,7 +75,7 @@ void main() {
 
       final state = container.read(currentCardProvider);
       expect(state.hasValue, isTrue);
-      expect(state.value, equals(testStrawFile));
+      expect(state.value?.strawFile, equals(testStrawFile));
     });
 
     test('应该调用 FileIOService.readStrawFile 并传入正确的文件路径',
@@ -84,7 +84,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => testStrawFile,
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
       );
 
       const testFilePath = '/path/to/test.straw';
@@ -112,7 +112,10 @@ void main() {
       var callCount = 0;
       when(() => mockFileIO.readStrawFile(any())).thenAnswer((_) async {
         callCount++;
-        return callCount == 1 ? file1 : file2;
+        return ParsedStrawFile(
+          strawFile: callCount == 1 ? file1 : file2,
+          chunks: [],
+        );
       });
 
       final container = ProviderContainer(
@@ -128,7 +131,7 @@ void main() {
           .read(currentCardProvider.notifier)
           .loadFile('/file1.straw');
       expect(
-        container.read(currentCardProvider).value?.meta.title,
+        container.read(currentCardProvider).value?.strawFile.meta.title,
         equals('Card 1'),
       );
 
@@ -136,7 +139,7 @@ void main() {
           .read(currentCardProvider.notifier)
           .loadFile('/file2.straw');
       expect(
-        container.read(currentCardProvider).value?.meta.title,
+        container.read(currentCardProvider).value?.strawFile.meta.title,
         equals('Card 2'),
       );
     });
@@ -177,7 +180,7 @@ void main() {
           isFirstCall = false;
           throw Exception('First call fails');
         }
-        return testStrawFile;
+        return ParsedStrawFile(strawFile: testStrawFile, chunks: []);
       });
 
       final container = ProviderContainer(
@@ -199,7 +202,7 @@ void main() {
           .loadFile('/success.straw');
       final state = container.read(currentCardProvider);
       expect(state.hasValue, isTrue);
-      expect(state.value, equals(testStrawFile));
+      expect(state.value?.strawFile, equals(testStrawFile));
     });
   });
 
@@ -231,7 +234,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => testStrawFile,
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
       );
 
       const testPath = '/path/to/test.straw';
@@ -258,7 +261,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => testStrawFile,
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
       );
 
       final container = ProviderContainer(

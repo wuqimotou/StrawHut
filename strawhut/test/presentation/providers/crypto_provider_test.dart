@@ -93,7 +93,7 @@ void main() {
 
       final result = container.read(cryptoServiceProvider);
 
-      expect(result, isA<CryptoService>());
+      expect(result, isA<ICryptoService>());
     });
 
     test('应该依赖 integrityServiceProvider', () {
@@ -234,7 +234,7 @@ void main() {
       final cryptoService = container.read(cryptoServiceProvider);
       final integrityService = container.read(integrityServiceProvider);
 
-      expect(cryptoService, isA<CryptoService>());
+      expect(cryptoService, isA<ICryptoService>());
       expect(integrityService, isA<IntegrityService>());
     });
 
@@ -249,7 +249,7 @@ void main() {
       final draft = container.read(draftManagerProvider);
 
       expect(integrity, isA<IntegrityService>());
-      expect(crypto, isA<CryptoService>());
+      expect(crypto, isA<ICryptoService>());
       expect(fileIO, isA<FileIOService>());
       expect(draft, isA<DraftManager>());
     });

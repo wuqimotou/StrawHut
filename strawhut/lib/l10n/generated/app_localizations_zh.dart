@@ -289,4 +289,159 @@ class AppLocalizationsZh extends AppLocalizations {
   String usedCount(int count) {
     return '使用 $count 次';
   }
+
+  @override
+  String get contentSource => '内容来源';
+
+  @override
+  String get editorContent => '编辑器内容';
+
+  @override
+  String get uploadFile => '上传文件';
+
+  @override
+  String get selectFile => '选择文件';
+
+  @override
+  String get dragFileHere => '拖拽文件到此处或点击选择';
+
+  @override
+  String get anyFileType => '支持任意类型文件';
+
+  @override
+  String selectedFile(String fileName, String fileSize) {
+    return '已选择：$fileName（$fileSize）';
+  }
+
+  @override
+  String get removeFile => '移除';
+
+  @override
+  String get fileSizeHint => '文件较大，加密可能需要数秒至十余秒，是否继续？';
+
+  @override
+  String get fileSizeWarning => '文件较大，加密和解密可能需要较长时间，建议在性能较好的设备上操作。是否继续？';
+
+  @override
+  String get fileSizeStrongWarning => '文件非常大，加密和解密耗时较长，内存占用较高，可能导致低端设备卡顿。是否继续？';
+
+  @override
+  String get fileSizeSevereWarning =>
+      '文件极大，加密和解密耗时可能很长，可能占用大量内存和存储空间。强烈建议分割文件后再加密。是否仍要继续？';
+
+  @override
+  String get saveFile => '保存文件';
+
+  @override
+  String get saveToLocale => '保存到本地';
+
+  @override
+  String get viewSource => '查看源码';
+
+  @override
+  String get renderView => '渲染视图';
+
+  @override
+  String get contentTooLong => '内容过长，建议保存为文件查看完整内容';
+
+  @override
+  String get imageLoadFailed => '图片加载失败';
+
+  @override
+  String audioLoadFailed(String error) {
+    return '音频加载失败：$error';
+  }
+
+  @override
+  String videoLoadFailed(String error) {
+    return '视频加载失败：$error';
+  }
+
+  @override
+  String get saveAudio => '保存音频';
+
+  @override
+  String get saveVideo => '保存视频';
+
+  @override
+  String get savePdf => '保存PDF';
+
+  @override
+  String get cannotPreview => '此文件类型无法直接预览，请保存后使用对应程序打开。';
+
+  @override
+  String get saveToLocal => '保存到本地';
+
+  @override
+  String fileSize(String size) {
+    return '文件大小：$size';
+  }
+
+  @override
+  String fileType(String type) {
+    return '文件类型：$type';
+  }
+
+  @override
+  String get migrationTitle => '迁移旧版文件';
+
+  @override
+  String get migrationSuccess => '旧版文件已迁移，原文件仍保留。建议确认新文件可用后删除旧版文件。';
+
+  @override
+  String migrationFailed(String error) {
+    return '迁移失败：$error';
+  }
+
+  @override
+  String get oldFormatDetected => '此文件为旧版格式，需要迁移后才能查看。是否立即迁移？';
+
+  @override
+  String get migrateNow => '立即迁移';
+
+  @override
+  String get exportFormatStraw => '仅 .straw';
+
+  @override
+  String get strawFormatOnly => '文件加密模式仅支持 .straw 格式';
+
+  @override
+  String get legacyFileFormatTitle => '旧版文件格式';
+
+  @override
+  String get legacyFileFormatMessage =>
+      '此文件为旧版格式，需要迁移后才能查看。请使用\"迁移旧版文件\"功能进行转换。';
+
+  @override
+  String get legacyFileMigrationRequired => '此文件需要迁移后才能查看';
+
+  @override
+  String get migrate => '迁移';
+
+  @override
+  String get migrateLegacyFile => '迁移旧版文件';
+
+  @override
+  String get migrateLegacyFileDescription => '选择旧版 .straw 文件并将其迁移到新格式';
+
+  @override
+  String get selectLegacyFile => '选择旧版文件';
+
+  @override
+  String get notOldFormat => '该文件不是旧版格式，无需迁移';
+
+  @override
+  String get migrationKeyRequired => '请输入密钥';
+
+  @override
+  String get performMigration => '执行迁移';
+
+  @override
+  String get contentSourceLabel => '内容来源';
+
+  @override
+  String get editorContentLabel => '编辑器内容';
+
+  @override
+  String get fileUploadLabel => '上传文件';
 }

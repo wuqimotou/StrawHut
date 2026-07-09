@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:strawhut/presentation/dialogs/publish_dialog/publish_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/providers/picked_file_provider.dart';
 
 /// 首页操作按钮组件
 ///
@@ -81,21 +83,111 @@ class ActionButtons extends ConsumerWidget {
     );
   }
 
-  /// 处理"新建知识卡片"按钮点击事件
+  /// 处理"发布知识卡片"按钮点击事件
   ///
-  /// 使用 go_router 导航到编辑器页面（/editor）。
-  ///
-  /// 流程：
-  /// 1. 用户点击按钮
-  /// 2. 调用 context.go('/editor') 进行路由跳转
-  /// 3. 用户进入编辑器页面开始创作
-  ///
-  /// 参数：[context] - BuildContext 用于获取 go_router
+  /// 弹出选择对话框，让用户选择内容来源：
+  /// - "富文本编辑"：进入编辑器，编辑后发布
+  /// - "直接加密文件"：跳过编辑器，直接打开发布对话框
   void _onCreateNewCard(BuildContext context) {
-    // 使用 go_router 的 go() 方法进行路由跳转
-    // go() 会替换当前路由栈中的路由，用户无法返回到首页
-    // 这符合预期行为：进入编辑器后不需要返回首页
-    context.go('/editor');
+    final isMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+
+    if (isMobile) {
+      _showCreateOptionsMobile(context);
+    } else {
+      _showCreateOptionsDesktop(context);
+    }
+  }
+
+  /// 桌面端：弹出选择对话框
+  void _showCreateOptionsDesktop(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('发布知识卡片'),
+          content: const Text('请选择内容来源：'),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  context.go('/editor');
+                },
+                icon: const Icon(Icons.edit_note),
+                label: const Text('富文本编辑'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  PublishDialog.show(
+                    context,
+                    initialMode: ContentSourceMode.fileUpload,
+                  );
+                },
+                icon: const Icon(Icons.upload_file),
+                label: const Text('直接加密文件'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 移动端：弹出底部选择框
+  void _showCreateOptionsMobile(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit_note),
+                title: const Text('富文本编辑'),
+                subtitle: const Text('在编辑器中创作内容后发布'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go('/editor');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('直接加密文件'),
+                subtitle: const Text('选择文件直接加密，无需编辑'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  PublishDialog.show(
+                    context,
+                    initialMode: ContentSourceMode.fileUpload,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   /// 处理"打开知识卡片"按钮点击事件
@@ -190,17 +282,28 @@ class ActionButtons extends ConsumerWidget {
   }
 
   /// 从文件系统选择 .straw 或 .png 文件
+  ///
+  /// 安卓端使用路径模式（withData: false），避免将大文件加载到内存导致 OOM。
+  /// 桌面端仍使用字节模式。
   Future<void> _doOpenCard(BuildContext context, WidgetRef ref) async {
     final fileSelectionService = ref.read(fileSelectionServiceProvider);
-    final result = await fileSelectionService.pickStrawOrPngFile();
 
-    if (result == null) return;
-
-    final (bytes, fileName) = result;
-
-    if (context.mounted) {
-      ref.read(pendingFileBytesProvider.notifier).state = (bytes, fileName);
-      context.go('/reader?path=${Uri.encodeComponent(fileName)}');
+    if (fileSelectionService.isAndroid) {
+      // 安卓端：使用路径模式，避免将大文件加载到内存
+      final filePath = await fileSelectionService.pickStrawOrPngFilePath();
+      if (filePath == null) return;
+      if (context.mounted) {
+        context.go('/reader?path=${Uri.encodeComponent(filePath)}');
+      }
+    } else {
+      // 桌面端：使用字节模式
+      final result = await fileSelectionService.pickStrawOrPngFile();
+      if (result == null) return;
+      final (bytes, fileName) = result;
+      if (context.mounted) {
+        ref.read(pendingFileBytesProvider.notifier).state = (bytes, fileName);
+        context.go('/reader?path=${Uri.encodeComponent(fileName)}');
+      }
     }
   }
 }

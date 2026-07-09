@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/key_derivators/api.dart';
@@ -20,6 +21,7 @@ import 'package:strawhut/core/utils/memory_utils.dart';
 /// 所有加密功能通过此接口实现，确保：
 /// - 使用 AES-256-GCM 对称加密算法
 /// - 使用 CSPRNG 生成加密安全的随机密钥
+/// - 支持分块加密/解密，适应从小文本到大文件的多种场景
 /// - 提供敏感数据内存清理机制
 ///
 /// 架构位置：核心服务层（Core Service Layer）
@@ -35,48 +37,6 @@ abstract class ICryptoService {
   /// - 必须使用 [Random.secure()] 而非普通随机数生成器
   /// - 密钥生成后应尽快传递到加密操作，减少内存驻留时间
   Future<GeneratedKey> generateKey();
-
-  /// 加密知识内容
-  ///
-  /// 使用 AES-256-GCM 模式加密 Quill 编辑器的 Delta JSON 内容。
-  ///
-  /// 参数说明：
-  /// - [deltaJson]: Quill 编辑器导出的 Delta JSON 字符串（明文）
-  /// - [key]: 32 字节加密密钥（由 [generateKey] 生成）
-  ///
-  /// 加密流程：
-  /// 1. 生成 16 字节安全随机 IV（初始化向量）
-  /// 2. 使用 AES-256-GCM 加密 deltaJson
-  /// 3. 返回包含密文 Base64、IV Base64 和算法标识的 [EncryptedContent]
-  ///
-  /// 安全要求：
-  /// - IV 必须使用安全随机数生成
-  /// - 加密完成后应清理明文引用
-  Future<EncryptedContent> encryptContent({
-    required String deltaJson,
-    required Uint8List key,
-  });
-
-  /// 解密知识内容
-  ///
-  /// 使用 AES-256-GCM 模式解密 .straw 文件中的加密内容。
-  ///
-  /// 参数说明：
-  /// - [encryptedDataBase64]: Base64 编码的密文（来自 .straw 文件）
-  /// - [ivBase64]: Base64 编码的 IV（来自 .straw 文件）
-  /// - [key]: 32 字节解密密钥（用户手动输入或从 .key 文件解析）
-  ///
-  /// 返回值：解密后的 Delta JSON 字符串
-  ///
-  /// 异常处理：
-  /// - 密钥错误时抛出 [CryptoException]
-  /// - 密文损坏时抛出 [CryptoException]
-  /// - GCM 模式自动验证 MAC，防止密文篡改
-  Future<String> decryptContent({
-    required String encryptedDataBase64,
-    required String ivBase64,
-    required Uint8List key,
-  });
 
   /// 清理敏感数据
   ///
@@ -114,11 +74,115 @@ abstract class ICryptoService {
     required Uint8List salt,
     int iterations = KDF_ITERATIONS,
   });
+
+  /// 加密载荷（统一接口）
+  ///
+  /// 将载荷字节和元数据加密为分块结构。第一个分块包含元数据前缀：
+  /// [MetadataLength(2B uint16 LE)] + [MetadataBytes] + [PayloadData[:剩余空间]]
+  /// 后续分块仅包含载荷数据。
+  /// 每个分块独立生成 IV，使用 AES-256-GCM 加密。
+  ///
+  /// 参数说明：
+  /// - [payloadBytes]: 待加密的载荷字节数据
+  /// - [payloadMetadata]: 载荷元数据（来源类型、原始扩展名等）
+  /// - [key]: 32 字节加密密钥
+  /// - [chunkSize]: 分块大小（字节），默认 [DEFAULT_CHUNK_SIZE]（1MB）
+  /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  Future<EncryptResult> encrypt({
+    required Uint8List payloadBytes,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// 解密载荷（统一接口）
+  ///
+  /// 解密分块列表，还原为原始载荷字节和元数据。
+  /// 首先解密第一个分块提取元数据前缀，然后解密后续分块获取完整载荷。
+  ///
+  /// 参数说明：
+  /// - [chunks]: 加密分块列表
+  /// - [key]: 32 字节解密密钥
+  /// - [chunkSize]: 分块大小（字节）
+  /// - [originalPayloadSize]: 原始载荷大小（字节），用于精确截取
+  /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  Future<DecryptResult> decrypt({
+    required List<ChunkInfo> chunks,
+    required Uint8List key,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// 流式加密（大文件场景）
+  ///
+  /// 从源文件逐块读取数据并加密，避免将整个文件加载到内存。
+  /// 适用于大文件（视频、PDF 等）的加密场景。
+  ///
+  /// 参数说明：
+  /// - [sourcePath]: 源文件路径
+  /// - [payloadMetadata]: 载荷元数据
+  /// - [key]: 32 字节加密密钥
+  /// - [chunkSize]: 分块大小（字节），默认 [DEFAULT_CHUNK_SIZE]（1MB）
+  /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  Future<EncryptResult> encryptStream({
+    required String sourcePath,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// 流式解密（大文件场景）
+  ///
+  /// 从 .straw 二进制文件逐块读取并解密，将明文写入目标文件，
+  /// 避免将整个文件加载到内存。适用于大文件的解密场景。
+  ///
+  /// .straw 二进制文件格式：
+  /// [8B Magic Bytes "STRAWHUT"]
+  /// [4B Version (2B major uint16 LE + 2B minor uint16 LE)]
+  /// [4B header_json_length (uint32 LE)]
+  /// [header_json_length bytes: JSON 头部]
+  /// [每个分块: 16B IV + 4B encrypted_data_length (uint32 LE) + encrypted_data]
+  ///
+  /// 参数说明：
+  /// - [strawFilePath]: .straw 二进制文件路径
+  /// - [key]: 32 字节解密密钥
+  /// - [targetPath]: 解密后写入的目标文件路径
+  /// - [chunkSize]: 分块大小（字节）
+  /// - [originalPayloadSize]: 原始载荷大小（字节）
+  /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  Future<DecryptStreamResult> decryptStream({
+    required String strawFilePath,
+    required Uint8List key,
+    required String targetPath,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// 解密旧版单块加密内容
+  ///
+  /// 用于迁移旧版 .straw 文件。旧版使用单块 AES-256-GCM 加密，
+  /// Base64 编码的 `encrypted_data` 和 `iv` 存储在 JSON 中。
+  ///
+  /// 参数说明：
+  /// - [encryptedDataBase64]: Base64 编码的密文（含 GCM Tag）
+  /// - [ivBase64]: Base64 编码的 IV
+  /// - [key]: 32 字节解密密钥
+  ///
+  /// 返回解密后的明文字节
+  Uint8List decryptLegacyContent({
+    required String encryptedDataBase64,
+    required String ivBase64,
+    required Uint8List key,
+  });
 }
 
 /// 加密服务实现
 ///
-/// 实现 [ICryptoService] 接口，提供完整的加密/解密功能。
+/// 实现 [ICryptoService] 接口，提供完整的分块加密/解密功能。
 ///
 /// 依赖的第三方库：
 /// - `encrypt` 包：提供高层 AES-256-GCM 加密 API
@@ -128,8 +192,12 @@ abstract class ICryptoService {
 /// ```dart
 /// final cryptoService = CryptoService(integrityService);
 /// final key = await cryptoService.generateKey();
-/// final encrypted = await cryptoService.encryptContent(
-///   deltaJson: '{"ops": [...]}',
+/// final encryptResult = await cryptoService.encrypt(
+///   payloadBytes: utf8.encode('Hello World'),
+///   payloadMetadata: PayloadMetadata(
+///     sourceType: SourceType.richText,
+///     originalExtension: 'delta',
+///   ),
 ///   key: key.bytes,
 /// );
 /// // ... 发布完成后清理敏感数据
@@ -152,9 +220,6 @@ class CryptoService implements ICryptoService {
   /// 解密后需要验证完整性，因此作为依赖注入。
   final IntegrityService integrityService;
 
-  /// Isolate 阈值：超过此大小的加密/解密操作移入 Isolate 执行
-  static const int _isolateThreshold = 64 * 1024; // 64KB
-
   /// 生成加密密钥
   ///
   /// 实现步骤：
@@ -163,161 +228,18 @@ class CryptoService implements ICryptoService {
   /// 3. 使用 [base64Encode] 将字节数组编码为 Base64 字符串
   /// 4. 返回包含原始字节和编码字符串的 [GeneratedKey]
   ///
-  /// 安全注意事项：
-  /// - 必须使用 [Random.secure()]，它由操作系统级别的 CSPRNG 支持
-  /// - 在 Windows 上底层调用 CryptGenRandom，Linux/Mac 上调用 /dev/urandom
-  /// - 密钥生成完成后应尽快用于加密操作，减少内存驻留时间
-  /// - 调用方应在使用后调用 [clearSensitiveData] 清理密钥引用
-  ///
   /// 性能参考：密钥生成耗时 < 1ms
   @override
   Future<GeneratedKey> generateKey() async {
-    // 使用 CSPRNG 生成 32 个安全随机字节
     final random = Random.secure();
     final keyBytes = Uint8List(KEY_LENGTH_BYTES);
     for (var i = 0; i < KEY_LENGTH_BYTES; i++) {
       keyBytes[i] = random.nextInt(256);
     }
 
-    // 将密钥字节编码为 Base64 字符串，便于展示和传输
     final keyBase64 = base64Encode(keyBytes);
 
     return GeneratedKey(bytes: keyBytes, base64: keyBase64);
-  }
-
-  /// 加密知识内容
-  ///
-  /// 实现步骤：
-  /// 1. 创建 AES 加密器，使用 GCM 模式（AEAD 认证加密）
-  /// 2. 使用 [IV.fromSecureRandom] 生成 16 字节安全随机 IV
-  /// 3. 将密钥字节包装为 [Key] 对象
-  /// 4. 将 Delta JSON 字符串转为 UTF-8 字节后加密
-  /// 5. 将密文和 IV 分别 Base64 编码
-  /// 6. 返回 [EncryptedContent] 对象
-  ///
-  /// 参数说明：
-  /// - [deltaJson]: Quill 编辑器导出的 Delta JSON 明文内容
-  /// - [key]: 32 字节加密密钥（必须由 [generateKey] 生成）
-  ///
-  /// 安全注意事项：
-  /// - IV 使用安全随机数生成，保证同一密钥下 IV 不重复
-  /// - GCM 模式自动附加消息认证码（MAC），防止密文被篡改
-  /// - 加密完成后应调用 [clearSensitiveData] 清理密钥引用
-  /// - 明文 deltaJson 应在加密后尽快释放
-  ///
-  /// 性能优化建议（Phase 6）：
-  /// - 使用 `compute` 在 Isolate 中执行加密，避免阻塞 UI 线程
-  /// - 大文件（>1MB）可考虑分块加密
-  @override
-  Future<EncryptedContent> encryptContent({
-    required String deltaJson,
-    required Uint8List key,
-  }) async {
-    final plaintext = Uint8List.fromList(utf8.encode(deltaJson));
-
-    // 大内容（>64KB）使用 Isolate，小内容直接执行
-    if (plaintext.length > _isolateThreshold) {
-      return compute(
-        _encryptInIsolate,
-        _EncryptParams(plaintext: plaintext, key: key),
-      );
-    }
-
-    return _encryptDirect(plaintext, key);
-  }
-
-  /// 直接加密（小内容或 Isolate 内调用）
-  EncryptedContent _encryptDirect(Uint8List plaintext, Uint8List key) {
-    final encrypter = encrypt.Encrypter(
-      encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.gcm),
-    );
-
-    final iv = encrypt.IV.fromSecureRandom(IV_LENGTH_BYTES);
-    final encrypted = encrypter.encryptBytes(plaintext, iv: iv);
-
-    return EncryptedContent(
-      encryptedDataBase64: base64Encode(encrypted.bytes),
-      ivBase64: base64Encode(iv.bytes),
-      algorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
-    );
-  }
-
-  /// 解密知识内容
-  ///
-  /// 实现步骤：
-  /// 1. 使用 Base64 解码 IV 和密文数据
-  /// 2. 验证密钥长度是否为 32 字节
-  /// 3. 创建 AES 解密器，使用 GCM 模式
-  /// 4. 执行解密操作（GCM 模式自动验证 MAC 完整性）
-  /// 5. 将解密后的 UTF-8 字节转为字符串返回
-  ///
-  /// 参数说明：
-  /// - [encryptedDataBase64]: Base64 编码的密文
-  /// - [ivBase64]: Base64 编码的 IV
-  /// - [key]: 32 字节解密密钥（用户输入或从 .key 文件解析）
-  ///
-  /// 返回值：解密后的 Delta JSON 字符串（Quill 编辑器格式）
-  ///
-  /// 异常处理：
-  /// - 密钥错误：AES-GCM 的 MAC 验证失败，抛出 [CryptoException]
-  /// - 密文损坏：Base64 解码或解密失败，抛出 [CryptoException]
-  /// - 密钥长度错误：抛出 [CryptoException]
-  ///
-  /// 安全注意事项：
-  /// - GCM 模式自动验证 MAC，防止密文被篡改
-  /// - 解密完成后，密钥字节引用应尽快置 null
-  /// - 建议在返回结果后立即调用 [clearSensitiveData]
-  @override
-  Future<String> decryptContent({
-    required String encryptedDataBase64,
-    required String ivBase64,
-    required Uint8List key,
-  }) async {
-    try {
-      // 验证密钥长度是否正确
-      if (key.length != KEY_LENGTH_BYTES) {
-        throw CryptoException(
-          '密钥长度不正确：期望 $KEY_LENGTH_BYTES 字节，实际 ${key.length} 字节',
-          code: 'INVALID_KEY_LENGTH',
-        );
-      }
-
-      // Base64 解码 IV 和密文数据
-      final ivBytes = base64Decode(ivBase64);
-      final encryptedBytes = base64Decode(encryptedDataBase64);
-
-      // 大内容（>64KB）使用 Isolate
-      if (encryptedBytes.length > _isolateThreshold) {
-        return compute(
-          _decryptInIsolate,
-          _DecryptParams(ciphertext: encryptedBytes, key: key, iv: ivBytes),
-        );
-      }
-
-      // 创建 AES-256-GCM 解密器（使用 encrypt 包的高层 API）
-      final encrypter = encrypt.Encrypter(
-        encrypt.AES(encrypt.Key(key), mode: encrypt.AESMode.gcm),
-      );
-
-      // 执行解密操作
-      // 使用 decrypt() 直接传入 Encrypted 对象，避免冗余的 Base64 编解码
-      // GCM 模式自动验证 MAC，如果密钥错误或密文被篡改，会抛出异常
-      final decrypted = encrypter.decrypt(
-        encrypt.Encrypted(encryptedBytes),
-        iv: encrypt.IV(ivBytes),
-      );
-
-      return decrypted;
-    } on CryptoException {
-      // 已知的加密异常，直接向上抛出
-      rethrow;
-    } catch (e) {
-      // 其他异常（如 Base64 解码失败、解密失败等）统一包装为 CryptoException
-      throw CryptoException(
-        '解密失败：可能是密钥错误或文件已损坏。详情：$e',
-        code: 'DECRYPTION_FAILED',
-      );
-    }
   }
 
   /// 从口令派生加密密钥
@@ -326,15 +248,6 @@ class CryptoService implements ICryptoService {
   /// 1. 验证盐值长度是否为 [SALT_LENGTH_BYTES] 字节
   /// 2. 使用 PBKDF2-HMAC-SHA256 算法派生密钥
   /// 3. 返回派生后的 32 字节密钥
-  ///
-  /// 参数说明：
-  /// - [passphrase]: 用户输入的口令
-  /// - [salt]: 16 字节盐值
-  /// - [iterations]: PBKDF2 迭代次数，默认 100000
-  ///
-  /// 异常处理：
-  /// - 盐值长度不正确时抛出 [CryptoException]
-  /// - 密钥派生过程出错时抛出 [CryptoException]
   @override
   Future<Uint8List> deriveKeyFromPassphrase({
     required String passphrase,
@@ -349,8 +262,6 @@ class CryptoService implements ICryptoService {
     }
 
     try {
-      // Use compute (Isolate) on non-web platforms to avoid blocking the UI thread.
-      // PBKDF2 with 100,000 iterations is CPU-intensive, especially on mobile.
       return compute(
         _deriveKeyFromPassphraseIsolate,
         _DeriveKeyParams(
@@ -366,29 +277,611 @@ class CryptoService implements ICryptoService {
 
   /// 清理敏感数据
   ///
-  /// 实现步骤：
-  /// 1. 由于本实现是无状态的，没有内部持有敏感数据引用
-  /// 2. 此方法保留为接口一致性，调用方可自行清理持有的密钥引用
-  /// 3. 如果未来需要持有状态（如缓存密钥），在此处调用 [MemoryUtils.wipeBytes]
-  ///
-  /// 安全注意事项：
-  /// - Dart 的 GC 机制不可控，无法强制立即回收
-  /// - 最佳实践：调用此方法后尽快让敏感引用超出作用域
-  /// - 调用方应自行将持有的密钥字节数组调用 [MemoryUtils.wipeBytes] 逐字节置零
-  ///
-  /// 调用时机：
-  /// - 加密发布流程完成后
-  /// - 解密读取流程完成后
-  /// - 用户取消操作时
+  /// 当前实现为无状态设计，没有内部持有敏感数据引用。
+  /// 调用方应自行清理持有的密钥引用。
   @override
   void clearSensitiveData() {
     // 当前实现为无状态设计，没有内部持有敏感数据引用。
     // 调用方应自行清理持有的密钥引用，例如：
     //   MemoryUtils.wipeBytes(keyBytes);
     //   keyBytes = null;
-    //
-    // 如果未来扩展为有状态设计（如缓存解密密钥），
-    // 需要在此处清理所有内部持有的敏感数据引用。
+  }
+
+  /// 加密载荷（统一接口）
+  ///
+  /// 实现步骤：
+  /// 1. 序列化 PayloadMetadata 为字节
+  /// 2. 构造第一个分块明文：[2B 元数据长度(uint16 LE)] + [元数据字节] + [载荷数据]
+  /// 3. 为每个分块生成随机 IV → AES-256-GCM 加密 → ChunkInfo
+  /// 4. 后续分块：直接加密载荷数据
+  /// 5. 返回 EncryptResult
+  @override
+  Future<EncryptResult> encrypt({
+    required Uint8List payloadBytes,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    _validateKeyLength(key);
+
+    final metadataBytes = payloadMetadata.toBytes();
+    final metadataLen = metadataBytes.length;
+
+    // 元数据长度必须能放入 uint16（2 字节，最大 65535）
+    if (metadataLen > 0xFFFF) {
+      throw CryptoException(
+        '元数据过大：$metadataLen 字节，最大支持 65535 字节',
+        code: 'METADATA_TOO_LARGE',
+      );
+    }
+
+    // 第一个分块载荷容量 = chunkSize - 2(长度前缀) - metadataLen
+    final firstChunkPayloadCapacity = chunkSize - 2 - metadataLen;
+    if (firstChunkPayloadCapacity < 0) {
+      throw CryptoException(
+        '分块大小不足以容纳元数据：chunkSize=$chunkSize, metadataLen=$metadataLen',
+        code: 'CHUNK_SIZE_TOO_SMALL',
+      );
+    }
+
+    // 计算总分块数
+    final totalChunks = _calculateTotalChunks(
+      payloadSize: payloadBytes.length,
+      firstChunkPayloadCapacity: firstChunkPayloadCapacity,
+      chunkSize: chunkSize,
+    );
+
+    final chunks = <ChunkInfo>[];
+    int payloadOffset = 0;
+
+    // ---- 第一个分块 ----
+    final firstPayloadSize =
+        min(firstChunkPayloadCapacity, payloadBytes.length);
+    final firstChunkPlaintext = Uint8List(2 + metadataLen + firstPayloadSize);
+    // 写入元数据长度（uint16 LE）
+    firstChunkPlaintext[0] = metadataLen & 0xFF;
+    firstChunkPlaintext[1] = (metadataLen >> 8) & 0xFF;
+    // 写入元数据字节
+    firstChunkPlaintext.setRange(2, 2 + metadataLen, metadataBytes);
+    // 写入第一部分载荷数据
+    firstChunkPlaintext.setRange(
+      2 + metadataLen,
+      firstChunkPlaintext.length,
+      payloadBytes,
+    );
+    payloadOffset = firstPayloadSize;
+
+    // 使用 compute 在后台 Isolate 中加密第一个分块
+    final firstResult = await compute(
+      _encryptChunkInIsolate,
+      _ChunkEncryptParams(plaintext: firstChunkPlaintext, key: key),
+    );
+    chunks.add(ChunkInfo(
+        iv: firstResult.iv, encryptedData: firstResult.encryptedData));
+    onProgress?.call(1, totalChunks);
+
+    // ---- 后续分块 ----
+    while (payloadOffset < payloadBytes.length) {
+      final chunkPayloadSize =
+          min(chunkSize, payloadBytes.length - payloadOffset);
+      final chunkPlaintext = Uint8List.fromList(
+        payloadBytes.sublist(payloadOffset, payloadOffset + chunkPayloadSize),
+      );
+
+      // 使用 compute 在后台 Isolate 中加密每个分块
+      final chunkResult = await compute(
+        _encryptChunkInIsolate,
+        _ChunkEncryptParams(plaintext: chunkPlaintext, key: key),
+      );
+      chunks.add(ChunkInfo(
+          iv: chunkResult.iv, encryptedData: chunkResult.encryptedData));
+
+      payloadOffset += chunkPayloadSize;
+      onProgress?.call(chunks.length, totalChunks);
+    }
+
+    return EncryptResult(
+      chunks: chunks,
+      chunkSize: chunkSize,
+      totalChunks: totalChunks,
+      originalPayloadSize: payloadBytes.length,
+    );
+  }
+
+  /// 解密载荷（统一接口）
+  ///
+  /// 实现步骤：
+  /// 1. 解密第一个分块 → 提取 [MetadataLength(2B)] + [MetadataBytes] + 首段载荷
+  /// 2. 解析 PayloadMetadata → 获取 sourceType + originalExtension
+  /// 3. 解密第 2..N 个分块 → 拼接载荷数据
+  /// 4. 返回 DecryptResult（PayloadMetadata + 完整 PayloadBytes）
+  @override
+  Future<DecryptResult> decrypt({
+    required List<ChunkInfo> chunks,
+    required Uint8List key,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    _validateKeyLength(key);
+
+    if (chunks.isEmpty) {
+      throw CryptoException('分块列表为空，无法解密', code: 'EMPTY_CHUNKS');
+    }
+
+    // ---- 解密第一个分块（在 Isolate 中） ----
+    final firstPlaintext = await compute(
+      _decryptChunkInIsolate,
+      _ChunkDecryptParams(
+        ciphertext: chunks[0].encryptedData,
+        key: key,
+        iv: chunks[0].iv,
+      ),
+    );
+    onProgress?.call(1, chunks.length);
+
+    // 提取元数据长度（uint16 LE）
+    if (firstPlaintext.length < 2) {
+      throw CryptoException(
+        '第一个分块过小，无法读取元数据长度',
+        code: 'FIRST_CHUNK_TOO_SMALL',
+      );
+    }
+    final metadataLen = firstPlaintext[0] | (firstPlaintext[1] << 8);
+
+    if (firstPlaintext.length < 2 + metadataLen) {
+      throw CryptoException(
+        '第一个分块过小，元数据被截断',
+        code: 'METADATA_TRUNCATED',
+      );
+    }
+
+    // 提取元数据字节并反序列化
+    final metadataBytes = Uint8List.fromList(
+      firstPlaintext.sublist(2, 2 + metadataLen),
+    );
+    final payloadMetadata = PayloadMetadata.fromBytes(metadataBytes);
+
+    // 提取首段载荷数据
+    final firstPayloadPart = firstPlaintext.sublist(2 + metadataLen);
+
+    // ---- 解密后续分块（在 Isolate 中） ----
+    final payloadParts = <Uint8List>[Uint8List.fromList(firstPayloadPart)];
+    for (var i = 1; i < chunks.length; i++) {
+      final chunkPlaintext = await compute(
+        _decryptChunkInIsolate,
+        _ChunkDecryptParams(
+          ciphertext: chunks[i].encryptedData,
+          key: key,
+          iv: chunks[i].iv,
+        ),
+      );
+      payloadParts.add(chunkPlaintext);
+      onProgress?.call(i + 1, chunks.length);
+    }
+
+    // ---- 拼接完整载荷 ----
+    final totalSize =
+        payloadParts.fold<int>(0, (sum, part) => sum + part.length);
+    final payloadBytes = Uint8List(totalSize);
+    int offset = 0;
+    for (final part in payloadParts) {
+      payloadBytes.setRange(offset, offset + part.length, part);
+      offset += part.length;
+    }
+
+    // 精确截取到 originalPayloadSize（确保与加密前一致）
+    final resultBytes = payloadBytes.length == originalPayloadSize
+        ? payloadBytes
+        : Uint8List.fromList(
+            payloadBytes.sublist(0, originalPayloadSize),
+          );
+
+    return DecryptResult(
+      payloadMetadata: payloadMetadata,
+      payloadBytes: resultBytes,
+    );
+  }
+
+  /// 流式加密（大文件场景）
+  ///
+  /// 使用 dart:io File.openRead() 从源文件逐块读取数据并加密，
+  /// 避免将整个文件加载到内存。适用于大文件（视频、PDF 等）的加密场景。
+  ///
+  /// 实现步骤：
+  /// 1. 获取文件大小，计算总分块数
+  /// 2. 读取第一块数据，构造含元数据前缀的第一个分块明文
+  /// 3. 使用 AES-256-GCM 加密每个分块
+  /// 4. 返回 EncryptResult
+  @override
+  Future<EncryptResult> encryptStream({
+    required String sourcePath,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    _validateKeyLength(key);
+
+    final file = File(sourcePath);
+    if (!await file.exists()) {
+      throw CryptoException(
+        '源文件不存在：$sourcePath',
+        code: 'FILE_NOT_FOUND',
+      );
+    }
+
+    final fileSize = await file.length();
+    final metadataBytes = payloadMetadata.toBytes();
+    final metadataLen = metadataBytes.length;
+
+    if (metadataLen > 0xFFFF) {
+      throw CryptoException(
+        '元数据过大：$metadataLen 字节，最大支持 65535 字节',
+        code: 'METADATA_TOO_LARGE',
+      );
+    }
+
+    final firstChunkPayloadCapacity = chunkSize - 2 - metadataLen;
+    if (firstChunkPayloadCapacity < 0) {
+      throw CryptoException(
+        '分块大小不足以容纳元数据：chunkSize=$chunkSize, metadataLen=$metadataLen',
+        code: 'CHUNK_SIZE_TOO_SMALL',
+      );
+    }
+
+    final totalChunks = _calculateTotalChunks(
+      payloadSize: fileSize,
+      firstChunkPayloadCapacity: firstChunkPayloadCapacity,
+      chunkSize: chunkSize,
+    );
+
+    final chunks = <ChunkInfo>[];
+    final raf = await file.open();
+
+    try {
+      // ---- 第一个分块 ----
+      final firstPayloadSize = min(firstChunkPayloadCapacity, fileSize);
+      final firstPayloadData = await raf.read(firstPayloadSize);
+
+      final firstChunkPlaintext = Uint8List(2 + metadataLen + firstPayloadSize);
+      firstChunkPlaintext[0] = metadataLen & 0xFF;
+      firstChunkPlaintext[1] = (metadataLen >> 8) & 0xFF;
+      firstChunkPlaintext.setRange(2, 2 + metadataLen, metadataBytes);
+      firstChunkPlaintext.setRange(
+        2 + metadataLen,
+        firstChunkPlaintext.length,
+        firstPayloadData,
+      );
+
+      // 使用 compute 在后台 Isolate 中加密第一个分块
+      final firstResult = await compute(
+        _encryptChunkInIsolate,
+        _ChunkEncryptParams(plaintext: firstChunkPlaintext, key: key),
+      );
+      chunks.add(ChunkInfo(
+          iv: firstResult.iv, encryptedData: firstResult.encryptedData));
+      onProgress?.call(1, totalChunks);
+
+      // ---- 后续分块 ----
+      int chunkIndex = 1;
+      while (await raf.position() < fileSize) {
+        final remaining = fileSize - await raf.position();
+        final readSize = min(chunkSize, remaining);
+        final chunkData = await raf.read(readSize);
+
+        // 使用 compute 在后台 Isolate 中加密每个分块
+        final chunkResult = await compute(
+          _encryptChunkInIsolate,
+          _ChunkEncryptParams(
+              plaintext: Uint8List.fromList(chunkData), key: key),
+        );
+        chunks.add(ChunkInfo(
+            iv: chunkResult.iv, encryptedData: chunkResult.encryptedData));
+
+        chunkIndex++;
+        onProgress?.call(chunkIndex, totalChunks);
+      }
+
+      return EncryptResult(
+        chunks: chunks,
+        chunkSize: chunkSize,
+        totalChunks: totalChunks,
+        originalPayloadSize: fileSize,
+      );
+    } finally {
+      await raf.close();
+    }
+  }
+
+  /// 流式解密（大文件场景）
+  ///
+  /// 从 .straw 二进制文件逐块读取并解密，将明文写入目标文件，
+  /// 避免将整个文件加载到内存。适用于大文件的解密场景。
+  ///
+  /// .straw 二进制文件格式：
+  /// [4B header_json_length (uint32 LE)]
+  /// [header_json_length bytes: JSON 头部]
+  /// [每个分块: 16B IV + 4B encrypted_data_length (uint32 LE) + encrypted_data]
+  ///
+  /// 实现步骤：
+  /// 1. 读取并解析 JSON 头部，获取 totalChunks
+  /// 2. 逐块读取 IV + 密文长度 + 密文
+  /// 3. 解密每个分块，第一个分块提取元数据前缀
+  /// 4. 将载荷数据写入目标文件
+  /// 5. 返回 DecryptStreamResult
+  @override
+  Future<DecryptStreamResult> decryptStream({
+    required String strawFilePath,
+    required Uint8List key,
+    required String targetPath,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    _validateKeyLength(key);
+
+    final file = File(strawFilePath);
+    if (!await file.exists()) {
+      throw CryptoException(
+        '文件不存在：$strawFilePath',
+        code: 'FILE_NOT_FOUND',
+      );
+    }
+
+    final raf = await file.open();
+
+    try {
+      // ---- 跳过 Magic Bytes (8 字节) + Version (4 字节) ----
+      await raf.setPosition(MAGIC_BYTES_LENGTH + 4);
+
+      // ---- 读取 JSON 头部长度 ----
+      final headerLenBytes = await raf.read(4);
+      if (headerLenBytes.length < 4) {
+        throw CryptoException(
+          '文件头部格式错误：无法读取头部长度',
+          code: 'INVALID_FILE_FORMAT',
+        );
+      }
+      final headerLength = headerLenBytes[0] |
+          (headerLenBytes[1] << 8) |
+          (headerLenBytes[2] << 16) |
+          (headerLenBytes[3] << 24);
+
+      // ---- 读取 JSON 头部 ----
+      final headerBytes = await raf.read(headerLength);
+      if (headerBytes.length < headerLength) {
+        throw CryptoException(
+          '文件头部不完整：期望 $headerLength 字节，实际 ${headerBytes.length} 字节',
+          code: 'INVALID_FILE_FORMAT',
+        );
+      }
+
+      // 解析头部获取 totalChunks
+      Map<String, dynamic> headerJson;
+      try {
+        headerJson =
+            jsonDecode(utf8.decode(headerBytes)) as Map<String, dynamic>;
+      } catch (e) {
+        throw CryptoException(
+          'JSON 头部解析失败：$e',
+          code: 'INVALID_FILE_FORMAT',
+        );
+      }
+
+      final contentJson = headerJson['content'] as Map<String, dynamic>;
+      final totalChunks = contentJson['total_chunks'] as int;
+
+      // ---- 创建目标文件 ----
+      final targetFile = File(targetPath);
+      final targetRaf = await targetFile.open(mode: FileMode.writeOnly);
+
+      PayloadMetadata? payloadMetadata;
+      int bytesWritten = 0;
+
+      try {
+        for (var i = 0; i < totalChunks; i++) {
+          // 读取 IV
+          final ivBytes = await raf.read(CHUNK_IV_LENGTH_BYTES);
+          if (ivBytes.length < CHUNK_IV_LENGTH_BYTES) {
+            throw CryptoException(
+              '分块 $i IV 数据不完整',
+              code: 'INVALID_FILE_FORMAT',
+            );
+          }
+
+          // 读取加密数据长度
+          final encDataLenBytes = await raf.read(4);
+          if (encDataLenBytes.length < 4) {
+            throw CryptoException(
+              '分块 $i 加密数据长度字段不完整',
+              code: 'INVALID_FILE_FORMAT',
+            );
+          }
+          final encDataLen = encDataLenBytes[0] |
+              (encDataLenBytes[1] << 8) |
+              (encDataLenBytes[2] << 16) |
+              (encDataLenBytes[3] << 24);
+
+          // 读取加密数据
+          final encDataBytes = await raf.read(encDataLen);
+          if (encDataBytes.length < encDataLen) {
+            throw CryptoException(
+              '分块 $i 加密数据不完整：期望 $encDataLen 字节，'
+              '实际 ${encDataBytes.length} 字节',
+              code: 'INVALID_FILE_FORMAT',
+            );
+          }
+
+          // 使用 compute 在后台 Isolate 中解密分块
+          final plaintext = await compute(
+            _decryptChunkInIsolate,
+            _ChunkDecryptParams(
+              ciphertext: Uint8List.fromList(encDataBytes),
+              key: key,
+              iv: Uint8List.fromList(ivBytes),
+            ),
+          );
+
+          if (i == 0) {
+            // 第一个分块：提取元数据前缀
+            if (plaintext.length < 2) {
+              throw CryptoException(
+                '第一个分块过小，无法读取元数据长度',
+                code: 'FIRST_CHUNK_TOO_SMALL',
+              );
+            }
+            final metadataLen = plaintext[0] | (plaintext[1] << 8);
+
+            if (plaintext.length < 2 + metadataLen) {
+              throw CryptoException(
+                '第一个分块过小，元数据被截断',
+                code: 'METADATA_TRUNCATED',
+              );
+            }
+
+            final metadataBytes = Uint8List.fromList(
+              plaintext.sublist(2, 2 + metadataLen),
+            );
+            payloadMetadata = PayloadMetadata.fromBytes(metadataBytes);
+
+            // 写入首段载荷数据到目标文件
+            final payloadPart = plaintext.sublist(2 + metadataLen);
+            if (payloadPart.isNotEmpty) {
+              await targetRaf.writeFrom(payloadPart);
+              bytesWritten += payloadPart.length;
+            }
+          } else {
+            // 后续分块：直接写入载荷数据
+            await targetRaf.writeFrom(plaintext);
+            bytesWritten += plaintext.length;
+          }
+
+          onProgress?.call(i + 1, totalChunks);
+        }
+      } finally {
+        await targetRaf.close();
+      }
+
+      // 截断目标文件到精确的 originalPayloadSize
+      if (bytesWritten > originalPayloadSize) {
+        await targetFile.writeAsBytes(
+          await _truncateFile(targetFile, originalPayloadSize),
+        );
+      }
+
+      return DecryptStreamResult(
+        payloadMetadata: payloadMetadata!,
+        targetPath: targetPath,
+      );
+    } catch (e) {
+      throw e is CryptoException
+          ? e
+          : CryptoException(
+              '流式解密失败：$e',
+              code: 'DECRYPT_STREAM_FAILED',
+            );
+    } finally {
+      await raf.close();
+    }
+  }
+
+  // ==========================================================================
+  // 私有辅助方法
+  // ==========================================================================
+
+  /// 验证密钥长度是否为 32 字节
+  void _validateKeyLength(Uint8List key) {
+    if (key.length != KEY_LENGTH_BYTES) {
+      throw CryptoException(
+        '密钥长度不正确：期望 $KEY_LENGTH_BYTES 字节，实际 ${key.length} 字节',
+        code: 'INVALID_KEY_LENGTH',
+      );
+    }
+  }
+
+  /// 计算总分块数
+  ///
+  /// [payloadSize] 载荷总大小
+  /// [firstChunkPayloadCapacity] 第一个分块的载荷容量
+  /// [chunkSize] 后续分块大小
+  int _calculateTotalChunks({
+    required int payloadSize,
+    required int firstChunkPayloadCapacity,
+    required int chunkSize,
+  }) {
+    if (payloadSize <= firstChunkPayloadCapacity) {
+      return 1;
+    }
+    final remaining = payloadSize - firstChunkPayloadCapacity;
+    return 1 + ((remaining + chunkSize - 1) ~/ chunkSize);
+  }
+
+  /// 生成密码学安全随机字节
+  Uint8List _generateSecureRandomBytes(int length) {
+    final random = Random.secure();
+    final bytes = Uint8List(length);
+    for (var i = 0; i < length; i++) {
+      bytes[i] = random.nextInt(256);
+    }
+    return bytes;
+  }
+
+  /// AES-256-GCM 加密单个分块
+  ///
+  /// 返回密文（含 GCM 16 字节认证标签）。
+  Uint8List _encryptAesGcm(Uint8List plaintext, Uint8List key, Uint8List iv) {
+    final encrypter = enc.Encrypter(
+      enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+    );
+    final encrypted = encrypter.encryptBytes(plaintext, iv: enc.IV(iv));
+    return encrypted.bytes;
+  }
+
+  /// AES-256-GCM 解密单个分块
+  ///
+  /// [ciphertext] 包含 GCM 16 字节认证标签的密文。
+  /// 返回解密后的明文字节。
+  Uint8List _decryptAesGcm(
+    Uint8List ciphertext,
+    Uint8List key,
+    Uint8List iv,
+  ) {
+    try {
+      final encrypter = enc.Encrypter(
+        enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+      );
+      return Uint8List.fromList(
+        encrypter.decryptBytes(
+          enc.Encrypted(ciphertext),
+          iv: enc.IV(iv),
+        ),
+      );
+    } catch (e) {
+      throw CryptoException(
+        '分块解密失败：可能是密钥错误或数据已损坏。详情：$e',
+        code: 'CHUNK_DECRYPTION_FAILED',
+      );
+    }
+  }
+
+  /// 截断文件到指定大小
+  Future<Uint8List> _truncateFile(File file, int targetSize) async {
+    final bytes = await file.readAsBytes();
+    return Uint8List.fromList(bytes.sublist(0, targetSize));
+  }
+
+  @override
+  Uint8List decryptLegacyContent({
+    required String encryptedDataBase64,
+    required String ivBase64,
+    required Uint8List key,
+  }) {
+    final ciphertext = base64Decode(encryptedDataBase64);
+    final iv = base64Decode(ivBase64);
+    return _decryptAesGcm(
+        Uint8List.fromList(ciphertext), key, Uint8List.fromList(iv));
   }
 }
 
@@ -405,27 +898,6 @@ class _DeriveKeyParams {
   });
 }
 
-/// Isolate 加密参数
-class _EncryptParams {
-  const _EncryptParams({required this.plaintext, required this.key});
-
-  final Uint8List plaintext;
-  final Uint8List key;
-}
-
-/// Isolate 解密参数
-class _DecryptParams {
-  const _DecryptParams({
-    required this.ciphertext,
-    required this.key,
-    required this.iv,
-  });
-
-  final Uint8List ciphertext;
-  final Uint8List key;
-  final Uint8List iv;
-}
-
 /// Top-level function for PBKDF2 key derivation in a background Isolate.
 ///
 /// Must be a top-level function because [compute] requires functions that are
@@ -440,32 +912,98 @@ Uint8List _deriveKeyFromPassphraseIsolate(_DeriveKeyParams params) {
   );
 }
 
-/// Isolate 内执行加密
-EncryptedContent _encryptInIsolate(_EncryptParams params) {
-  final encrypter = encrypt.Encrypter(
-    encrypt.AES(encrypt.Key(params.key), mode: encrypt.AESMode.gcm),
-  );
+/// Isolate 参数：单个分块加密所需的数据
+class _ChunkEncryptParams {
+  const _ChunkEncryptParams({
+    required this.plaintext,
+    required this.key,
+  });
 
-  final iv = encrypt.IV.fromSecureRandom(IV_LENGTH_BYTES);
-  final encrypted = encrypter.encryptBytes(params.plaintext, iv: iv);
-
-  return EncryptedContent(
-    encryptedDataBase64: base64Encode(encrypted.bytes),
-    ivBase64: base64Encode(iv.bytes),
-    algorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
-  );
+  final Uint8List plaintext;
+  final Uint8List key;
 }
 
-/// Isolate 内执行解密
-String _decryptInIsolate(_DecryptParams params) {
-  final encrypter = encrypt.Encrypter(
-    encrypt.AES(encrypt.Key(params.key), mode: encrypt.AESMode.gcm),
-  );
+/// Isolate 返回值：单个分块加密结果
+class _ChunkEncryptResult {
+  const _ChunkEncryptResult({
+    required this.iv,
+    required this.encryptedData,
+  });
 
-  final decrypted = encrypter.decrypt(
-    encrypt.Encrypted(params.ciphertext),
-    iv: encrypt.IV(params.iv),
-  );
+  final Uint8List iv;
+  final Uint8List encryptedData;
+}
 
-  return decrypted;
+/// Isolate 参数：单个分块解密所需的数据
+class _ChunkDecryptParams {
+  const _ChunkDecryptParams({
+    required this.ciphertext,
+    required this.key,
+    required this.iv,
+  });
+
+  final Uint8List ciphertext;
+  final Uint8List key;
+  final Uint8List iv;
+}
+
+/// 生成密码学安全随机字节（顶层函数，供 Isolate 调用）
+Uint8List _generateSecureRandomBytesStatic(int length) {
+  final random = Random.secure();
+  final bytes = Uint8List(length);
+  for (var i = 0; i < length; i++) {
+    bytes[i] = random.nextInt(256);
+  }
+  return bytes;
+}
+
+/// AES-256-GCM 加密（顶层函数，供 Isolate 调用）
+Uint8List _encryptAesGcmStatic(
+    Uint8List plaintext, Uint8List key, Uint8List iv) {
+  final encrypter = enc.Encrypter(
+    enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+  );
+  final encrypted = encrypter.encryptBytes(plaintext, iv: enc.IV(iv));
+  return encrypted.bytes;
+}
+
+/// 在 Isolate 中执行单个分块的 AES-256-GCM 加密
+///
+/// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
+/// 每次调用生成新的随机 IV 并加密。
+_ChunkEncryptResult _encryptChunkInIsolate(_ChunkEncryptParams params) {
+  final iv = _generateSecureRandomBytesStatic(16); // CHUNK_IV_LENGTH_BYTES = 16
+  final encrypted = _encryptAesGcmStatic(params.plaintext, params.key, iv);
+  return _ChunkEncryptResult(iv: iv, encryptedData: encrypted);
+}
+
+/// AES-256-GCM 解密（顶层函数，供 Isolate 调用）
+Uint8List _decryptAesGcmStatic(
+  Uint8List ciphertext,
+  Uint8List key,
+  Uint8List iv,
+) {
+  try {
+    final encrypter = enc.Encrypter(
+      enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+    );
+    return Uint8List.fromList(
+      encrypter.decryptBytes(
+        enc.Encrypted(ciphertext),
+        iv: enc.IV(iv),
+      ),
+    );
+  } catch (e) {
+    throw CryptoException(
+      '分块解密失败：可能是密钥错误或数据已损坏。详情：$e',
+      code: 'CHUNK_DECRYPTION_FAILED',
+    );
+  }
+}
+
+/// 在 Isolate 中执行单个分块的 AES-256-GCM 解密
+///
+/// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
+Uint8List _decryptChunkInIsolate(_ChunkDecryptParams params) {
+  return _decryptAesGcmStatic(params.ciphertext, params.key, params.iv);
 }

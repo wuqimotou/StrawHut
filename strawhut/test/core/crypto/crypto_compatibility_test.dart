@@ -3,10 +3,19 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/crypto/native/native_crypto_service.dart';
 import 'package:strawhut/core/crypto/native/windows_crypto_ffi.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+
+/// 辅助函数：构造富文本 PayloadMetadata
+PayloadMetadata _richTextMetadata() => PayloadMetadata(
+      sourceType: SourceType.richText,
+      originalExtension: 'delta',
+    );
 
 void main() {
   late CryptoService dartService;
@@ -95,18 +104,20 @@ void main() {
       final key = await dartService.generateKey();
       const content = '{"ops": [{"insert": "Cross-implementation test"}]}';
 
-      final encrypted = await dartService.encryptContent(
-        deltaJson: content,
+      final encryptResult = await dartService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await nativeService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await nativeService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('CC-02: native encrypt -> pure Dart decrypt', () async {
@@ -123,18 +134,20 @@ void main() {
       final key = await nativeService.generateKey();
       const content = '{"ops": [{"insert": "Cross-implementation test"}]}';
 
-      final encrypted = await nativeService.encryptContent(
-        deltaJson: content,
+      final encryptResult = await nativeService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await dartService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await dartService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('CC-03: native encrypt -> native decrypt', () async {
@@ -151,23 +164,25 @@ void main() {
       final key = await nativeService.generateKey();
       const content = '{"ops": [{"insert": "Native round-trip test"}]}';
 
-      final encrypted = await nativeService.encryptContent(
-        deltaJson: content,
+      final encryptResult = await nativeService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await nativeService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await nativeService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
-    test('CC-05: native decrypt supports 16-byte IV (legacy)', () async {
+    test('CC-05: chunks have unique IVs across services', () async {
       if (!nativeAvailable) {
-        print('Skipping legacy IV test: native API not available');
+        print('Skipping IV uniqueness test: native API not available');
         return;
       }
 
@@ -176,32 +191,37 @@ void main() {
         NativeCryptoService.createChannel(),
       );
 
-      // Encrypt with pure Dart (which uses 16-byte IV)
+      // Encrypt with pure Dart
       final key = await dartService.generateKey();
-      const content = '{"ops": [{"insert": "Legacy IV test"}]}';
+      const content = '{"ops": [{"insert": "IV uniqueness test"}]}';
 
-      final encrypted = await dartService.encryptContent(
-        deltaJson: content,
+      final dartEncryptResult = await dartService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      // Verify the IV is 16 bytes (from pure Dart implementation)
-      final ivBytes = base64Decode(encrypted.ivBase64);
-      expect(ivBytes.length, 16, reason: 'Pure Dart should use 16-byte IV');
+      // Verify each chunk has a 16-byte IV
+      for (final chunk in dartEncryptResult.chunks) {
+        expect(chunk.iv.length, CHUNK_IV_LENGTH_BYTES,
+            reason: 'Each chunk should use ${CHUNK_IV_LENGTH_BYTES}-byte IV');
+      }
 
-      // Decrypt with native service
-      final decrypted = await nativeService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      // Decrypt with native service using Dart encrypt result
+      final decryptResult = await nativeService.decrypt(
+        chunks: dartEncryptResult.chunks,
         key: key.bytes,
+        chunkSize: dartEncryptResult.chunkSize,
+        originalPayloadSize: dartEncryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
-    test('CC-06: pure Dart decrypt supports 12-byte IV (native)', () async {
+    test('CC-06: native encrypt chunks can be decrypted by pure Dart',
+        () async {
       if (!nativeAvailable) {
-        print('Skipping native IV test: native API not available');
+        print('Skipping native chunk test: native API not available');
         return;
       }
 
@@ -210,27 +230,31 @@ void main() {
         NativeCryptoService.createChannel(),
       );
 
-      // Encrypt with native (which uses 12-byte IV)
+      // Encrypt with native
       final key = await nativeService.generateKey();
       const content = '{"ops": [{"insert": "Native IV test"}]}';
 
-      final encrypted = await nativeService.encryptContent(
-        deltaJson: content,
+      final encryptResult = await nativeService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      // Verify the IV is 12 bytes (from native implementation)
-      final ivBytes = base64Decode(encrypted.ivBase64);
-      expect(ivBytes.length, 12, reason: 'Native should use 12-byte IV');
+      // Verify each chunk has a 16-byte IV
+      for (final chunk in encryptResult.chunks) {
+        expect(chunk.iv.length, CHUNK_IV_LENGTH_BYTES,
+            reason: 'Each chunk should use ${CHUNK_IV_LENGTH_BYTES}-byte IV');
+      }
 
       // Decrypt with pure Dart
-      final decrypted = await dartService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await dartService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
   });
 

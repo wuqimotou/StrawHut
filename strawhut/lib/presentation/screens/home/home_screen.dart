@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
+import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 import 'package:strawhut/presentation/screens/home/widgets/help_dialog.dart';
@@ -41,7 +42,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   /// 上次按返回键的时间，用于双击退出逻辑
   DateTime? _lastBackPress;
 
@@ -51,7 +53,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Clean up any residual temp files from previous sessions
+    TempFileManager.cleanAll();
     _loadVersion();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 在应用分离时清理临时文件（包含敏感解密数据）
+    if (state == AppLifecycleState.detached) {
+      TempFileManager.cleanAll();
+    }
   }
 
   /// 加载软件版本号

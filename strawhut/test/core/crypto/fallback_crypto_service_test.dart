@@ -1,11 +1,19 @@
-import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/native/fallback_crypto_service.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+
+/// 辅助函数：构造富文本 PayloadMetadata
+PayloadMetadata _richTextMetadata() => PayloadMetadata(
+      sourceType: SourceType.richText,
+      originalExtension: 'delta',
+    );
 
 void main() {
   late FallbackCryptoService service;
@@ -53,23 +61,25 @@ void main() {
     });
   });
 
-  group('encryptContent/decryptContent', () {
+  group('encrypt/decrypt', () {
     test('encrypt then decrypt should return original', () async {
       final key = await service.generateKey();
       const content = '{"ops": [{"insert": "Fallback test"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await service.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await service.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('wrong key should throw CryptoException', () async {
@@ -77,16 +87,18 @@ void main() {
       final key2 = await service.generateKey();
       const content = '{"ops": [{"insert": "test"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key1.bytes,
       );
 
       expect(
-        () => service.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        () => service.decrypt(
+          chunks: encryptResult.chunks,
           key: key2.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -124,16 +136,18 @@ void main() {
       );
       const content = '{"ops": [{"insert": "Derived key test"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key,
       );
-      final decrypted = await service.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await service.decrypt(
+        chunks: encryptResult.chunks,
         key: key,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('invalid salt length should throw CryptoException', () async {

@@ -1,21 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
-import 'package:strawhut/data/models/key_file.dart';
-import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/key_file.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
+import 'package:strawhut/data/models/straw_content.dart';
+import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/data/repositories/file_repository.dart';
 
 // Mock class for IFileIOService
 class MockFileIOService extends Mock implements IFileIOService {}
 
+// Fake StrawFile（用于 mocktail registerFallbackValue）
+class FakeStrawFile extends Fake implements StrawFile {}
+
+// Fake ParsedStrawFile（用于 mocktail registerFallbackValue）
+class FakeParsedStrawFile extends Fake implements ParsedStrawFile {}
+
 void main() {
   late FileRepository fileRepository;
   late MockFileIOService mockFileIOService;
+
+  setUpAll(() {
+    registerFallbackValue(FakeStrawFile());
+    registerFallbackValue(FakeParsedStrawFile());
+    registerFallbackValue(<ChunkInfo>[]);
+  });
 
   setUp(() {
     mockFileIOService = MockFileIOService();
@@ -38,10 +52,11 @@ void main() {
           description: '测试描述',
           isAnonymous: true,
         ),
-        content: EncryptedContent(
-          encryptedDataBase64: 'dGVzdA==',
-          ivBase64: 'YWJjZGVmZ2hpamtsbW5vcA==',
-          algorithm: 'AES-256-GCM',
+        content: StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 65536,
+          totalChunks: 1,
+          originalPayloadSize: 100,
         ),
         integrity: IntegrityInfo(
           hash: 'sha256:testhash',
@@ -50,15 +65,18 @@ void main() {
       );
 
       when(() => mockFileIOService.readStrawFile(any())).thenAnswer(
-        (_) async => mockStrawFile,
+        (_) async => const ParsedStrawFile(
+          strawFile: mockStrawFile,
+          chunks: [],
+        ),
       );
 
       // Act
       final result = await fileRepository.loadStrawFile('/path/to/card.straw');
 
       // Assert
-      expect(result, isA<StrawFile>());
-      expect(result.meta.title, '测试卡片');
+      expect(result, isA<ParsedStrawFile>());
+      expect(result.strawFile.meta.title, '测试卡片');
       verify(() => mockFileIOService.readStrawFile('/path/to/card.straw'))
           .called(1);
     });
@@ -167,10 +185,11 @@ void main() {
           description: '测试描述',
           isAnonymous: true,
         ),
-        content: EncryptedContent(
-          encryptedDataBase64: 'dGVzdA==',
-          ivBase64: 'YWJjZGVmZ2hpamtsbW5vcA==',
-          algorithm: 'AES-256-GCM',
+        content: StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 65536,
+          totalChunks: 1,
+          originalPayloadSize: 100,
         ),
         integrity: IntegrityInfo(
           hash: 'sha256:testhash',
@@ -185,7 +204,8 @@ void main() {
 
       when(
         () => mockFileIOService.writeStrawFile(
-          content: any(named: 'content'),
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
           targetPath: any(named: 'targetPath'),
         ),
       ).thenAnswer((_) async {});
@@ -193,13 +213,15 @@ void main() {
       // Act
       await fileRepository.saveStrawFile(
         strawFile: strawFile,
+        chunks: [],
         targetPath: '/path/to/output.straw',
       );
 
       // Assert
       verify(
         () => mockFileIOService.writeStrawFile(
-          content: any(named: 'content'),
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
           targetPath: '/path/to/output.straw',
         ),
       ).called(1);
@@ -211,7 +233,8 @@ void main() {
 
       when(
         () => mockFileIOService.writeStrawFile(
-          content: any(named: 'content'),
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
           targetPath: any(named: 'targetPath'),
         ),
       ).thenAnswer((_) async {});
@@ -219,20 +242,24 @@ void main() {
       // Act
       await fileRepository.saveStrawFile(
         strawFile: strawFile,
+        chunks: [],
         targetPath: '/path/to/output.straw',
       );
 
-      // Assert: 验证 writeStrawFile 被调用，且 content 参数是 JSON 字符串
+      // Assert: 验证 writeStrawFile 被调用，且参数正确
       final captured = verify(
         () => mockFileIOService.writeStrawFile(
-          content: captureAny(named: 'content'),
+          strawFile: captureAny(named: 'strawFile'),
+          chunks: captureAny(named: 'chunks'),
           targetPath: captureAny(named: 'targetPath'),
         ),
       ).captured;
 
-      // captured[0] 是 content 参数，captured[1] 是 targetPath 参数
-      expect(captured[0], isA<String>());
-      expect(captured[1], '/path/to/output.straw');
+      // captured[0] 是 strawFile，captured[1] 是 chunks，
+      // captured[2] 是 targetPath
+      expect(captured[0], isA<StrawFile>());
+      expect(captured[1], isA<List<ChunkInfo>>());
+      expect(captured[2], '/path/to/output.straw');
     });
 
     test('写入失败时抛出 FileException', () async {
@@ -241,7 +268,8 @@ void main() {
 
       when(
         () => mockFileIOService.writeStrawFile(
-          content: any(named: 'content'),
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
           targetPath: any(named: 'targetPath'),
         ),
       ).thenThrow(
@@ -255,6 +283,7 @@ void main() {
       expect(
         () async => fileRepository.saveStrawFile(
           strawFile: strawFile,
+          chunks: [],
           targetPath: '/invalid/path/output.straw',
         ),
         throwsA(

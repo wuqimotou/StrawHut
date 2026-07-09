@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:strawhut/l10n/l10n.dart';
+import 'package:strawhut/presentation/dialogs/migration_dialog/migration_dialog.dart';
 
 /// 使用教程对话框
 ///
@@ -74,6 +76,10 @@ class HelpDialog extends StatelessWidget {
                               '• 支持将加密内容嵌入 PNG 图片元数据中分享。',
                           Icons.security,
                         ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 24),
+                        const SizedBox(height: 8),
+                        _buildMigrationTile(context),
                       ],
                     ),
                   ),
@@ -172,6 +178,10 @@ class HelpDialog extends StatelessWidget {
                             '• 支持将加密内容嵌入 PNG 图片元数据中分享。',
                         Icons.security,
                       ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 24),
+                      const SizedBox(height: 8),
+                      _buildMigrationTile(context),
                     ],
                   ),
                 ),
@@ -229,6 +239,26 @@ class HelpDialog extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// 构建迁移旧版文件入口
+  Widget _buildMigrationTile(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return ListTile(
+      leading: Icon(Icons.sync, color: primaryColor),
+      title: Text(l10n.migrateLegacyFile),
+      subtitle: Text(l10n.migrateLegacyFileDescription),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Theme.of(context).dividerColor),
+      ),
+      onTap: () {
+        Navigator.pop(context); // Close help dialog first
+        MigrationDialog.show(context);
+      },
     );
   }
 }

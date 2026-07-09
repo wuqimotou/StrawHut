@@ -1,27 +1,28 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:strawhut/core/crypto/crypto_models/encrypted_content.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 
 void main() {
   // ========== 辅助函数：创建有效的 StrawFile 测试夹具 ==========
   /// 创建一个包含所有必填字段的有效 StrawFile 实例，供多个测试用例复用
   StrawFile _createValidStrawFile() => StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -33,7 +34,7 @@ void main() {
   // ========== 辅助函数：创建有效的 JSON 测试夹具 ==========
   /// 创建一个有效的 .straw 文件 JSON 映射，用于 fromJson 测试
   Map<String, dynamic> _createValidStrawJson() => {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
           'publish_date': '2026-05-01T12:00:00Z',
@@ -41,9 +42,10 @@ void main() {
           'is_anonymous': false,
         },
         'content': {
-          'encrypted_data': 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          'iv': 'dGVzdGl2MTIzNDU2',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 1048576,
+          'total_chunks': 1,
+          'original_payload_size': 256,
         },
         'integrity': {
           'hash':
@@ -76,17 +78,18 @@ void main() {
       // 测试 title 字段不同
       final file1 = _createValidStrawFile();
       final file2 = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '不同的标题', // 唯一不同的字段
           isAnonymous: false,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -149,10 +152,10 @@ void main() {
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
     });
 
-    test('content 缺少 encrypted_data 时应抛出异常', () {
-      // EncryptedContent 的 encryptedDataBase64 是必填字段
+    test('content 缺少 chunk_size 时应抛出异常', () {
+      // StrawContent 的 chunkSize 是必填字段
       final json = _createValidStrawJson();
-      (json['content'] as Map<String, dynamic>).remove('encrypted_data');
+      (json['content'] as Map<String, dynamic>).remove('chunk_size');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
     });
@@ -161,17 +164,18 @@ void main() {
   group('StrawFile.toJson', () {
     test('应输出包含所有必填字段的 JSON 映射', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -190,17 +194,18 @@ void main() {
 
     test('JSON 键名应使用 snake_case 格式', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -215,10 +220,14 @@ void main() {
 
       // 验证顶层键名
       expect(json.containsKey('format_version'), true);
-      // 验证 content 内部键名
-      expect(contentJson.containsKey('encrypted_data'), true);
+      // 验证 content 内部键名（v2 格式使用分块结构）
       expect(contentJson.containsKey('encryption_algorithm'), true);
-      expect(contentJson.containsKey('iv'), true);
+      expect(contentJson.containsKey('chunk_size'), true);
+      expect(contentJson.containsKey('total_chunks'), true);
+      expect(contentJson.containsKey('original_payload_size'), true);
+      // v2 格式不再包含 encrypted_data 和 iv
+      expect(contentJson.containsKey('encrypted_data'), false);
+      expect(contentJson.containsKey('iv'), false);
       // 验证 integrity 内部键名
       expect(integrityJson.containsKey('hash'), true);
       expect(integrityJson.containsKey('hash_algorithm'), true);
@@ -226,7 +235,7 @@ void main() {
 
     test('CardMeta 可选字段为 null 时不应输出', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
@@ -234,10 +243,11 @@ void main() {
           isAnonymous: false,
           // description 和 customAnnotations 为 null（默认）
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -255,7 +265,7 @@ void main() {
 
     test('CardMeta 可选字段有值时应正确输出', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
@@ -265,10 +275,11 @@ void main() {
           description: '这是一张测试卡片',
           customAnnotations: {'key': 'value'},
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -289,7 +300,7 @@ void main() {
   group('StrawFile.fromJson', () {
     test('应从完整 JSON 正确解析所有字段', () {
       final json = {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
           'publish_date': '2026-05-01T12:00:00Z',
@@ -297,9 +308,10 @@ void main() {
           'is_anonymous': false,
         },
         'content': {
-          'encrypted_data': 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          'iv': 'dGVzdGl2MTIzNDU2',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 1048576,
+          'total_chunks': 3,
+          'original_payload_size': 2500000,
         },
         'integrity': {
           'hash':
@@ -310,12 +322,13 @@ void main() {
 
       final strawFile = StrawFile.fromJson(json);
 
-      expect(strawFile.formatVersion.toString(), '1.0.0');
+      expect(strawFile.formatVersion.toString(), '2.0.0');
       expect(strawFile.meta.publisherAlias, 'TestUser');
       expect(strawFile.meta.title, '测试卡片');
-      expect(strawFile.content.encryptedDataBase64, 'dGVzdGVuY3J5cHRlZGRhdGE=');
-      expect(strawFile.content.ivBase64, 'dGVzdGl2MTIzNDU2');
-      expect(strawFile.content.algorithm, 'AES-256-GCM');
+      expect(strawFile.content.encryptionAlgorithm, 'AES-256-GCM');
+      expect(strawFile.content.chunkSize, 1048576);
+      expect(strawFile.content.totalChunks, 3);
+      expect(strawFile.content.originalPayloadSize, 2500000);
       expect(
         strawFile.integrity.hash,
         'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
@@ -325,7 +338,7 @@ void main() {
 
     test('嵌套对象 meta 应正确解析', () {
       final json = {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'Anonymous_a3f7b2c1',
           'publish_date': '2026-05-02T08:30:00Z',
@@ -335,9 +348,10 @@ void main() {
           'is_anonymous': true,
         },
         'content': {
-          'encrypted_data': 'dGVzdA==',
-          'iv': 'dGVzdA==',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 1048576,
+          'total_chunks': 1,
+          'original_payload_size': 100,
         },
         'integrity': {
           'hash': 'sha256:abc123',
@@ -355,9 +369,9 @@ void main() {
       expect(strawFile.meta.isAnonymous, true);
     });
 
-    test('嵌套对象 content 应正确解析', () {
+    test('嵌套对象 content 应正确解析（StrawContent 分块结构）', () {
       final json = {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
           'publish_date': '2026-05-01T12:00:00Z',
@@ -365,9 +379,10 @@ void main() {
           'is_anonymous': false,
         },
         'content': {
-          'encrypted_data': 'ZW5jcnlwdGVk',
-          'iv': 'aXZkYXRh',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 512,
+          'total_chunks': 10,
+          'original_payload_size': 5000,
         },
         'integrity': {
           'hash': 'sha256:def456',
@@ -377,14 +392,15 @@ void main() {
 
       final strawFile = StrawFile.fromJson(json);
 
-      expect(strawFile.content.encryptedDataBase64, 'ZW5jcnlwdGVk');
-      expect(strawFile.content.ivBase64, 'aXZkYXRh');
-      expect(strawFile.content.algorithm, 'AES-256-GCM');
+      expect(strawFile.content.encryptionAlgorithm, 'AES-256-GCM');
+      expect(strawFile.content.chunkSize, 512);
+      expect(strawFile.content.totalChunks, 10);
+      expect(strawFile.content.originalPayloadSize, 5000);
     });
 
     test('嵌套对象 integrity 应正确解析', () {
       final json = {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
           'publish_date': '2026-05-01T12:00:00Z',
@@ -392,9 +408,10 @@ void main() {
           'is_anonymous': false,
         },
         'content': {
-          'encrypted_data': 'dGVzdA==',
-          'iv': 'dGVzdA==',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 1048576,
+          'total_chunks': 1,
+          'original_payload_size': 100,
         },
         'integrity': {
           'hash':
@@ -414,7 +431,7 @@ void main() {
 
     test('meta 中 tags 字段不存在时应默认为空列表', () {
       final json = {
-        'format_version': '1.0.0',
+        'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
           'publish_date': '2026-05-01T12:00:00Z',
@@ -422,9 +439,10 @@ void main() {
           'is_anonymous': false,
         },
         'content': {
-          'encrypted_data': 'dGVzdA==',
-          'iv': 'dGVzdA==',
           'encryption_algorithm': 'AES-256-GCM',
+          'chunk_size': 1048576,
+          'total_chunks': 1,
+          'original_payload_size': 100,
         },
         'integrity': {
           'hash': 'sha256:abc',
@@ -441,17 +459,18 @@ void main() {
   group('StrawFile.assembleToJson', () {
     test('应输出有效的 JSON 字符串', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -469,7 +488,7 @@ void main() {
 
     test('assembleToJson 应与 toJson 结果一致', () {
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
@@ -478,10 +497,11 @@ void main() {
           tags: ['测试'],
           description: '描述',
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 1,
+          originalPayloadSize: 256,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -504,7 +524,7 @@ void main() {
   group('StrawFile toJson/fromJson 序列化循环', () {
     test('完整序列化循环应还原所有字段', () {
       final original = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
@@ -514,10 +534,11 @@ void main() {
           description: '这是一张测试卡片',
           customAnnotations: {'version': '1'},
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-          ivBase64: 'dGVzdGl2MTIzNDU2',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 3,
+          originalPayloadSize: 2500000,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -544,11 +565,13 @@ void main() {
         original.meta.customAnnotations,
       );
       expect(
-        restored.content.encryptedDataBase64,
-        original.content.encryptedDataBase64,
+        restored.content.encryptionAlgorithm,
+        original.content.encryptionAlgorithm,
       );
-      expect(restored.content.ivBase64, original.content.ivBase64);
-      expect(restored.content.algorithm, original.content.algorithm);
+      expect(restored.content.chunkSize, original.content.chunkSize);
+      expect(restored.content.totalChunks, original.content.totalChunks);
+      expect(restored.content.originalPayloadSize,
+          original.content.originalPayloadSize);
       expect(restored.integrity.hash, original.integrity.hash);
       expect(
           restored.integrity.hashAlgorithm, original.integrity.hashAlgorithm);
@@ -556,17 +579,18 @@ void main() {
 
     test('assembleToJson 后再解析应还原所有字段', () {
       final original = StrawFile(
-        formatVersion: const FormatVersion(1, 0, 0),
+        formatVersion: const FormatVersion(2, 0, 0),
         meta: const CardMeta(
           publisherAlias: 'Anonymous_a3f7b2c1',
           publishDate: '2026-05-02T08:30:00Z',
           title: '匿名卡片',
           isAnonymous: true,
         ),
-        content: const EncryptedContent(
-          encryptedDataBase64: 'c2VjcmV0ZGF0YQ==',
-          ivBase64: 'cmFuZG9taXYxNg==',
-          algorithm: 'AES-256-GCM',
+        content: const StrawContent(
+          encryptionAlgorithm: 'AES-256-GCM',
+          chunkSize: 1048576,
+          totalChunks: 5,
+          originalPayloadSize: 5000000,
         ),
         integrity: const IntegrityInfo(
           hash:
@@ -646,7 +670,7 @@ void main() {
     });
 
     test('序列化循环应还原版本号', () {
-      const original = FormatVersion(1, 0, 0);
+      const original = FormatVersion(2, 0, 0);
       final restored = FormatVersion.fromString(original.toString());
 
       expect(restored.major, original.major);
@@ -655,34 +679,38 @@ void main() {
     });
   });
 
-  group('EncryptedContent toJson/fromJson', () {
+  group('StrawContent toJson/fromJson', () {
     test('序列化循环应还原所有字段', () {
-      const original = EncryptedContent(
-        encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-        ivBase64: 'dGVzdGl2MTIzNDU2',
-        algorithm: 'AES-256-GCM',
+      const original = StrawContent(
+        encryptionAlgorithm: 'AES-256-GCM',
+        chunkSize: 1048576,
+        totalChunks: 3,
+        originalPayloadSize: 2500000,
       );
 
       final json = original.toJson();
-      final restored = EncryptedContent.fromJson(json);
+      final restored = StrawContent.fromJson(json);
 
-      expect(restored.encryptedDataBase64, original.encryptedDataBase64);
-      expect(restored.ivBase64, original.ivBase64);
-      expect(restored.algorithm, original.algorithm);
+      expect(restored.encryptionAlgorithm, original.encryptionAlgorithm);
+      expect(restored.chunkSize, original.chunkSize);
+      expect(restored.totalChunks, original.totalChunks);
+      expect(restored.originalPayloadSize, original.originalPayloadSize);
     });
 
     test('toJson 应使用正确的键名', () {
-      const content = EncryptedContent(
-        encryptedDataBase64: 'c2VjcmV0',
-        ivBase64: 'aXYxNg==',
-        algorithm: 'AES-256-GCM',
+      const content = StrawContent(
+        encryptionAlgorithm: 'AES-256-GCM',
+        chunkSize: 512,
+        totalChunks: 10,
+        originalPayloadSize: 5000,
       );
 
       final json = content.toJson();
 
-      expect(json['encrypted_data'], 'c2VjcmV0');
       expect(json['encryption_algorithm'], 'AES-256-GCM');
-      expect(json['iv'], 'aXYxNg==');
+      expect(json['chunk_size'], 512);
+      expect(json['total_chunks'], 10);
+      expect(json['original_payload_size'], 5000);
     });
   });
 
@@ -759,12 +787,13 @@ void main() {
     });
   });
 
-  group('StrawFile v1.1.0 negotiated key mode', () {
-    test('EncryptedContent with salt/kdf fields', () {
-      const content = EncryptedContent(
-        encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-        ivBase64: 'dGVzdGl2MTIzNDU2',
-        algorithm: 'AES-256-GCM',
+  group('StrawFile v2.0 协商密钥模式', () {
+    test('StrawContent with salt/kdf fields', () {
+      const content = StrawContent(
+        encryptionAlgorithm: 'AES-256-GCM',
+        chunkSize: 1048576,
+        totalChunks: 1,
+        originalPayloadSize: 256,
         saltBase64: 'c2FsdDE2Ynl0ZXM=',
         kdfAlgorithm: 'PBKDF2-HMAC-SHA256',
         kdfIterations: 100000,
@@ -774,11 +803,12 @@ void main() {
       expect(content.kdfIterations, 100000);
     });
 
-    test('EncryptedContent random key mode new fields should be null', () {
-      const content = EncryptedContent(
-        encryptedDataBase64: 'dGVzdGVuY3J5cHRlZGRhdGE=',
-        ivBase64: 'dGVzdGl2MTIzNDU2',
-        algorithm: 'AES-256-GCM',
+    test('StrawContent 随机密钥模式新字段应为 null', () {
+      const content = StrawContent(
+        encryptionAlgorithm: 'AES-256-GCM',
+        chunkSize: 1048576,
+        totalChunks: 1,
+        originalPayloadSize: 256,
         saltBase64: 'c2FsdDE2Ynl0ZXM=',
       );
       expect(content.saltBase64, 'c2FsdDE2Ynl0ZXM=');
@@ -786,11 +816,12 @@ void main() {
       expect(content.kdfIterations, isNull);
     });
 
-    test('v1.1.0 toJson should include new fields', () {
-      const content = EncryptedContent(
-        encryptedDataBase64: 'dGVzdA==',
-        ivBase64: 'aXY=',
-        algorithm: 'AES-256-GCM',
+    test('v2.0 toJson 应包含新字段', () {
+      const content = StrawContent(
+        encryptionAlgorithm: 'AES-256-GCM',
+        chunkSize: 1048576,
+        totalChunks: 1,
+        originalPayloadSize: 256,
         saltBase64: 'c2FsdA==',
         kdfAlgorithm: 'PBKDF2-HMAC-SHA256',
         kdfIterations: 100000,
@@ -801,28 +832,30 @@ void main() {
       expect(json['kdf_iterations'], 100000);
     });
 
-    test('v1.1.0 fromJson should parse new fields', () {
+    test('v2.0 fromJson 应解析新字段', () {
       final json = {
-        'encrypted_data': 'dGVzdA==',
-        'iv': 'aXY=',
         'encryption_algorithm': 'AES-256-GCM',
+        'chunk_size': 1048576,
+        'total_chunks': 1,
+        'original_payload_size': 256,
         'salt': 'c2FsdA==',
         'kdf_algorithm': 'PBKDF2-HMAC-SHA256',
         'kdf_iterations': 100000,
       };
-      final content = EncryptedContent.fromJson(json);
+      final content = StrawContent.fromJson(json);
       expect(content.saltBase64, 'c2FsdA==');
       expect(content.kdfAlgorithm, 'PBKDF2-HMAC-SHA256');
       expect(content.kdfIterations, 100000);
     });
 
-    test('v1.0.0 format fromJson new fields should be null', () {
+    test('不含 KDF 字段的 fromJson 新字段应为 null', () {
       final json = {
-        'encrypted_data': 'dGVzdA==',
-        'iv': 'aXY=',
         'encryption_algorithm': 'AES-256-GCM',
+        'chunk_size': 1048576,
+        'total_chunks': 1,
+        'original_payload_size': 256,
       };
-      final content = EncryptedContent.fromJson(json);
+      final content = StrawContent.fromJson(json);
       expect(content.saltBase64, isNull);
       expect(content.kdfAlgorithm, isNull);
       expect(content.kdfIterations, isNull);

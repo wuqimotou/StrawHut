@@ -6,10 +6,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models/encrypted_content.dart';
+import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/crypto/crypto_models/passphrase_strength.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_constants.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_exception.dart';
@@ -107,12 +108,12 @@ abstract class IPassphraseVaultService {
   /// 采用智能排序和批量并行策略，优先尝试使用频率高和最近使用的暗号。
   ///
   /// 参数说明：
-  /// - [encryptedContent]: 加密内容模型，包含密文、IV 和可选的 KDF 参数
+  /// - [parsedFile]: 解析后的 .straw 文件，包含 StrawFile 和分块数据
   /// - [cryptoService]: 加密服务实例，用于密钥派生和解密操作
   /// - [onProgress]: 可选的进度回调，参数为 (当前尝试序号, 总数量)
   ///
   /// 返回值：
-  /// - 解密成功时返回 [AutoDecryptResult]，包含 deltaJson 和 matchedLabel
+  /// - 解密成功时返回 [AutoDecryptResult]，包含 DecryptResult 和 matchedLabel
   /// - 所有暗号均解密失败时返回 null
   ///
   /// 智能排序策略：
@@ -128,7 +129,7 @@ abstract class IPassphraseVaultService {
   /// 异常：
   /// - [PassphraseVaultException]：错误代码 `AUTO_DECRYPT_FAILED`（所有暗号均解密失败）
   Future<AutoDecryptResult?> tryAutoDecrypt({
-    required EncryptedContent encryptedContent,
+    required ParsedStrawFile parsedFile,
     required ICryptoService cryptoService,
     void Function(int current, int total)? onProgress,
   });
@@ -136,16 +137,16 @@ abstract class IPassphraseVaultService {
 
 /// 自动解密结果
 ///
-/// 包含解密后的内容和匹配成功的暗号条目标签。
+/// 包含解密后的结果和匹配成功的暗号条目标签。
 class AutoDecryptResult {
   /// 创建自动解密结果
   const AutoDecryptResult({
-    required this.deltaJson,
+    required this.decryptResult,
     required this.matchedLabel,
   });
 
-  /// 解密后的 Delta JSON 内容
-  final String deltaJson;
+  /// 解密结果，包含载荷元数据和解密后的字节
+  final DecryptResult decryptResult;
 
   /// 匹配成功的暗号条目标签
   final String matchedLabel;
@@ -158,7 +159,7 @@ class _DecryptAttempt {
   const _DecryptAttempt({
     required this.entryId,
     required this.success,
-    this.deltaJson,
+    this.decryptResult,
   });
 
   /// 尝试解密的暗号条目 ID
@@ -167,8 +168,8 @@ class _DecryptAttempt {
   /// 是否解密成功
   final bool success;
 
-  /// 解密成功时的 Delta JSON 内容，失败时为 null
-  final String? deltaJson;
+  /// 解密成功时的 DecryptResult，失败时为 null
+  final DecryptResult? decryptResult;
 }
 
 /// 暗号保险库服务实现
@@ -422,7 +423,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
   /// 8. 释放互斥锁
   @override
   Future<AutoDecryptResult?> tryAutoDecrypt({
-    required EncryptedContent encryptedContent,
+    required ParsedStrawFile parsedFile,
     required ICryptoService cryptoService,
     void Function(int current, int total)? onProgress,
   }) async {
@@ -453,8 +454,9 @@ class PassphraseVaultService implements IPassphraseVaultService {
       final total = sortedEntries.length;
       var currentAttempt = 0;
 
-      // 3. 获取盐值，如果没有盐值则无法进行密钥派生
-      final saltBase64 = encryptedContent.saltBase64;
+      // 3. 检查是否为协商密钥模式，获取盐值
+      final content = parsedFile.strawFile.content;
+      final saltBase64 = content.saltBase64;
       if (saltBase64 == null) {
         return null;
       }
@@ -462,7 +464,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
 
       // 4. 按 CPU 核心数分批并行执行
       final batchSize = Platform.numberOfProcessors;
-      String? result;
+      DecryptResult? result;
       String? successEntryId;
       String? successEntryLabel;
 
@@ -478,7 +480,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
           batch.map(
             (entry) => _tryDecryptEntry(
               entry: entry,
-              encryptedContent: encryptedContent,
+              parsedFile: parsedFile,
               cryptoService: cryptoService,
               salt: salt,
             ),
@@ -490,8 +492,8 @@ class PassphraseVaultService implements IPassphraseVaultService {
           currentAttempt++;
           onProgress?.call(currentAttempt, total);
 
-          if (attempt.success && attempt.deltaJson != null) {
-            result = attempt.deltaJson;
+          if (attempt.success && attempt.decryptResult != null) {
+            result = attempt.decryptResult;
             successEntryId = attempt.entryId;
             // 查找匹配条目的标签
             final matchedEntry = sortedEntries.firstWhere(
@@ -507,7 +509,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
       if (result != null && successEntryId != null) {
         await _updateEntryUsage(successEntryId, entries);
         return AutoDecryptResult(
-          deltaJson: result,
+          decryptResult: result,
           matchedLabel: successEntryLabel!,
         );
       }
@@ -518,19 +520,19 @@ class PassphraseVaultService implements IPassphraseVaultService {
 
   /// 尝试用单个暗号条目解密
   ///
-  /// 执行 PBKDF2 密钥派生后尝试 AES-256-GCM 解密。
+  /// 执行 PBKDF2 密钥派生后尝试使用分块解密。
   /// 解密失败时清除密钥字节，防止内存泄露。
   ///
   /// 参数说明：
   /// - [entry]: 暗号条目
-  /// - [encryptedContent]: 加密内容
+  /// - [parsedFile]: 解析后的 .straw 文件，包含分块数据
   /// - [cryptoService]: 加密服务实例
   /// - [salt]: 盐值字节数组
   ///
   /// 返回值：[_DecryptAttempt] 记录解密结果
   Future<_DecryptAttempt> _tryDecryptEntry({
     required PassphraseEntry entry,
-    required EncryptedContent encryptedContent,
+    required ParsedStrawFile parsedFile,
     required ICryptoService cryptoService,
     required Uint8List salt,
   }) async {
@@ -538,25 +540,27 @@ class PassphraseVaultService implements IPassphraseVaultService {
 
     try {
       // 1. PBKDF2 密钥派生
-      final iterations = encryptedContent.kdfIterations ?? KDF_ITERATIONS;
+      final content = parsedFile.strawFile.content;
+      final iterations = content.kdfIterations ?? KDF_ITERATIONS;
       derivedKey = await cryptoService.deriveKeyFromPassphrase(
         passphrase: entry.passphrase,
         salt: salt,
         iterations: iterations,
       );
 
-      // 2. 尝试解密
-      final deltaJson = await cryptoService.decryptContent(
-        encryptedDataBase64: encryptedContent.encryptedDataBase64,
-        ivBase64: encryptedContent.ivBase64,
+      // 2. 使用分块解密
+      final decryptResult = await cryptoService.decrypt(
+        chunks: parsedFile.chunks,
         key: derivedKey,
+        chunkSize: content.chunkSize,
+        originalPayloadSize: content.originalPayloadSize,
       );
 
       // 3. 解密成功
       return _DecryptAttempt(
         entryId: entry.id,
         success: true,
-        deltaJson: deltaJson,
+        decryptResult: decryptResult,
       );
     } on Exception catch (_) {
       if (derivedKey != null) {

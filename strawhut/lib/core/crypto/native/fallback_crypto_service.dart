@@ -90,29 +90,6 @@ class FallbackCryptoService implements ICryptoService {
   }
 
   @override
-  Future<EncryptedContent> encryptContent({
-    required String deltaJson,
-    required Uint8List key,
-  }) async {
-    final delegate = await _getDelegate();
-    return delegate.encryptContent(deltaJson: deltaJson, key: key);
-  }
-
-  @override
-  Future<String> decryptContent({
-    required String encryptedDataBase64,
-    required String ivBase64,
-    required Uint8List key,
-  }) async {
-    final delegate = await _getDelegate();
-    return delegate.decryptContent(
-      encryptedDataBase64: encryptedDataBase64,
-      ivBase64: ivBase64,
-      key: key,
-    );
-  }
-
-  @override
   void clearSensitiveData() {
     _delegate?.clearSensitiveData();
   }
@@ -139,6 +116,171 @@ class FallbackCryptoService implements ICryptoService {
         iterations: iterations,
       );
     }
+  }
+
+  /// 加密载荷（统一接口）
+  ///
+  /// 委托给 delegate 执行。如果 delegate 抛出 UnsupportedError，
+  /// 回退到纯 Dart 实现。
+  @override
+  Future<EncryptResult> encrypt({
+    required Uint8List payloadBytes,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final delegate = await _getDelegate();
+    try {
+      return delegate.encrypt(
+        payloadBytes: payloadBytes,
+        payloadMetadata: payloadMetadata,
+        key: key,
+        chunkSize: chunkSize,
+        onProgress: onProgress,
+      );
+    } on UnsupportedError {
+      final dartService = CryptoService(integrityService);
+      return dartService.encrypt(
+        payloadBytes: payloadBytes,
+        payloadMetadata: payloadMetadata,
+        key: key,
+        chunkSize: chunkSize,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// 解密载荷（统一接口）
+  ///
+  /// 委托给 delegate 执行。如果 delegate 抛出 UnsupportedError，
+  /// 回退到纯 Dart 实现。
+  @override
+  Future<DecryptResult> decrypt({
+    required List<ChunkInfo> chunks,
+    required Uint8List key,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final delegate = await _getDelegate();
+    try {
+      return delegate.decrypt(
+        chunks: chunks,
+        key: key,
+        chunkSize: chunkSize,
+        originalPayloadSize: originalPayloadSize,
+        onProgress: onProgress,
+      );
+    } on UnsupportedError {
+      final dartService = CryptoService(integrityService);
+      return dartService.decrypt(
+        chunks: chunks,
+        key: key,
+        chunkSize: chunkSize,
+        originalPayloadSize: originalPayloadSize,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// 流式加密（大文件场景）
+  ///
+  /// 委托给 delegate 执行。如果 delegate 抛出 UnsupportedError，
+  /// 回退到纯 Dart 实现。
+  @override
+  Future<EncryptResult> encryptStream({
+    required String sourcePath,
+    required PayloadMetadata payloadMetadata,
+    required Uint8List key,
+    int chunkSize = DEFAULT_CHUNK_SIZE,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final delegate = await _getDelegate();
+    try {
+      return delegate.encryptStream(
+        sourcePath: sourcePath,
+        payloadMetadata: payloadMetadata,
+        key: key,
+        chunkSize: chunkSize,
+        onProgress: onProgress,
+      );
+    } on UnsupportedError {
+      final dartService = CryptoService(integrityService);
+      return dartService.encryptStream(
+        sourcePath: sourcePath,
+        payloadMetadata: payloadMetadata,
+        key: key,
+        chunkSize: chunkSize,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// 流式解密（大文件场景）
+  ///
+  /// 委托给 delegate 执行。如果 delegate 抛出 UnsupportedError，
+  /// 回退到纯 Dart 实现。
+  @override
+  Future<DecryptStreamResult> decryptStream({
+    required String strawFilePath,
+    required Uint8List key,
+    required String targetPath,
+    required int chunkSize,
+    required int originalPayloadSize,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final delegate = await _getDelegate();
+    try {
+      return delegate.decryptStream(
+        strawFilePath: strawFilePath,
+        key: key,
+        targetPath: targetPath,
+        chunkSize: chunkSize,
+        originalPayloadSize: originalPayloadSize,
+        onProgress: onProgress,
+      );
+    } on UnsupportedError {
+      final dartService = CryptoService(integrityService);
+      return dartService.decryptStream(
+        strawFilePath: strawFilePath,
+        key: key,
+        targetPath: targetPath,
+        chunkSize: chunkSize,
+        originalPayloadSize: originalPayloadSize,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  @override
+  Uint8List decryptLegacyContent({
+    required String encryptedDataBase64,
+    required String ivBase64,
+    required Uint8List key,
+  }) {
+    if (_delegate != null) {
+      try {
+        return _delegate!.decryptLegacyContent(
+          encryptedDataBase64: encryptedDataBase64,
+          ivBase64: ivBase64,
+          key: key,
+        );
+      } on UnsupportedError {
+        final dartService = CryptoService(integrityService);
+        return dartService.decryptLegacyContent(
+          encryptedDataBase64: encryptedDataBase64,
+          ivBase64: ivBase64,
+          key: key,
+        );
+      }
+    }
+    final dartService = CryptoService(integrityService);
+    return dartService.decryptLegacyContent(
+      encryptedDataBase64: encryptedDataBase64,
+      ivBase64: ivBase64,
+      key: key,
+    );
   }
 
   /// 获取当前使用的 delegate 类型（用于调试和测试）

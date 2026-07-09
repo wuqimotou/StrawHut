@@ -51,4 +51,28 @@ class AndroidFileSaver {
       return null;
     }
   }
+
+  /// Save a media file (image/video) to the appropriate system folder using MediaStore.
+  ///
+  /// - Images -> Pictures folder
+  /// - Videos -> Movies folder
+  /// - Audio -> Music folder
+  /// Returns the content URI of the saved file, or null if save failed.
+  static Future<String?> saveMediaToAlbum({
+    required String fileName,
+    required String mimeType,
+    required Uint8List bytes,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>('saveMediaToAlbum', {
+        'fileName': fileName,
+        'mimeType': mimeType,
+        'bytes': bytes,
+      });
+      return result;
+    } on PlatformException catch (e) {
+      debugPrint('AndroidFileSaver: saveMediaToAlbum failed: ${e.message}');
+      return null;
+    }
+  }
 }

@@ -4,10 +4,19 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
+import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/native/native_crypto_service.dart';
 import 'package:strawhut/core/crypto/native/windows_crypto_ffi.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+
+/// 辅助函数：构造富文本 PayloadMetadata
+PayloadMetadata _richTextMetadata() => PayloadMetadata(
+      sourceType: SourceType.richText,
+      originalExtension: 'delta',
+    );
 
 void main() {
   // Only run on supported platforms
@@ -53,25 +62,27 @@ void main() {
     });
   });
 
-  group('encryptContent/decryptContent', () {
+  group('encrypt/decrypt', () {
     test(
       'NC-03: encrypt then decrypt should return original content',
       () async {
         final key = await service.generateKey();
         const content = '{"ops": [{"insert": "Hello World"}]}';
 
-        final encrypted = await service.encryptContent(
-          deltaJson: content,
+        final encryptResult = await service.encrypt(
+          payloadBytes: Uint8List.fromList(utf8.encode(content)),
+          payloadMetadata: _richTextMetadata(),
           key: key.bytes,
         );
 
-        final decrypted = await service.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        final decryptResult = await service.decrypt(
+          chunks: encryptResult.chunks,
           key: key.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         );
 
-        expect(decrypted, content);
+        expect(utf8.decode(decryptResult.payloadBytes), content);
       },
     );
 
@@ -79,57 +90,64 @@ void main() {
       final key = await service.generateKey();
       const content = '{"ops": [{"insert": "你好世界，测试中文内容"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await service.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await service.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('NC-05: encrypt/decrypt empty string', () async {
       final key = await service.generateKey();
       const content = '';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await service.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await service.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('NC-06: same plaintext should produce different ciphertext', () async {
       final key = await service.generateKey();
       const content = '{"ops": [{"insert": "test"}]}';
 
-      final encrypted1 = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult1 = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
-      final encrypted2 = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult2 = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
       // IV should be different (random)
-      expect(encrypted1.ivBase64, isNot(equals(encrypted2.ivBase64)));
+      expect(encryptResult1.chunks[0].iv,
+          isNot(equals(encryptResult2.chunks[0].iv)));
       // Ciphertext should be different
       expect(
-        encrypted1.encryptedDataBase64,
-        isNot(equals(encrypted2.encryptedDataBase64)),
+        encryptResult1.chunks[0].encryptedData,
+        isNot(equals(encryptResult2.chunks[0].encryptedData)),
       );
     });
 
@@ -138,16 +156,18 @@ void main() {
       final key2 = await service.generateKey();
       const content = '{"ops": [{"insert": "test"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key1.bytes,
       );
 
       expect(
-        () => service.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        () => service.decrypt(
+          chunks: encryptResult.chunks,
           key: key2.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -157,20 +177,28 @@ void main() {
       final key = await service.generateKey();
       const content = '{"ops": [{"insert": "test"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      // Tamper with ciphertext
-      final ciphertextBytes = base64Decode(encrypted.encryptedDataBase64);
-      ciphertextBytes[0] ^= 0xFF; // Flip first byte
+      // Tamper with first chunk's ciphertext
+      final tamperedData =
+          Uint8List.fromList(encryptResult.chunks[0].encryptedData);
+      tamperedData[0] ^= 0xFF; // Flip first byte
+      final tamperedChunks = List<ChunkInfo>.from(encryptResult.chunks);
+      tamperedChunks[0] = ChunkInfo(
+        iv: encryptResult.chunks[0].iv,
+        encryptedData: tamperedData,
+      );
 
       expect(
-        () => service.decryptContent(
-          encryptedDataBase64: base64Encode(ciphertextBytes),
-          ivBase64: encrypted.ivBase64,
+        () => service.decrypt(
+          chunks: tamperedChunks,
           key: key.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -178,16 +206,18 @@ void main() {
 
     test('NC-15: invalid key length should throw CryptoException', () async {
       const content = '{"ops": [{"insert": "test"}]}';
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: (await service.generateKey()).bytes,
       );
 
       expect(
-        () => service.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        () => service.decrypt(
+          chunks: encryptResult.chunks,
           key: Uint8List(16), // Wrong length
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -252,16 +282,18 @@ void main() {
       );
       const content = '{"ops": [{"insert": "test with derived key"}]}';
 
-      final encrypted = await service.encryptContent(
-        deltaJson: content,
+      final encryptResult = await service.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(content)),
+        payloadMetadata: _richTextMetadata(),
         key: key,
       );
-      final decrypted = await service.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await service.decrypt(
+        chunks: encryptResult.chunks,
         key: key,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
-      expect(decrypted, content);
+      expect(utf8.decode(decryptResult.payloadBytes), content);
     });
 
     test('NC-14: invalid salt length should throw CryptoException', () async {

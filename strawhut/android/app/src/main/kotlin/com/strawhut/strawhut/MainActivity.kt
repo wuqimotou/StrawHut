@@ -16,10 +16,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-
-        // 注册原生加密插件
         flutterEngine.plugins.add(CryptoPlugin())
-
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL
@@ -30,12 +27,11 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "fileName is required", null)
                         return@setMethodCallHandler
                     }
-                    val mimeType = call.argument<String>("mimeType") ?: "application/json"
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
                     val bytes = call.argument<ByteArray>("bytes") ?: run {
                         result.error("INVALID_ARGS", "bytes are required", null)
                         return@setMethodCallHandler
                     }
-
                     val uri = saveToDownloads(fileName, mimeType, bytes)
                     if (uri != null) {
                         result.success(uri.toString())
@@ -52,7 +48,6 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "bytes are required", null)
                         return@setMethodCallHandler
                     }
-
                     val uri = saveToPictures(fileName, bytes)
                     if (uri != null) {
                         result.success(uri.toString())
@@ -60,110 +55,160 @@ class MainActivity : FlutterActivity() {
                         result.error("SAVE_FAILED", "Failed to save file to Pictures", null)
                     }
                 }
+                "saveMediaToAlbum" -> {
+                    val fileName = call.argument<String>("fileName") ?: run {
+                        result.error("INVALID_ARGS", "fileName is required", null)
+                        return@setMethodCallHandler
+                    }
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    val bytes = call.argument<ByteArray>("bytes") ?: run {
+                        result.error("INVALID_ARGS", "bytes are required", null)
+                        return@setMethodCallHandler
+                    }
+                    val uri = saveMediaToAlbum(fileName, mimeType, bytes)
+                    if (uri != null) {
+                        result.success(uri.toString())
+                    } else {
+                        result.error("SAVE_FAILED", "Failed to save media to album", null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
     }
 
-    /**
-     * Save a file to the system Downloads folder.
-     * 
-     * On Android 10+ (API 29+): uses MediaStore.Files to preserve the exact file name
-     * without MIME-based extension manipulation.
-     * Falls back to direct file writing on older versions.
-     */
     private fun saveToDownloads(fileName: String, mimeType: String, bytes: ByteArray): Uri? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Use MediaStore.Files instead of MediaStore.Downloads to prevent
-            // Android from auto-appending extensions based on MIME type
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
-
             val resolver = contentResolver
-            val uri = resolver.insert(
-                MediaStore.Files.getContentUri("external"),
-                contentValues
-            )
-
-            uri?.let {
+            val uri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+            if (uri != null) {
                 try {
-                    resolver.openOutputStream(it)?.use { outputStream ->
+                    resolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(bytes)
                     }
-                    // Clear pending flag
                     contentValues.clear()
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
+                    resolver.update(uri, contentValues, null, null)
                 } catch (e: Exception) {
                     e.printStackTrace()
                     return null
                 }
             }
-            uri
+            return uri
         } else {
-            // Fallback for Android 9 and below
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val file = File(downloadsDir, fileName)
             try {
                 FileOutputStream(file).use { it.write(bytes) }
-                Uri.fromFile(file)
+                return Uri.fromFile(file)
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
+                return null
             }
         }
     }
 
-    /**
-     * Save a PNG image to the system Pictures folder using MediaStore.
-     * Works on Android 10+ (API 29+) with scoped storage.
-     * Falls back to direct file writing on older versions.
-     */
     private fun saveToPictures(fileName: String, bytes: ByteArray): Uri? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
-
             val resolver = contentResolver
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-
-            uri?.let {
+            if (uri != null) {
                 try {
-                    resolver.openOutputStream(it)?.use { outputStream ->
+                    resolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(bytes)
                     }
-                    // Clear pending flag
                     contentValues.clear()
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
+                    resolver.update(uri, contentValues, null, null)
                 } catch (e: Exception) {
                     e.printStackTrace()
                     return null
                 }
             }
-            uri
+            return uri
         } else {
-            // Fallback for Android 9 and below
-            val picturesDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES
-            )
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
             val file = File(picturesDir, fileName)
             try {
                 FileOutputStream(file).use { it.write(bytes) }
-                Uri.fromFile(file)
+                return Uri.fromFile(file)
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
+                return null
+            }
+        }
+    }
+
+    private fun saveMediaToAlbum(fileName: String, mimeType: String, bytes: ByteArray): Uri? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentUri: Uri
+            val relativePath: String
+            when {
+                mimeType.startsWith("image/") -> {
+                    contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    relativePath = Environment.DIRECTORY_PICTURES
+                }
+                mimeType.startsWith("video/") -> {
+                    contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    relativePath = Environment.DIRECTORY_MOVIES
+                }
+                mimeType.startsWith("audio/") -> {
+                    contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                    relativePath = Environment.DIRECTORY_MUSIC
+                }
+                else -> {
+                    contentUri = MediaStore.Files.getContentUri("external")
+                    relativePath = Environment.DIRECTORY_DOWNLOADS
+                }
+            }
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val resolver = contentResolver
+            val uri = resolver.insert(contentUri, contentValues)
+            if (uri != null) {
+                try {
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(bytes)
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return null
+                }
+            }
+            return uri
+        } else {
+            val dir = when {
+                mimeType.startsWith("image/") -> Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                mimeType.startsWith("video/") -> Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+                mimeType.startsWith("audio/") -> Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+                else -> Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            }
+            val file = File(dir, fileName)
+            try {
+                FileOutputStream(file).use { it.write(bytes) }
+                return Uri.fromFile(file)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return null
             }
         }
     }

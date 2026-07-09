@@ -17,9 +17,9 @@
 
 ### 🏠 Overview
 
-**StrawHut** is a **fully local** knowledge card encryption tool. Your content is encrypted before it ever leaves your device — no servers, no network requests, no persistent storage. Your knowledge, your keys, your control.
+**StrawHut** is a **fully local** knowledge card encryption tool. Your content is encrypted before it ever leaves your device — no servers, no network requests, no persistent storage. Your knowledge, your keys, your control. In addition to rich text knowledge cards, StrawHut now supports **file encryption mode** — encrypt any type of file (PDF, images, audio, video, etc.), not just rich text content.
 
-**✨ Privacy Core: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Share images via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing.
+**✨ Privacy Core: Knowledge Card as PNG Image** — Encrypted knowledge is embedded into PNG image metadata. The image looks like a beautiful knowledge cover that any image viewer can display, but only StrawHut can read the content with the correct key. Share images via WeChat, Photos, AirDrop, or any channel — breaking the barrier of mobile sharing. File encryption mode uses a unified binary `.straw` container format for maximum flexibility.
 
 > 🌟 **Vision**: Let knowledge flow securely between people. Creators control their content, readers gain value, privacy is never compromised.
 
@@ -59,6 +59,13 @@
 | 📄 **Dual Format** | Export as `.straw` files or `.png` images, choose by scenario |
 | 🛡️ **Integrity Check** | SHA-256 hash verification prevents tampering |
 | 🧹 **Zero Traces** | No cards, keys, or drafts stored except for user-saved passphrases |
+| 📁 **File Encryption Mode** | Encrypt any type of file, decrypt and save to local storage |
+| 📊 **Encryption Progress** | Real-time progress display with percentage for both encryption and decryption |
+| 💾 **Smart File Saving** | Android: media files saved to gallery, other files to Downloads; Desktop: system save dialog |
+| 📦 **Binary Container Format** | Unified binary `.straw` format with chunked encryption for maximum compatibility |
+| 🗂️ **Large File Support** | Chunked encryption and streaming processing for files of any size |
+| 🧹 **Temp File Management** | Auto-cleanup of decrypted temp files — no traces left behind |
+| 🔄 **Migration Tool** | Convert old `.straw` files to new binary container format |
 
 ### 🖼️ PNG Knowledge Card — Image Is Knowledge
 
@@ -83,25 +90,31 @@ When publishing a knowledge card, you can embed encrypted content into a PNG ima
 
 **It's still a valid PNG image** — any image viewer can display the cover. But beneath the cover, the full encrypted knowledge content is hidden in the PNG metadata.
 
+> ⚠️ **Note**: PNG export is only available in rich text mode. File encryption mode uses the `.straw` binary container format instead.
+
 ### 🔄 How It Works
 
 ```
 Creator                                   Reader
   │                                       │
-  ├── 📝 Write knowledge in rich text     │
-  ├── 🚀 Publish → choose .png format     │
+  ├── 📝 Choose content source            │
+  │   ├── Rich text → knowledge card      │
+  │   └── File → file encryption mode     │
+  ├── 🚀 Publish → choose format          │
+  │   ├── Rich text → .png or .straw      │
+  │   └── File → .straw binary container  │
   ├── 🎨 Custom or auto-generated cover   │
-  ├── 📦 Content encrypted → PNG metadata │
-  ├── 💾 Save as .png image               │
+  ├── 📦 Content encrypted                │
+  ├── 💾 Save encrypted file              │
   │                                       │
-  ════ [ .png image shared via any channel ] ════
+  ════ [ Encrypted file shared via any channel ] ════
             (WeChat / Photos / AirDrop / Email / ...)
   │                                       │
-  │                          📥 Received .png image
+  │                          📥 Received encrypted file
   │                          📂 Open with StrawHut
   │                          🔓 Enter key or upload .key file
   │                          ✅ Integrity check passed
-  │                          📖 Read knowledge content
+  │                          📖 Read text content or save file
 ```
 
 **⚠️ Important:** When sharing as an image, always send the **original image**. Social media compression will strip the metadata containing encrypted content.
@@ -113,6 +126,9 @@ Creator                                   Reader
 - **12-byte IV** — NIST SP 800-38D recommended, with backward compatibility for 16-byte IV
 - **CSPRNG** — Cryptographically secure random number generation (Android SecureRandom / Windows BCryptGenRandom)
 - **Native-first architecture** — Platform native crypto APIs with automatic fallback to pure Dart implementation
+- **Chunked encryption** — Large files are split into chunks, each encrypted independently with its own IV, enabling streaming processing and memory-efficient handling of files of any size. Chunked encryption runs each chunk in a separate isolate via `Flutter.compute()`, preventing UI freezing and enabling real-time progress display.
+- **PayloadMetadata** — Each payload carries metadata (content type, file name, size, chunk info) to enable smart content display after decryption
+- **Binary container format** — Unified `.straw` binary format with header, metadata, and encrypted chunk sections for both rich text and file encryption modes
 
 
 ***
@@ -123,9 +139,9 @@ Creator                                   Reader
 
 ### 🏠 产品简介
 
-**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。你的知识内容在离开设备之前就被加密，软件不依赖任何中心化服务器，不发送任何网络请求，除用户主动保存的暗号外不在本地保存任何数据——你的知识、你的密钥、你的控制权。
+**StrawHut** 是一个**完全运行在本地**的知识卡片加密工具。你的知识内容在离开设备之前就被加密，软件不依赖任何中心化服务器，不发送任何网络请求，除用户主动保存的暗号外不在本地保存任何数据——你的知识、你的密钥、你的控制权。除了富文本知识卡片，StrawHut 现已支持**文件加密模式**——可以加密任意类型的文件（PDF、图片、音频、视频等），不再局限于富文本内容。
 
-**✨ 隐私核心：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。
+**✨ 隐私核心：知识卡片 PNG 图片** — 将加密后的知识嵌入 PNG 图片的元数据中，图片外观是一张精美的知识封面，任何图片查看器都能正常显示，但只有用 StrawHut 打开并输入密钥才能阅读内容。图片可以通过微信、相册、AirDrop 等任何渠道传输，彻底打通移动端分享壁垒。文件加密模式则使用统一的二进制 `.straw` 容器格式，提供最大的灵活性。
 
 > 🌟 **愿景**：让知识在人与人之间安全传递，创作者掌控内容，读者获得价值，隐私永不妥协。
 
@@ -165,6 +181,13 @@ Creator                                   Reader
 | 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
 | 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
 | 🧹 **零痕迹** | 除用户主动保存的暗号外，软件不保存任何卡片、密钥或草稿 |
+| 📁 **文件加密模式** | 支持加密任意类型的文件，解密后保存到本地 |
+| 📊 **加密进度显示** | 加密和解密均有实时进度百分比显示，大文件不卡顿 |
+| 💾 **智能文件保存** | 安卓端：多媒体文件存相册，其他文件存下载目录；桌面端：系统保存对话框 |
+| 📦 **二进制容器格式** | 统一的二进制 `.straw` 格式，分块加密，兼容性最强 |
+| 🗂️ **大文件支持** | 分块加密、流式处理，支持任意大小的文件 |
+| 🧹 **临时文件管理** | 解密后的临时文件自动清理，不留痕迹 |
+| 🔄 **迁移工具** | 将旧版 `.straw` 文件转换为新版二进制容器格式 |
 
 ### 🖼️ PNG 知识卡片 — 图片即知识
 
@@ -189,25 +212,31 @@ Creator                                   Reader
 
 **它仍然是一张合法的 PNG 图片** — 任何图片查看器都能正常显示封面。但封面之下，完整的加密知识内容被隐藏在 PNG 元数据中。
 
+> ⚠️ **注意**：PNG 导出仅适用于富文本模式，文件加密模式使用 `.straw` 二进制容器格式。
+
 ### 🔄 使用流程
 
 ```
 创作者                                    读者
   │                                       │
-  ├── 📝 富文本编辑器撰写知识              │
-  ├── 🚀 点击发布 → 选择 .png 格式         │
+  ├── 📝 选择内容来源                      │
+  │   ├── 富文本 → 知识卡片               │
+  │   └── 文件 → 文件加密模式              │
+  ├── 🚀 点击发布 → 选择格式               │
+  │   ├── 富文本 → .png 或 .straw          │
+  │   └── 文件 → .straw 二进制容器         │
   ├── 🎨 自定义封面或自动生成              │
-  ├── 📦 内容加密 → 嵌入 PNG 元数据       │
-  ├── 💾 保存为 .png 图片                  │
+  ├── 📦 内容加密                          │
+  ├── 💾 保存加密文件                      │
   │                                       │
-  ═══════ [ .png 图片通过任意渠道传播 ] ════════
+  ═══════ [ 加密文件通过任意渠道传播 ] ════════
            (微信 / 朋友圈 / 相册 / AirDrop / 邮件 / ...)
   │                                       │
-  │                          📥 接收到 .png 图片
-  │                          📂 用 StrawHut 打开图片
+  │                          📥 接收到加密文件
+  │                          📂 用 StrawHut 打开文件
   │                          🔓 输入密钥或上传 .key 文件
   │                          ✅ 完整性校验通过
-  │                          📖 阅读知识内容
+  │                          📖 阅读文本内容或保存文件
 ```
 
 **⚠️ 重要提示：** 以图片形式分享时务必发送**原图**，社交平台压缩图片会丢失元数据中的加密内容。
@@ -219,6 +248,9 @@ Creator                                   Reader
 - **12 字节 IV** — NIST SP 800-38D 推荐值，向下兼容 16 字节 IV
 - **CSPRNG** — 密码学安全伪随机数生成（Android SecureRandom / Windows BCryptGenRandom）
 - **原生优先架构** — 优先使用平台原生加密 API，不可用时自动回退到纯 Dart 实现
+- **分块加密** — 大文件按块分割，每块独立加密并使用独立 IV，支持流式处理和内存高效处理任意大小文件。分块加密通过 `Flutter.compute()` 在独立 Isolate 中执行，避免 UI 卡顿，支持实时进度显示。
+- **PayloadMetadata** — 每个载荷携带元数据（内容类型、文件名、大小、分块信息），解密后可智能展示内容
+- **二进制容器格式** — 统一的 `.straw` 二进制格式，包含文件头、元数据和加密分块区段，同时支持富文本和文件加密模式
 
 
 ***
@@ -227,4 +259,4 @@ Creator                                   Reader
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v1.0.0 | **最后更新**: 2026-06-15
+> **文档版本**: v1.1.0 | **最后更新**: 2026-07-09

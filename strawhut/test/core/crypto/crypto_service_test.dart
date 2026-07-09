@@ -2,12 +2,22 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
+import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 
 /// 辅助函数：创建 CryptoService 测试实例
 CryptoService _createCryptoService() => CryptoService(IntegrityService());
+
+/// 辅助函数：构造富文本 PayloadMetadata
+PayloadMetadata _richTextMetadata() => PayloadMetadata(
+      sourceType: SourceType.richText,
+      originalExtension: 'delta',
+    );
 
 void main() {
   group('CryptoService.generateKey', () {
@@ -42,24 +52,26 @@ void main() {
     });
   });
 
-  group('CryptoService.encryptContent / decryptContent', () {
+  group('CryptoService.encrypt / decrypt', () {
     test('加密解密可逆测试', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
       const originalText = '{"ops": [{"insert": "Hello, World!\\n"}]}';
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: originalText,
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await cryptoService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await cryptoService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, originalText);
+      expect(utf8.decode(decryptResult.payloadBytes), originalText);
     });
 
     test('加密中文内容可逆', () async {
@@ -67,36 +79,40 @@ void main() {
       final key = await cryptoService.generateKey();
       const originalText = '{"ops": [{"insert": "你好，世界！\\n"}]}';
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: originalText,
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await cryptoService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await cryptoService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, originalText);
+      expect(utf8.decode(decryptResult.payloadBytes), originalText);
     });
 
     test('加密空字符串可逆', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: '',
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode('')),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final decrypted = await cryptoService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final decryptResult = await cryptoService.decrypt(
+        chunks: encryptResult.chunks,
         key: key.bytes,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
       );
 
-      expect(decrypted, '');
+      expect(utf8.decode(decryptResult.payloadBytes), '');
     });
 
     test('相同明文每次加密产生不同密文', () async {
@@ -104,36 +120,48 @@ void main() {
       final key = await cryptoService.generateKey();
       const originalText = '{"ops": [{"insert": "test\\n"}]}';
 
-      final encrypted1 = await cryptoService.encryptContent(
-        deltaJson: originalText,
+      final encryptResult1 = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
-      final encrypted2 = await cryptoService.encryptContent(
-        deltaJson: originalText,
+      final encryptResult2 = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      expect(encrypted1.encryptedDataBase64,
-          isNot(equals(encrypted2.encryptedDataBase64)));
-      expect(encrypted1.ivBase64, isNot(equals(encrypted2.ivBase64)));
+      // 每个分块的加密数据应不同（因为 IV 随机）
+      expect(
+        encryptResult1.chunks[0].encryptedData,
+        isNot(equals(encryptResult2.chunks[0].encryptedData)),
+      );
+      // 每个分块的 IV 应不同
+      expect(
+        encryptResult1.chunks[0].iv,
+        isNot(equals(encryptResult2.chunks[0].iv)),
+      );
     });
 
     test('错误密钥解密时抛出 CryptoException', () async {
       final cryptoService = _createCryptoService();
       final correctKey = await cryptoService.generateKey();
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: '{"ops": [{"insert": "secret\\n"}]}',
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(
+            utf8.encode('{"ops": [{"insert": "secret\\n"}]}')),
+        payloadMetadata: _richTextMetadata(),
         key: correctKey.bytes,
       );
 
       final wrongKey = await cryptoService.generateKey();
 
       expect(
-        () async => cryptoService.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        () async => cryptoService.decrypt(
+          chunks: encryptResult.chunks,
           key: wrongKey.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -143,39 +171,60 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: '{"ops": [{"insert": "test\\n"}]}',
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes:
+            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final tamperedBytes = base64Decode(encrypted.encryptedDataBase64);
-      tamperedBytes[0] ^= 0xFF;
-      final tamperedDataBase64 = base64Encode(tamperedBytes);
+      // 篡改第一个分块的密文
+      final tamperedData =
+          Uint8List.fromList(encryptResult.chunks[0].encryptedData);
+      tamperedData[0] ^= 0xFF;
+      final tamperedChunks = List<ChunkInfo>.from(encryptResult.chunks);
+      tamperedChunks[0] = ChunkInfo(
+        iv: encryptResult.chunks[0].iv,
+        encryptedData: tamperedData,
+      );
 
       expect(
-        () async => cryptoService.decryptContent(
-          encryptedDataBase64: tamperedDataBase64,
-          ivBase64: encrypted.ivBase64,
+        () async => cryptoService.decrypt(
+          chunks: tamperedChunks,
           key: key.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
     });
 
-    test('无效 Base64 IV 解密时抛出 CryptoException', () async {
+    test('篡改 IV 后解密抛出 CryptoException', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: '{"ops": [{"insert": "test\\n"}]}',
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes:
+            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
+      // 篡改第一个分块的 IV
+      final tamperedIv = Uint8List.fromList(encryptResult.chunks[0].iv);
+      tamperedIv[0] ^= 0xFF;
+      final tamperedChunks = List<ChunkInfo>.from(encryptResult.chunks);
+      tamperedChunks[0] = ChunkInfo(
+        iv: tamperedIv,
+        encryptedData: encryptResult.chunks[0].encryptedData,
+      );
+
       expect(
-        () async => cryptoService.decryptContent(
-          encryptedDataBase64: encrypted.encryptedDataBase64,
-          ivBase64: 'invalid-base64!!!',
+        () async => cryptoService.decrypt(
+          chunks: tamperedChunks,
           key: key.bytes,
+          chunkSize: encryptResult.chunkSize,
+          originalPayloadSize: encryptResult.originalPayloadSize,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -192,27 +241,36 @@ void main() {
       }
     });
 
-    test('加密产生的 IV 应为 16 字节', () async {
+    test('加密产生的每个分块 IV 应为 16 字节', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final encrypted = await cryptoService.encryptContent(
-        deltaJson: '{"ops": [{"insert": "test\\n"}]}',
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes:
+            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+        payloadMetadata: _richTextMetadata(),
         key: key.bytes,
       );
 
-      final ivBytes = base64Decode(encrypted.ivBase64);
-      expect(ivBytes.length, 16);
+      for (final chunk in encryptResult.chunks) {
+        expect(chunk.iv.length, CHUNK_IV_LENGTH_BYTES);
+      }
     });
 
     test('使用非 32 字节密钥解密应抛出 CryptoException', () async {
       final cryptoService = _createCryptoService();
 
       expect(
-        () async => cryptoService.decryptContent(
-          encryptedDataBase64: 'dGVzdA==',
-          ivBase64: 'dGVzdA==',
+        () async => cryptoService.decrypt(
+          chunks: [
+            ChunkInfo(
+              iv: Uint8List(CHUNK_IV_LENGTH_BYTES),
+              encryptedData: Uint8List.fromList(utf8.encode('test')),
+            ),
+          ],
           key: Uint8List(16),
+          chunkSize: DEFAULT_CHUNK_SIZE,
+          originalPayloadSize: 4,
         ),
         throwsA(isA<CryptoException>().having(
           (e) => e.code,
@@ -292,14 +350,18 @@ void main() {
       const originalText = '{"ops": [{"insert": "PBKDF2 test\\n"}]}';
       final key = await cryptoService.deriveKeyFromPassphrase(
           passphrase: 'testPassphrase123', salt: salt);
-      final encrypted =
-          await cryptoService.encryptContent(deltaJson: originalText, key: key);
-      final decrypted = await cryptoService.decryptContent(
-        encryptedDataBase64: encrypted.encryptedDataBase64,
-        ivBase64: encrypted.ivBase64,
+      final encryptResult = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
+        payloadMetadata: _richTextMetadata(),
         key: key,
       );
-      expect(decrypted, originalText);
+      final decryptResult = await cryptoService.decrypt(
+        chunks: encryptResult.chunks,
+        key: key,
+        chunkSize: encryptResult.chunkSize,
+        originalPayloadSize: encryptResult.originalPayloadSize,
+      );
+      expect(utf8.decode(decryptResult.payloadBytes), originalText);
     });
   });
 }

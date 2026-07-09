@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
 /// 元数据预览组件
@@ -41,10 +41,11 @@ class MetaPreview extends StatelessWidget {
       strawFile: StrawFile(
         formatVersion: const FormatVersion(1, 0, 0),
         meta: meta,
-        content: const EncryptedContent(
-          encryptedDataBase64: '',
-          ivBase64: '',
-          algorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+        content: const StrawContent(
+          encryptionAlgorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+          chunkSize: DEFAULT_CHUNK_SIZE,
+          totalChunks: 0,
+          originalPayloadSize: 0,
         ),
         integrity: const IntegrityInfo(
           hash: '',
@@ -199,7 +200,7 @@ class MetaPreview extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '加密算法：${strawFile.content.algorithm}',
+                  '加密算法：${strawFile.content.encryptionAlgorithm}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

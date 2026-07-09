@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,8 +15,8 @@ import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 /// 测试目标：验证 HomeScreen 页面布局和组件是否符合任务 3.3 验收标准
 /// 覆盖范围：
 /// - 页面包含 AppBar、标题、Logo 图标
-/// - "新建知识卡片" 按钮存在且点击后导航到 /editor
-/// - "打开知识卡片" 按钮存在
+/// - "发布知识卡片" 按钮存在且点击后导航到 /editor
+/// - "解密知识卡片" 按钮存在
 /// - DropZone 组件存在
 /// - 布局结构正确（Column、居中、间距等）
 void main() {
@@ -64,15 +66,14 @@ void main() {
       expect(find.byType(AppBar), findsOneWidget);
     });
 
-    testWidgets('AppBar 标题应显示 "StrawHut - 去中心化加密知识分享平台"',
-        (WidgetTester tester) async {
+    testWidgets('AppBar 标题应显示 "StrawHut - 草棚"', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 AppBar 标题文字
       expect(
-        find.text('StrawHut - 去中心化加密知识分享平台'),
+        find.text('StrawHut - 草棚'),
         findsOneWidget,
       );
     });
@@ -87,8 +88,7 @@ void main() {
       expect(appBar.centerTitle, true);
     });
 
-    testWidgets('页面应显示欢迎标题 "欢迎使用 StrawHut"',
-        (WidgetTester tester) async {
+    testWidgets('页面应显示欢迎标题 "欢迎使用 StrawHut"', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
@@ -109,8 +109,7 @@ void main() {
       );
     });
 
-    testWidgets('页面应显示大号 Lock 图标作为 Logo',
-        (WidgetTester tester) async {
+    testWidgets('页面应显示大号 Lock 图标作为 Logo', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
@@ -161,7 +160,7 @@ void main() {
       // 注意：MaterialApp 内部也会使用 Center，所以我们验证至少有一个 Center
       final centerWidgets = tester.widgetList<Center>(find.byType(Center));
       expect(centerWidgets.isNotEmpty, true);
-      
+
       // 验证 HomeScreen 的 Column 被 Center 包裹
       final columnFinder = find.descendant(
         of: find.byType(HomeScreen),
@@ -194,63 +193,85 @@ void main() {
 
     testWidgets('页面组件排列顺序应为：图标 -> 标题 -> 副标题 -> 按钮 -> 拖拽区域',
         (WidgetTester tester) async {
-      // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
-      await tester.pumpAndSettle();
+      // 此测试需要在桌面平台下运行，因为 DropZone 在移动端返回 SizedBox.shrink()
+      // 使用 try/finally 确保在 Flutter 测试框架验证不变量之前重置平台覆盖
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        // 构建首页
+        await tester.pumpWidget(_createTestableWidget());
+        await tester.pumpAndSettle();
 
-      // 获取所有可见的文字和图标
-      final iconFinder = find.byIcon(Icons.lock_outline_rounded);
-      final welcomeFinder = find.text('欢迎使用 StrawHut');
-      final subtitleFinder = find.text('创建加密知识卡片，安全分享你的知识');
-      final createButtonFinder = find.text('新建知识卡片');
-      final openButtonFinder = find.text('打开知识卡片');
-      final dropZoneFinder = find.text('或将 .straw 文件拖拽至此');
+        // 获取所有可见的文字和图标
+        final iconFinder = find.byIcon(Icons.lock_outline_rounded);
+        final welcomeFinder = find.text('欢迎使用 StrawHut');
+        final subtitleFinder = find.text('创建加密知识卡片，安全分享你的知识');
+        final createButtonFinder = find.text('发布知识卡片');
+        final openButtonFinder = find.text('解密知识卡片');
+        final dropZoneFinder = find.text('或将 .straw / .png 文件拖拽至此');
 
-      // 验证所有元素都存在
-      expect(iconFinder, findsOneWidget);
-      expect(welcomeFinder, findsOneWidget);
-      expect(subtitleFinder, findsOneWidget);
-      expect(createButtonFinder, findsOneWidget);
-      expect(openButtonFinder, findsOneWidget);
-      expect(dropZoneFinder, findsOneWidget);
+        // 验证所有元素都存在
+        expect(iconFinder, findsOneWidget);
+        expect(welcomeFinder, findsOneWidget);
+        expect(subtitleFinder, findsOneWidget);
+        expect(createButtonFinder, findsOneWidget);
+        expect(openButtonFinder, findsOneWidget);
+        expect(dropZoneFinder, findsOneWidget);
 
-      // 验证垂直排列顺序
-      final iconRect = tester.getRect(iconFinder);
-      final welcomeRect = tester.getRect(welcomeFinder);
-      final subtitleRect = tester.getRect(subtitleFinder);
-      final createButtonRect = tester.getRect(createButtonFinder);
-      final openButtonRect = tester.getRect(openButtonFinder);
-      final dropZoneRect = tester.getRect(dropZoneFinder);
+        // 验证垂直排列顺序
+        final iconRect = tester.getRect(iconFinder);
+        final welcomeRect = tester.getRect(welcomeFinder);
+        final subtitleRect = tester.getRect(subtitleFinder);
+        final createButtonRect = tester.getRect(createButtonFinder);
+        final openButtonRect = tester.getRect(openButtonFinder);
+        final dropZoneRect = tester.getRect(dropZoneFinder);
 
-      // 验证从上到下的顺序
-      expect(welcomeRect.top, greaterThan(iconRect.bottom));
-      expect(subtitleRect.top, greaterThan(welcomeRect.bottom));
-      expect(createButtonRect.top, greaterThan(subtitleRect.bottom));
-      expect(openButtonRect.top, greaterThan(createButtonRect.bottom));
-      expect(dropZoneRect.top, greaterThan(openButtonRect.bottom));
+        // 验证从上到下的顺序
+        expect(welcomeRect.top, greaterThan(iconRect.bottom));
+        expect(subtitleRect.top, greaterThan(welcomeRect.bottom));
+        expect(createButtonRect.top, greaterThan(subtitleRect.bottom));
+        expect(openButtonRect.top, greaterThan(createButtonRect.bottom));
+        expect(dropZoneRect.top, greaterThan(openButtonRect.bottom));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
   });
 
   group('HomeScreen 导航功能测试', () {
-    testWidgets('点击"新建知识卡片"按钮应导航到 /editor',
-        (WidgetTester tester) async {
+    testWidgets('点击"发布知识卡片"按钮应弹出内容来源选择', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
-      expect(
-          appRouter.routerDelegate.currentConfiguration.uri.path, '/');
+      expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/');
 
-      // 查找并点击"新建知识卡片"按钮
-      final createButton = find.text('新建知识卡片');
+      // 查找并点击"发布知识卡片"按钮
+      final createButton = find.text('发布知识卡片');
       expect(createButton, findsOneWidget);
       await tester.tap(createButton);
       await tester.pumpAndSettle();
 
+      // 验证弹出了选择对话框
+      expect(find.text('富文本编辑'), findsOneWidget);
+      expect(find.text('直接加密文件'), findsOneWidget);
+    });
+
+    testWidgets('选择"富文本编辑"后应导航到 /editor', (WidgetTester tester) async {
+      // 构建首页
+      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpAndSettle();
+
+      // 点击"发布知识卡片"按钮
+      await tester.tap(find.text('发布知识卡片'));
+      await tester.pumpAndSettle();
+
+      // 点击"富文本编辑"
+      await tester.tap(find.text('富文本编辑'));
+      await tester.pumpAndSettle();
+
       // 验证已导航到编辑器页面
-      expect(
-          appRouter.routerDelegate.currentConfiguration.uri.path, '/editor');
+      expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/editor');
     });
   });
 }

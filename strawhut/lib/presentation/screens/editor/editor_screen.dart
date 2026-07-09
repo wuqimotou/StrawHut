@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/publish_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
+import 'package:strawhut/presentation/providers/picked_file_provider.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/preview_panel.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/quill_editor.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/quill_toolbar.dart';
@@ -355,7 +356,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
     // 在弹出对话框前，立即刷新草稿，确保防抖等待中的内容被保存
     _quillEditorKey.currentState?.flushDraft();
-    await PublishDialog.show(context);
+    await PublishDialog.show(context, initialMode: ContentSourceMode.editor);
     // 发布对话框关闭后，如果内容已被清空（说明发布成功），同步清空编辑器
     final content = ref.read(editorContentProvider);
     if (content.isEmpty) {

@@ -38,13 +38,15 @@ import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 
-/// Mock CryptoService
-class MockCryptoService extends Mock implements CryptoService {}
+/// Mock ICryptoService
+class MockCryptoService extends Mock implements ICryptoService {}
 
 /// Mock FileIOService
 class MockFileIOService extends Mock implements FileIOService {}
@@ -52,16 +54,18 @@ class MockFileIOService extends Mock implements FileIOService {}
 /// Mock IntegrityService
 class MockIntegrityService extends Mock implements IntegrityService {}
 
-/// Fake EncryptedContent（用于 mocktail registerFallbackValue）
-class FakeEncryptedContent extends Fake implements EncryptedContent {}
+/// Fake ProgressCallback for mocktail fallback
+class FakeProgressCallback extends Fake {
+  void call(int current, int total) {}
+}
+
+/// Fake StrawContent（用于 mocktail registerFallbackValue）
+class FakeStrawContent extends Fake implements StrawContent {}
 
 /// 创建用于测试的 StrawFile 实例
 StrawFile createTestStrawFile({
   String title = '测试知识卡片',
   String publisherAlias = '测试作者',
-  String encryptedDataBase64 =
-      'dGVzdEVuY3J5cHRlZERhdGFCYXNlNjRTdHJpbmcxMjM0NTY3ODkwMTIzNA==',
-  String ivBase64 = 'dGVzdEl2QmFzZTY0U3RyaW5nMTIzNA==',
   String integrityHash = 'sha256:testhash',
   List<String> tags = const ['测试', 'Flutter'],
   String? description,
@@ -77,10 +81,11 @@ StrawFile createTestStrawFile({
       tags: tags,
       description: description,
     ),
-    content: EncryptedContent(
-      encryptedDataBase64: encryptedDataBase64,
-      ivBase64: ivBase64,
-      algorithm: 'AES-256-GCM',
+    content: StrawContent(
+      encryptionAlgorithm: 'AES-256-GCM',
+      chunkSize: 65536,
+      totalChunks: 1,
+      originalPayloadSize: 100,
     ),
     integrity: IntegrityInfo(
       hash: integrityHash,
@@ -94,7 +99,7 @@ StrawFile createTestStrawFile({
 /// 将 DecryptDialog 包裹在 MaterialApp 和 ProviderScope 中以便测试。
 Widget _buildDecryptDialog({
   required StrawFile strawFile,
-  required void Function(String deltaJson) onDecryptSuccess,
+  required void Function(DecryptResult result) onDecryptSuccess,
   required ProviderContainer container,
 }) {
   return UncontrolledProviderScope(
@@ -113,6 +118,7 @@ Widget _buildDecryptDialog({
           builder: (context) {
             return DecryptDialog(
               strawFile: strawFile,
+              parsedFile: ParsedStrawFile(strawFile: strawFile, chunks: []),
               onDecryptSuccess: onDecryptSuccess,
             );
           },
@@ -161,9 +167,12 @@ Widget _buildDialogTestHarness({
 void main() {
   // 注册 mocktail 的 fallback 值
   setUpAll(() {
-    registerFallbackValue(FakeEncryptedContent());
+    registerFallbackValue(FakeStrawContent());
     // Uint8List 是 final class，不能用 Fake，直接使用真实实例作为 fallback
     registerFallbackValue(Uint8List(32));
+    registerFallbackValue(<ChunkInfo>[]);
+    registerFallbackValue(createTestStrawFile());
+    registerFallbackValue(FakeProgressCallback());
   });
 
   group('DecryptDialog 元数据预览测试', () {
@@ -366,7 +375,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 不输入密钥，直接点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示错误提示
@@ -391,15 +400,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // 不输入密钥，直接点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
-      // 验证 decryptContent 没有被调用
+      // 验证 decrypt 没有被调用
       verifyNever(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       );
     });
@@ -427,12 +438,14 @@ void main() {
 
       strawFile = createTestStrawFile();
 
-      // Mock decryptContent 抛出 CryptoException
+      // Mock decrypt 抛出 CryptoException
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       ).thenThrow(
         const CryptoException(
@@ -470,7 +483,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示错误提示
@@ -500,7 +513,7 @@ void main() {
       await tester.enterText(textField, wrongKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证解密按钮重新可用
@@ -530,22 +543,41 @@ void main() {
 
       strawFile = createTestStrawFile();
 
-      // Mock decryptContent 返回成功
+      // Mock decrypt 返回成功
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenAnswer((_) async => '{"ops": [{"insert": "测试内容"}]}');
+      ).thenAnswer(
+        (_) async => DecryptResult(
+          payloadMetadata: PayloadMetadata(
+            sourceType: SourceType.richText,
+            originalExtension: 'delta',
+          ),
+          payloadBytes: Uint8List.fromList(
+            utf8.encode('{"ops": [{"insert": "测试内容"}]}'),
+          ),
+        ),
+      );
 
-      // Mock verifyIntegrity 返回失败
+      // Mock buildBinaryFileBytes 返回测试二进制数据
       when(
-        () => mockIntegrityService.verifyIntegrity(
-          content: any(named: 'content'),
-          expectedHash: any(named: 'expectedHash'),
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
         ),
-      ).thenReturn(false);
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
+      // Mock computeHashFromBytes 返回不匹配的哈希（校验失败）
+      when(
+        () => mockIntegrityService.computeHashFromBytes(
+          any(),
+        ),
+      ).thenReturn('sha256:differenthash');
 
       // Mock clearSensitiveData
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
@@ -577,12 +609,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示完整性校验失败提示
       expect(
-        find.text('文件完整性校验失败，文件可能已被篡改'),
+        find.text('文件可能被篡改'),
         findsOneWidget,
       );
     });
@@ -611,7 +643,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 回调不应该被调用
@@ -638,7 +670,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证 clearSensitiveData 被调用
@@ -665,11 +697,11 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 对话框应该仍然显示
-      expect(find.text('解密知识卡片'), findsOneWidget);
+      expect(find.byType(DecryptDialog), findsOneWidget);
     });
   });
 
@@ -695,24 +727,41 @@ void main() {
 
       strawFile = createTestStrawFile();
 
-      // Mock decryptContent 返回成功
+      // Mock decrypt 返回成功
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       ).thenAnswer(
-        (_) async => '{"ops": [{"insert": "Hello World"}]}',
+        (_) async => DecryptResult(
+          payloadMetadata: PayloadMetadata(
+            sourceType: SourceType.richText,
+            originalExtension: 'delta',
+          ),
+          payloadBytes: Uint8List.fromList(
+            utf8.encode('{"ops": [{"insert": "Hello World"}]}'),
+          ),
+        ),
       );
 
-      // Mock verifyIntegrity 返回成功
+      // Mock buildBinaryFileBytes 返回测试二进制数据
       when(
-        () => mockIntegrityService.verifyIntegrity(
-          content: any(named: 'content'),
-          expectedHash: any(named: 'expectedHash'),
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
         ),
-      ).thenReturn(true);
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
+      // Mock computeHashFromBytes 返回匹配的哈希（校验成功）
+      when(
+        () => mockIntegrityService.computeHashFromBytes(
+          any(),
+        ),
+      ).thenReturn('sha256:testhash');
 
       // Mock clearSensitiveData
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
@@ -723,14 +772,14 @@ void main() {
     });
 
     testWidgets('解密成功后应该调用 onDecryptSuccess 回调', (WidgetTester tester) async {
-      String? receivedDeltaJson;
+      DecryptResult? receivedResult;
 
       await tester.pumpWidget(
         _buildDialogTestHarness(
           dialog: _buildDecryptDialog(
             strawFile: strawFile,
-            onDecryptSuccess: (deltaJson) {
-              receivedDeltaJson = deltaJson;
+            onDecryptSuccess: (result) {
+              receivedResult = result;
             },
             container: container,
           ),
@@ -746,12 +795,15 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
-      // 验证回调被调用且传入正确的 Delta JSON
-      expect(receivedDeltaJson, isNotNull);
-      expect(receivedDeltaJson, contains('Hello World'));
+      // 验证回调被调用且传入正确的 DecryptResult
+      expect(receivedResult, isNotNull);
+      expect(
+        utf8.decode(receivedResult!.payloadBytes),
+        contains('Hello World'),
+      );
     });
 
     testWidgets('解密成功后应该关闭对话框', (WidgetTester tester) async {
@@ -770,18 +822,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // 验证对话框已显示
-      expect(find.text('解密知识卡片'), findsOneWidget);
+      expect(find.byType(DecryptDialog), findsOneWidget);
 
       final validKey = base64Encode(Uint8List(32));
       final textField = find.byType(TextField).first;
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证对话框已关闭
-      expect(find.text('解密知识卡片'), findsNothing);
+      expect(find.byType(DecryptDialog), findsNothing);
     });
 
     testWidgets('解密成功后应该调用 clearSensitiveData', (WidgetTester tester) async {
@@ -804,7 +856,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证 clearSensitiveData 被调用
@@ -842,22 +894,30 @@ void main() {
     testWidgets('解密过程中应该显示 CircularProgressIndicator',
         (WidgetTester tester) async {
       // 使用 Completer 控制解密操作的完成时机
-      final completer = Completer<String>();
+      final completer = Completer<DecryptResult>();
 
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       ).thenAnswer((_) => completer.future);
 
       when(
-        () => mockIntegrityService.verifyIntegrity(
-          content: any(named: 'content'),
-          expectedHash: any(named: 'expectedHash'),
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
         ),
-      ).thenReturn(true);
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
+      when(
+        () => mockIntegrityService.computeHashFromBytes(
+          any(),
+        ),
+      ).thenReturn('sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -881,7 +941,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       // 使用 pump 触发重绘，但不等待 Future 完成
       await tester.pump();
 
@@ -889,27 +949,41 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsWidgets);
 
       // 完成解密操作
-      completer.complete('{"ops": []}');
+      completer.complete(DecryptResult(
+        payloadMetadata: PayloadMetadata(
+          sourceType: SourceType.richText,
+          originalExtension: 'delta',
+        ),
+        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
+      ));
       await tester.pumpAndSettle();
     });
 
     testWidgets('Loading 状态下解密按钮应该被禁用', (WidgetTester tester) async {
-      final completer = Completer<String>();
+      final completer = Completer<DecryptResult>();
 
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       ).thenAnswer((_) => completer.future);
 
       when(
-        () => mockIntegrityService.verifyIntegrity(
-          content: any(named: 'content'),
-          expectedHash: any(named: 'expectedHash'),
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
         ),
-      ).thenReturn(true);
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
+      when(
+        () => mockIntegrityService.computeHashFromBytes(
+          any(),
+        ),
+      ).thenReturn('sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -933,34 +1007,48 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pump();
 
-      // 验证"解密"文本不存在（被 CircularProgressIndicator 替代）
-      expect(find.text('解密'), findsNothing);
+      // 验证 FilledButton 中"解密"文本不存在（被 CircularProgressIndicator 替代）
+      expect(find.widgetWithText(FilledButton, '解密'), findsNothing);
 
       // 完成解密操作
-      completer.complete('{"ops": []}');
+      completer.complete(DecryptResult(
+        payloadMetadata: PayloadMetadata(
+          sourceType: SourceType.richText,
+          originalExtension: 'delta',
+        ),
+        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
+      ));
       await tester.pumpAndSettle();
     });
 
     testWidgets('Loading 状态下取消按钮应该被禁用', (WidgetTester tester) async {
-      final completer = Completer<String>();
+      final completer = Completer<DecryptResult>();
 
       when(
-        () => mockCryptoService.decryptContent(
-          encryptedDataBase64: any(named: 'encryptedDataBase64'),
-          ivBase64: any(named: 'ivBase64'),
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
           key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
         ),
       ).thenAnswer((_) => completer.future);
 
       when(
-        () => mockIntegrityService.verifyIntegrity(
-          content: any(named: 'content'),
-          expectedHash: any(named: 'expectedHash'),
+        () => mockFileIOService.buildBinaryFileBytes(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
         ),
-      ).thenReturn(true);
+      ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
+
+      when(
+        () => mockIntegrityService.computeHashFromBytes(
+          any(),
+        ),
+      ).thenReturn('sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -983,13 +1071,19 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('解密'));
+      await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pump();
 
       // 验证取消按钮文字仍然存在，但按钮应该是禁用的
       expect(find.text('取消'), findsOneWidget);
 
-      completer.complete('{"ops": []}');
+      completer.complete(DecryptResult(
+        payloadMetadata: PayloadMetadata(
+          sourceType: SourceType.richText,
+          originalExtension: 'delta',
+        ),
+        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
+      ));
       await tester.pumpAndSettle();
     });
   });
@@ -1036,14 +1130,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // 验证对话框已显示
-      expect(find.text('解密知识卡片'), findsOneWidget);
+      expect(find.byType(DecryptDialog), findsOneWidget);
 
       // 点击取消按钮
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
       // 验证对话框已关闭
-      expect(find.text('解密知识卡片'), findsNothing);
+      expect(find.byType(DecryptDialog), findsNothing);
     });
 
     testWidgets('取消时不应该调用 onDecryptSuccess', (WidgetTester tester) async {

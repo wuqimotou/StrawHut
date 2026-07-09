@@ -631,6 +631,288 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'使用 {count} 次'**
   String usedCount(int count);
+
+  /// 内容来源标签
+  ///
+  /// In zh, this message translates to:
+  /// **'内容来源'**
+  String get contentSource;
+
+  /// 编辑器内容选项
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑器内容'**
+  String get editorContent;
+
+  /// 上传文件选项
+  ///
+  /// In zh, this message translates to:
+  /// **'上传文件'**
+  String get uploadFile;
+
+  /// 选择文件按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'选择文件'**
+  String get selectFile;
+
+  /// 拖拽文件提示
+  ///
+  /// In zh, this message translates to:
+  /// **'拖拽文件到此处或点击选择'**
+  String get dragFileHere;
+
+  /// 任意文件类型提示
+  ///
+  /// In zh, this message translates to:
+  /// **'支持任意类型文件'**
+  String get anyFileType;
+
+  /// 已选择文件信息
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择：{fileName}（{fileSize}）'**
+  String selectedFile(String fileName, String fileSize);
+
+  /// 移除文件按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get removeFile;
+
+  /// 大文件提示
+  ///
+  /// In zh, this message translates to:
+  /// **'文件较大，加密可能需要数秒至十余秒，是否继续？'**
+  String get fileSizeHint;
+
+  /// 大文件警告
+  ///
+  /// In zh, this message translates to:
+  /// **'文件较大，加密和解密可能需要较长时间，建议在性能较好的设备上操作。是否继续？'**
+  String get fileSizeWarning;
+
+  /// 极大文件强烈警告
+  ///
+  /// In zh, this message translates to:
+  /// **'文件非常大，加密和解密耗时较长，内存占用较高，可能导致低端设备卡顿。是否继续？'**
+  String get fileSizeStrongWarning;
+
+  /// 极大文件严重警告
+  ///
+  /// In zh, this message translates to:
+  /// **'文件极大，加密和解密耗时可能很长，可能占用大量内存和存储空间。强烈建议分割文件后再加密。是否仍要继续？'**
+  String get fileSizeSevereWarning;
+
+  /// 保存文件按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存文件'**
+  String get saveFile;
+
+  /// 保存到本地按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到本地'**
+  String get saveToLocale;
+
+  /// 查看源码切换
+  ///
+  /// In zh, this message translates to:
+  /// **'查看源码'**
+  String get viewSource;
+
+  /// 渲染视图切换
+  ///
+  /// In zh, this message translates to:
+  /// **'渲染视图'**
+  String get renderView;
+
+  /// 内容过长提示
+  ///
+  /// In zh, this message translates to:
+  /// **'内容过长，建议保存为文件查看完整内容'**
+  String get contentTooLong;
+
+  /// 图片加载失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'图片加载失败'**
+  String get imageLoadFailed;
+
+  /// 音频加载失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'音频加载失败：{error}'**
+  String audioLoadFailed(String error);
+
+  /// 视频加载失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'视频加载失败：{error}'**
+  String videoLoadFailed(String error);
+
+  /// 保存音频按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存音频'**
+  String get saveAudio;
+
+  /// 保存视频按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存视频'**
+  String get saveVideo;
+
+  /// 保存PDF按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存PDF'**
+  String get savePdf;
+
+  /// 无法预览提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此文件类型无法直接预览，请保存后使用对应程序打开。'**
+  String get cannotPreview;
+
+  /// 保存到本地按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到本地'**
+  String get saveToLocal;
+
+  /// 文件大小信息
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大小：{size}'**
+  String fileSize(String size);
+
+  /// 文件类型信息
+  ///
+  /// In zh, this message translates to:
+  /// **'文件类型：{type}'**
+  String fileType(String type);
+
+  /// 迁移对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'迁移旧版文件'**
+  String get migrationTitle;
+
+  /// 迁移成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'旧版文件已迁移，原文件仍保留。建议确认新文件可用后删除旧版文件。'**
+  String get migrationSuccess;
+
+  /// 迁移失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'迁移失败：{error}'**
+  String migrationFailed(String error);
+
+  /// 旧版格式检测提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此文件为旧版格式，需要迁移后才能查看。是否立即迁移？'**
+  String get oldFormatDetected;
+
+  /// 立即迁移按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'立即迁移'**
+  String get migrateNow;
+
+  /// 导出格式 straw 选项
+  ///
+  /// In zh, this message translates to:
+  /// **'仅 .straw'**
+  String get exportFormatStraw;
+
+  /// 仅 straw 格式提示
+  ///
+  /// In zh, this message translates to:
+  /// **'文件加密模式仅支持 .straw 格式'**
+  String get strawFormatOnly;
+
+  /// 旧版文件格式对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'旧版文件格式'**
+  String get legacyFileFormatTitle;
+
+  /// 旧版文件格式提示消息
+  ///
+  /// In zh, this message translates to:
+  /// **'此文件为旧版格式，需要迁移后才能查看。请使用\"迁移旧版文件\"功能进行转换。'**
+  String get legacyFileFormatMessage;
+
+  /// 文件需要迁移提示
+  ///
+  /// In zh, this message translates to:
+  /// **'此文件需要迁移后才能查看'**
+  String get legacyFileMigrationRequired;
+
+  /// 迁移按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'迁移'**
+  String get migrate;
+
+  /// 迁移旧版文件菜单项
+  ///
+  /// In zh, this message translates to:
+  /// **'迁移旧版文件'**
+  String get migrateLegacyFile;
+
+  /// 迁移旧版文件描述
+  ///
+  /// In zh, this message translates to:
+  /// **'选择旧版 .straw 文件并将其迁移到新格式'**
+  String get migrateLegacyFileDescription;
+
+  /// 选择旧版文件按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'选择旧版文件'**
+  String get selectLegacyFile;
+
+  /// 非旧版格式提示
+  ///
+  /// In zh, this message translates to:
+  /// **'该文件不是旧版格式，无需迁移'**
+  String get notOldFormat;
+
+  /// 迁移时密钥必填提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入密钥'**
+  String get migrationKeyRequired;
+
+  /// 执行迁移按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'执行迁移'**
+  String get performMigration;
+
+  /// 内容来源选择标签
+  ///
+  /// In zh, this message translates to:
+  /// **'内容来源'**
+  String get contentSourceLabel;
+
+  /// 编辑器内容选项标签
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑器内容'**
+  String get editorContentLabel;
+
+  /// 上传文件选项标签
+  ///
+  /// In zh, this message translates to:
+  /// **'上传文件'**
+  String get fileUploadLabel;
 }
 
 class _AppLocalizationsDelegate

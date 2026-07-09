@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
@@ -11,6 +12,43 @@ void main() {
   setUp(() {
     formatValidator = FormatValidator();
   });
+
+  /// 构建 v2.0 格式的有效 .straw JSON 模板
+  ///
+  /// 使用 v2.0 二进制容器格式的 content 字段：
+  /// encryption_algorithm / chunk_size / total_chunks / original_payload_size
+  Map<String, dynamic> buildValidStrawJson({
+    String formatVersion = '2.0.0',
+    Map<String, dynamic>? metaOverrides,
+    Map<String, dynamic>? contentOverrides,
+    Map<String, dynamic>? integrityOverrides,
+  }) {
+    return {
+      'format_version': formatVersion,
+      'meta': {
+        'publisher_alias': 'test_user',
+        'publish_date': '2025-01-01T00:00:00Z',
+        'title': '测试知识卡片',
+        'is_anonymous': false,
+        'tags': ['Flutter', '测试'],
+        'description': '这是一个测试描述',
+        ...?metaOverrides,
+      },
+      'content': {
+        'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
+        'chunk_size': 1048576,
+        'total_chunks': 3,
+        'original_payload_size': 2500000,
+        ...?contentOverrides,
+      },
+      'integrity': {
+        'hash':
+            'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+        'hash_algorithm': HASH_ALGORITHM_SHA256,
+        ...?integrityOverrides,
+      },
+    };
+  }
 
   group('ValidationResult', () {
     test('success() 应返回 isValid 为 true 且 errors 为空的结果', () {
@@ -40,31 +78,9 @@ void main() {
     });
   });
 
-  group('FormatValidator.validateStrawFormat', () {
-    // ========== 有效格式测试用例 ==========
-
-    test('应验证有效的 .straw 文件格式成功', () {
-      final validStrawJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'test_user',
-          'publish_date': '2025-01-01T00:00:00Z',
-          'title': '测试知识卡片',
-          'is_anonymous': false,
-          'tags': ['Flutter', '测试'],
-          'description': '这是一个测试描述',
-        },
-        'content': {
-          'encrypted_data': 'ZW5jcnlwdGVkX2RhdGFfZXhhbXBsZQ==',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'aW5pdGlhbGl6YXRpb25fdmVjdG9y',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+  group('FormatValidator.validateStrawFormat - v2.0 有效格式', () {
+    test('应验证有效的 v2.0 .straw 文件格式成功', () {
+      final validStrawJson = buildValidStrawJson();
 
       final result = formatValidator.validateStrawFormat(validStrawJson);
 
@@ -73,25 +89,14 @@ void main() {
     });
 
     test('应验证匿名模式的 .straw 文件格式成功', () {
-      final validStrawJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
+      final validStrawJson = buildValidStrawJson(
+        metaOverrides: {
           'publisher_alias': '${ANONYMOUS_PREFIX}a3f7b2c1',
           'publish_date': '2025-06-15T10:30:00Z',
           'title': '匿名卡片',
           'is_anonymous': true,
         },
-        'content': {
-          'encrypted_data': 'c29tZV9lbmNyeXB0ZWRfZGF0YQ==',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'c29tZV9pdl92YWx1ZQ==',
-        },
-        'integrity': {
-          'hash':
-              'sha256:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(validStrawJson);
 
@@ -99,78 +104,59 @@ void main() {
     });
 
     test('应验证包含最大数量标签的格式成功', () {
-      final validStrawJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'power_user',
-          'publish_date': '2025-03-20T12:00:00Z',
-          'title': '标签测试卡片',
-          'is_anonymous': false,
+      final validStrawJson = buildValidStrawJson(
+        metaOverrides: {
           'tags': List.generate(MAX_TAGS_COUNT, (index) => 'tag$index'),
         },
-        'content': {
-          'encrypted_data': 'dGVzdF9lbmNyeXB0ZWRfZGF0YQ==',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'dGVzdF9pdl92YWx1ZQ==',
-        },
-        'integrity': {
-          'hash':
-              'sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(validStrawJson);
 
       expect(result.isValid, true);
     });
 
-    // ========== 必填字段缺失测试用例 ==========
+    test('应验证包含可选 KDF 字段的格式成功', () {
+      final validStrawJson = buildValidStrawJson(
+        contentOverrides: {
+          'salt': 'base64SaltValue==',
+          'kdf_algorithm': KDF_ALGORITHM_PBKDF2,
+          'kdf_iterations': KDF_ITERATIONS,
+        },
+      );
 
+      final result = formatValidator.validateStrawFormat(validStrawJson);
+
+      expect(result.isValid, true);
+    });
+
+    test('v2.0 content 不应包含 encrypted_data 和 iv 字段（逻辑验证）', () {
+      final validStrawJson = buildValidStrawJson();
+
+      // v2.0 格式中 content 不再使用 encrypted_data 和 iv
+      expect(validStrawJson['content'].containsKey('encrypted_data'), isFalse);
+      expect(validStrawJson['content'].containsKey('iv'), isFalse);
+      expect(validStrawJson['content'].containsKey('chunk_size'), isTrue);
+      expect(validStrawJson['content'].containsKey('total_chunks'), isTrue);
+      expect(validStrawJson['content'].containsKey('original_payload_size'),
+          isTrue);
+    });
+  });
+
+  group('FormatValidator.validateStrawFormat - 必填字段缺失', () {
     test('缺少 format_version 时应验证失败', () {
-      final invalidJson = {
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson()..remove('format_version');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
       expect(result.isValid, false);
       expect(
-        result.errors
-            .any((e) => e.contains('format_version')),
+        result.errors.any((e) => e.contains('format_version')),
         true,
       );
     });
 
     test('缺少 meta 对象时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson()..remove('meta');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -179,24 +165,10 @@ void main() {
     });
 
     test('缺少 meta.publisher_alias 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson(
+        metaOverrides: {}..remove('publisher_alias'),
+      );
+      (invalidJson['meta'] as Map<String, dynamic>).remove('publisher_alias');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -208,24 +180,8 @@ void main() {
     });
 
     test('缺少 meta.publish_date 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['meta'] as Map<String, dynamic>).remove('publish_date');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -237,24 +193,8 @@ void main() {
     });
 
     test('缺少 meta.title 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['meta'] as Map<String, dynamic>).remove('title');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -263,25 +203,9 @@ void main() {
     });
 
     test('meta.title 为空字符串时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson(
+        metaOverrides: {'title': ''},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -290,24 +214,8 @@ void main() {
     });
 
     test('缺少 meta.is_anonymous 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['meta'] as Map<String, dynamic>).remove('is_anonymous');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -319,20 +227,7 @@ void main() {
     });
 
     test('缺少 content 对象时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson()..remove('content');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -340,54 +235,10 @@ void main() {
       expect(result.errors.any((e) => e.contains('content')), true);
     });
 
-    test('缺少 content.encrypted_data 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
-
-      final result = formatValidator.validateStrawFormat(invalidJson);
-
-      expect(result.isValid, false);
-      expect(
-        result.errors.any((e) => e.contains('encrypted_data')),
-        true,
-      );
-    });
-
     test('缺少 content.encryption_algorithm 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['content'] as Map<String, dynamic>)
+          .remove('encryption_algorithm');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -398,26 +249,87 @@ void main() {
       );
     });
 
+    test('缺少 content.chunk_size 时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['content'] as Map<String, dynamic>).remove('chunk_size');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('chunk_size')),
+        true,
+      );
+    });
+
+    test('缺少 content.total_chunks 时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['content'] as Map<String, dynamic>).remove('total_chunks');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('total_chunks')),
+        true,
+      );
+    });
+
+    test('缺少 content.original_payload_size 时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['content'] as Map<String, dynamic>)
+          .remove('original_payload_size');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('original_payload_size')),
+        true,
+      );
+    });
+
+    test('缺少 integrity 对象时应验证失败', () {
+      final invalidJson = buildValidStrawJson()..remove('integrity');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(result.errors.any((e) => e.contains('integrity')), true);
+    });
+
+    test('缺少 integrity.hash 时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['integrity'] as Map<String, dynamic>).remove('hash');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(result.errors.any((e) => e.contains('integrity.hash')), true);
+    });
+
+    test('缺少 integrity.hash_algorithm 时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      (invalidJson['integrity'] as Map<String, dynamic>)
+          .remove('hash_algorithm');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('hash_algorithm')),
+        true,
+      );
+    });
+  });
+
+  group('FormatValidator.validateStrawFormat - content 字段值验证', () {
     test('加密算法不支持时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {
           'encryption_algorithm': 'AES-128-CBC',
-          'iv': 'iv',
         },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -428,98 +340,152 @@ void main() {
       );
     });
 
-    test('缺少 content.iv 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+    test('content.chunk_size 为零时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'chunk_size': 0},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
       expect(result.isValid, false);
-      expect(result.errors.any((e) => e.contains('.iv')), true);
+      expect(
+        result.errors.any((e) => e.contains('chunk_size') && e.contains('正整数')),
+        true,
+      );
     });
 
-    test('缺少 integrity 对象时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-      };
+    test('content.chunk_size 为负数时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'chunk_size': -1},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
       expect(result.isValid, false);
-      expect(result.errors.any((e) => e.contains('integrity')), true);
+      expect(
+        result.errors.any((e) => e.contains('chunk_size') && e.contains('正整数')),
+        true,
+      );
     });
 
-    test('缺少 integrity.hash 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+    test('content.chunk_size 为非整数（字符串）时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'chunk_size': 'not_a_number'},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
       expect(result.isValid, false);
-      expect(result.errors.any((e) => e.contains('integrity.hash')), true);
+      expect(
+        result.errors.any((e) => e.contains('chunk_size') && e.contains('正整数')),
+        true,
+      );
     });
 
+    test('content.total_chunks 为零时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'total_chunks': 0},
+      );
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors
+            .any((e) => e.contains('total_chunks') && e.contains('正整数')),
+        true,
+      );
+    });
+
+    test('content.total_chunks 为负数时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'total_chunks': -5},
+      );
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors
+            .any((e) => e.contains('total_chunks') && e.contains('正整数')),
+        true,
+      );
+    });
+
+    test('content.total_chunks 为非整数（字符串）时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'total_chunks': 'three'},
+      );
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors
+            .any((e) => e.contains('total_chunks') && e.contains('正整数')),
+        true,
+      );
+    });
+
+    test('content.original_payload_size 为负数时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'original_payload_size': -100},
+      );
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any(
+            (e) => e.contains('original_payload_size') && e.contains('非负整数')),
+        true,
+      );
+    });
+
+    test('content.original_payload_size 为非整数（字符串）时应验证失败', () {
+      final invalidJson = buildValidStrawJson(
+        contentOverrides: {'original_payload_size': 'large'},
+      );
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any(
+            (e) => e.contains('original_payload_size') && e.contains('非负整数')),
+        true,
+      );
+    });
+
+    test('content.original_payload_size 为零时应验证成功（空载荷合法）', () {
+      final validJson = buildValidStrawJson(
+        contentOverrides: {'original_payload_size': 0},
+      );
+
+      final result = formatValidator.validateStrawFormat(validJson);
+
+      expect(result.isValid, true);
+    });
+
+    test('content 不是 Map 类型时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      invalidJson['content'] = 'not_a_map';
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('content') && e.contains('对象')),
+        true,
+      );
+    });
+  });
+
+  group('FormatValidator.validateStrawFormat - integrity 字段值验证', () {
     test('integrity.hash 格式无效（哈希值过短）时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash': 'sha256:abc123',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      final invalidJson = buildValidStrawJson(
+        integrityOverrides: {'hash': 'sha256:abc123'},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -531,24 +497,11 @@ void main() {
     });
 
     test('integrity.hash 使用 md5 前缀时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
+      final invalidJson = buildValidStrawJson(
+        integrityOverrides: {
           'hash': 'md5:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
         },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -560,25 +513,12 @@ void main() {
     });
 
     test('integrity.hash 包含大写十六进制字符时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
+      final invalidJson = buildValidStrawJson(
+        integrityOverrides: {
           'hash':
               'sha256:A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
         },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -590,25 +530,12 @@ void main() {
     });
 
     test('integrity.hash 包含非十六进制字符时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
+      final invalidJson = buildValidStrawJson(
+        integrityOverrides: {
           'hash':
               'sha256:ghijklmnopqrstuvwxyz1234567890ghijklmnopqrstuvwxyz123456',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
         },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -619,55 +546,10 @@ void main() {
       );
     });
 
-    test('缺少 integrity.hash_algorithm 时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-        },
-      };
-
-      final result = formatValidator.validateStrawFormat(invalidJson);
-
-      expect(result.isValid, false);
-      expect(
-        result.errors.any((e) => e.contains('hash_algorithm')),
-        true,
-      );
-    });
-
     test('哈希算法不支持时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': 'MD5',
-        },
-      };
+      final invalidJson = buildValidStrawJson(
+        integrityOverrides: {'hash_algorithm': 'MD5'},
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -678,29 +560,27 @@ void main() {
       );
     });
 
-    // ========== 标签和描述限制测试用例 ==========
+    test('integrity 不是 Map 类型时应验证失败', () {
+      final invalidJson = buildValidStrawJson();
+      invalidJson['integrity'] = 'not_a_map';
 
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('integrity') && e.contains('对象')),
+        true,
+      );
+    });
+  });
+
+  group('FormatValidator.validateStrawFormat - 标签和描述限制', () {
     test('标签数量超过限制时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
+      final invalidJson = buildValidStrawJson(
+        metaOverrides: {
           'tags': List.generate(MAX_TAGS_COUNT + 1, (index) => 'tag$index'),
         },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -712,26 +592,11 @@ void main() {
     });
 
     test('标签长度超过限制时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
+      final invalidJson = buildValidStrawJson(
+        metaOverrides: {
           'tags': ['a' * (MAX_TAG_LENGTH + 1)],
         },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -743,26 +608,11 @@ void main() {
     });
 
     test('描述长度超过限制时应验证失败', () {
-      final invalidJson = {
-        'format_version': STRAW_FORMAT_VERSION,
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
+      final invalidJson = buildValidStrawJson(
+        metaOverrides: {
           'description': 'a' * (MAX_DESCRIPTION_LENGTH + 1),
         },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+      );
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -772,29 +622,11 @@ void main() {
         true,
       );
     });
+  });
 
-    // ========== 版本号兼容性测试用例 ==========
-
-    test('主版本号为 2 的 format_version 应验证失败', () {
-      final invalidJson = {
-        'format_version': '2.0.0',
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+  group('FormatValidator.validateStrawFormat - 版本号兼容性', () {
+    test('主版本号为 1 的 format_version 应验证失败', () {
+      final invalidJson = buildValidStrawJson(formatVersion: '1.0.0');
 
       final result = formatValidator.validateStrawFormat(invalidJson);
 
@@ -805,34 +637,60 @@ void main() {
       );
     });
 
-    test('次版本号不同但主版本为 1 应验证成功', () {
-      final validJson = {
-        'format_version': '1.5.0',
-        'meta': {
-          'publisher_alias': 'user',
-          'publish_date': '2025-01-01',
-          'title': '标题',
-          'is_anonymous': false,
-        },
-        'content': {
-          'encrypted_data': 'data',
-          'encryption_algorithm': ENCRYPTION_ALGORITHM_AES_256_GCM,
-          'iv': 'iv',
-        },
-        'integrity': {
-          'hash':
-              'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-          'hash_algorithm': HASH_ALGORITHM_SHA256,
-        },
-      };
+    test('主版本号为 1.1.0 的 format_version 应验证失败', () {
+      final invalidJson = buildValidStrawJson(formatVersion: '1.1.0');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('不兼容的格式版本号')),
+        true,
+      );
+    });
+
+    test('主版本号为 3 的 format_version 应验证失败', () {
+      final invalidJson = buildValidStrawJson(formatVersion: '3.0.0');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('不兼容的格式版本号')),
+        true,
+      );
+    });
+
+    test('次版本号不同但主版本为 2 应验证成功', () {
+      final validJson = buildValidStrawJson(formatVersion: '2.5.0');
 
       final result = formatValidator.validateStrawFormat(validJson);
 
       expect(result.isValid, true);
     });
 
-    // ========== 收集多个错误测试用例 ==========
+    test('修订号不同但主版本为 2 应验证成功', () {
+      final validJson = buildValidStrawJson(formatVersion: '2.0.3');
 
+      final result = formatValidator.validateStrawFormat(validJson);
+
+      expect(result.isValid, true);
+    });
+
+    test('format_version 为空字符串时应验证失败', () {
+      final invalidJson = buildValidStrawJson(formatVersion: '');
+
+      final result = formatValidator.validateStrawFormat(invalidJson);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('format_version 不能为空')),
+        true,
+      );
+    });
+  });
+
+  group('FormatValidator.validateStrawFormat - 收集多个错误', () {
     test('应收集所有验证错误而非在第一个错误处停止', () {
       final invalidJson = {
         'meta': {
@@ -846,6 +704,109 @@ void main() {
 
       expect(result.isValid, false);
       expect(result.errors.length, greaterThan(1));
+    });
+  });
+
+  group('FormatValidator.validateBinaryFormat', () {
+    test('有效的 STRAWHUT Magic Bytes 应验证成功', () {
+      // "STRAWHUT" 的 ASCII 编码
+      final validBytes = Uint8List.fromList(STRAW_MAGIC_BYTES);
+
+      final result = formatValidator.validateBinaryFormat(validBytes);
+
+      expect(result.isValid, true);
+      expect(result.errors, isEmpty);
+    });
+
+    test('Magic Bytes 后跟其他数据应验证成功', () {
+      final bytes = Uint8List.fromList([
+        ...STRAW_MAGIC_BYTES,
+        ...utf8.encode('{"format_version": "2.0.0"}'),
+      ]);
+
+      final result = formatValidator.validateBinaryFormat(bytes);
+
+      expect(result.isValid, true);
+    });
+
+    test('Magic Bytes 不匹配时应验证失败', () {
+      // "NOTAHUTX" - 与 STRAWHUT 不同的 8 字节
+      final invalidBytes =
+          Uint8List.fromList([0x4E, 0x4F, 0x54, 0x41, 0x48, 0x55, 0x54, 0x58]);
+
+      final result = formatValidator.validateBinaryFormat(invalidBytes);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('Magic Bytes 不匹配')),
+        true,
+      );
+    });
+
+    test('数据过短（不足 8 字节）时应验证失败', () {
+      final shortBytes = Uint8List.fromList([0x53, 0x54, 0x52]); // "STR"
+
+      final result = formatValidator.validateBinaryFormat(shortBytes);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('文件数据过短')),
+        true,
+      );
+    });
+
+    test('空字节数组应验证失败', () {
+      final emptyBytes = Uint8List(0);
+
+      final result = formatValidator.validateBinaryFormat(emptyBytes);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('文件数据过短')),
+        true,
+      );
+    });
+
+    test('恰好 8 字节的有效 Magic Bytes 应验证成功', () {
+      final exactBytes = Uint8List.fromList(STRAW_MAGIC_BYTES);
+
+      final result = formatValidator.validateBinaryFormat(exactBytes);
+
+      expect(result.isValid, true);
+    });
+
+    test('第一个字节错误应验证失败', () {
+      final invalidBytes = Uint8List.fromList(STRAW_MAGIC_BYTES);
+      invalidBytes[0] = 0x00; // 修改第一个字节
+
+      final result = formatValidator.validateBinaryFormat(invalidBytes);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('Magic Bytes 不匹配')),
+        true,
+      );
+    });
+
+    test('最后一个字节错误应验证失败', () {
+      final invalidBytes = Uint8List.fromList(STRAW_MAGIC_BYTES);
+      invalidBytes[7] = 0x00; // 修改最后一个字节
+
+      final result = formatValidator.validateBinaryFormat(invalidBytes);
+
+      expect(result.isValid, false);
+      expect(
+        result.errors.any((e) => e.contains('Magic Bytes 不匹配')),
+        true,
+      );
+    });
+
+    test('全部为零的字节数组应验证失败', () {
+      final zeroBytes = Uint8List(8);
+
+      final result = formatValidator.validateBinaryFormat(zeroBytes);
+
+      expect(result.isValid, false);
     });
   });
 
@@ -1187,9 +1148,7 @@ void main() {
       expect(result.errors.any((e) => e.contains('不能为空')), true);
     });
 
-    test(
-        'key_data.key_base64 格式无效（包含非法 Base64 字符）时应验证失败',
-        () {
+    test('key_data.key_base64 格式无效（包含非法 Base64 字符）时应验证失败', () {
       final invalidJson = {
         'format_version': KEY_FORMAT_VERSION,
         'key_metadata': {

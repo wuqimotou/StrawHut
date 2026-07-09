@@ -19,10 +19,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 
@@ -56,10 +56,11 @@ StrawFile _createTestStrawFile({
       tags: tags,
       description: description,
     ),
-    content: const EncryptedContent(
-      encryptedDataBase64: 'dGVzdEVuY3J5cHRlZERhdGE=',
-      ivBase64: 'dGVzdEl2',
-      algorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+    content: const StrawContent(
+      encryptionAlgorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+      chunkSize: 65536,
+      totalChunks: 1,
+      originalPayloadSize: 100,
     ),
     integrity: const IntegrityInfo(
       hash: 'sha256:testhash',
@@ -112,8 +113,7 @@ void main() {
       expect(find.text('张三'), findsOneWidget);
     });
 
-    testWidgets('应正确显示发布日期（包含日期和时间）',
-        (WidgetTester tester) async {
+    testWidgets('应正确显示发布日期（仅显示日期部分）', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publishDate: '2026-05-01T12:30:00Z',
       );
@@ -121,13 +121,11 @@ void main() {
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 日期应该格式化为 "2026-05-01 12:30"
+      // 日期应该格式化为 "2026-05-01"（仅日期部分，不含时间）
       expect(find.textContaining('2026-05-01'), findsOneWidget);
-      expect(find.textContaining('12:30'), findsOneWidget);
     });
 
-    testWidgets('发布日期仅包含日期部分时应正确显示',
-        (WidgetTester tester) async {
+    testWidgets('发布日期仅包含日期部分时应正确显示', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publishDate: '2026-05-01',
       );
@@ -139,8 +137,7 @@ void main() {
       expect(find.text('2026-05-01'), findsOneWidget);
     });
 
-    testWidgets('发布日期格式异常时应返回原始字符串',
-        (WidgetTester tester) async {
+    testWidgets('发布日期格式异常时应返回原始字符串', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publishDate: '不是日期格式',
       );
@@ -210,8 +207,7 @@ void main() {
       expect(find.byType(Chip), findsWidgets);
     });
 
-    testWidgets('标签为空列表时不应显示标签区域',
-        (WidgetTester tester) async {
+    testWidgets('标签为空列表时不应显示标签区域', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(tags: []);
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
@@ -237,8 +233,7 @@ void main() {
       expect(find.text('匿名'), findsOneWidget);
     });
 
-    testWidgets('匿名模式下应显示 visibility_off 图标',
-        (WidgetTester tester) async {
+    testWidgets('匿名模式下应显示 visibility_off 图标', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publisherAlias: 'Anonymous_a3f7b2c1',
         isAnonymous: true,
@@ -251,8 +246,7 @@ void main() {
       expect(find.byIcon(Icons.visibility_off), findsOneWidget);
     });
 
-    testWidgets('非匿名模式下不应显示"匿名"标识',
-        (WidgetTester tester) async {
+    testWidgets('非匿名模式下不应显示"匿名"标识', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publisherAlias: '张三',
       );
@@ -264,8 +258,7 @@ void main() {
       expect(find.text('匿名'), findsNothing);
     });
 
-    testWidgets('非匿名模式下不应显示 visibility_off 图标',
-        (WidgetTester tester) async {
+    testWidgets('非匿名模式下不应显示 visibility_off 图标', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publisherAlias: '张三',
       );
@@ -304,8 +297,7 @@ void main() {
   });
 
   group('MetaPreview 布局元素测试', () {
-    testWidgets('应显示 person_outline 图标（发布者图标）',
-        (WidgetTester tester) async {
+    testWidgets('应显示 person_outline 图标（发布者图标）', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile();
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
@@ -340,8 +332,7 @@ void main() {
   });
 
   group('MetaPreview.fromMeta 便捷构造测试', () {
-    testWidgets('应能从 CardMeta 直接创建 MetaPreview',
-        (WidgetTester tester) async {
+    testWidgets('应能从 CardMeta 直接创建 MetaPreview', (WidgetTester tester) async {
       const meta = CardMeta(
         publisherAlias: '便捷构造测试',
         publishDate: '2026-05-01T10:00:00Z',

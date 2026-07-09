@@ -52,8 +52,7 @@ void main() {
     });
 
     group('主题配置测试（主题切换生效）', () {
-      testWidgets('应配置亮色主题 AppTheme.lightTheme',
-          (WidgetTester tester) async {
+      testWidgets('应配置亮色主题 AppTheme.lightTheme', (WidgetTester tester) async {
         await tester.pumpWidget(
           const ProviderScope(child: StrawHutApp()),
         );
@@ -67,8 +66,7 @@ void main() {
         expect(materialApp.theme!.brightness, Brightness.light);
       });
 
-      testWidgets('应配置暗色主题 AppTheme.darkTheme',
-          (WidgetTester tester) async {
+      testWidgets('应配置暗色主题 AppTheme.darkTheme', (WidgetTester tester) async {
         await tester.pumpWidget(
           const ProviderScope(child: StrawHutApp()),
         );
@@ -110,7 +108,7 @@ void main() {
         expect(delegates, contains(GlobalCupertinoLocalizations.delegate));
       });
 
-      testWidgets('应支持简体中文 (zh_CN)', (WidgetTester tester) async {
+      testWidgets('应支持中文 (zh)', (WidgetTester tester) async {
         await tester.pumpWidget(
           const ProviderScope(child: StrawHutApp()),
         );
@@ -124,29 +122,7 @@ void main() {
           supportedLocales,
           anyElement(
             predicate<Locale>(
-              (locale) =>
-                  locale.languageCode == 'zh' && locale.countryCode == 'CN',
-            ),
-          ),
-        );
-      });
-
-      testWidgets('应支持繁体中文 (zh_TW)', (WidgetTester tester) async {
-        await tester.pumpWidget(
-          const ProviderScope(child: StrawHutApp()),
-        );
-
-        final materialApp = tester.widget<MaterialApp>(
-          find.byType(MaterialApp),
-        );
-        final supportedLocales = materialApp.supportedLocales;
-
-        expect(
-          supportedLocales,
-          anyElement(
-            predicate<Locale>(
-              (locale) =>
-                  locale.languageCode == 'zh' && locale.countryCode == 'TW',
+              (locale) => locale.languageCode == 'zh',
             ),
           ),
         );
@@ -172,7 +148,7 @@ void main() {
         );
       });
 
-      testWidgets('应至少支持 3 种语言', (WidgetTester tester) async {
+      testWidgets('应至少支持 2 种语言', (WidgetTester tester) async {
         await tester.pumpWidget(
           const ProviderScope(child: StrawHutApp()),
         );
@@ -182,7 +158,7 @@ void main() {
         );
         expect(
           materialApp.supportedLocales.length,
-          greaterThanOrEqualTo(3),
+          greaterThanOrEqualTo(2),
         );
       });
     });

@@ -403,11 +403,21 @@ class CoverImageService {
     return text.length * fontSize * 0.6;
   }
 
+  /// 将二进制 .straw 数据嵌入 PNG 图片
+  ///
+  /// 将 [strawBinaryData] 进行 Base64 编码后嵌入 PNG 的 tEXt chunk 中。
+  /// v2.0 二进制格式下，嵌入的是完整的二进制 .straw 文件的 Base64 编码，
+  /// 而非 JSON 字符串。
+  ///
+  /// 参数：
+  /// - [pngBytes] - 原始 PNG 图片字节数据
+  /// - [strawBinaryData] - 二进制 .straw 文件字节数据
+  /// 返回：嵌入了 .straw 数据的 PNG 图片字节数据
   static Future<Uint8List> embedStrawData(
     Uint8List pngBytes,
-    String strawJson,
+    Uint8List strawBinaryData,
   ) async {
-    final base64Data = base64Encode(utf8.encode(strawJson));
+    final base64Data = base64Encode(strawBinaryData);
     final keywordBytes = utf8.encode(_tEXtKeyword);
     final contentBytes = utf8.encode(base64Data);
     final chunkData = Uint8List.fromList([...keywordBytes, 0, ...contentBytes]);
@@ -424,7 +434,15 @@ class CoverImageService {
     return result.toBytes();
   }
 
-  static Future<String?> extractStrawData(Uint8List pngBytes) async {
+  /// 从 PNG 图片中提取二进制 .straw 数据
+  ///
+  /// 从 PNG 的 tEXt chunk 中提取 Base64 编码的数据，解码为原始字节数据。
+  /// v2.0 二进制格式下，提取的是完整的二进制 .straw 文件字节数据，
+  /// 需要由 FileIOService 进行二进制格式解析。
+  ///
+  /// 参数：[pngBytes] - PNG 图片字节数据
+  /// 返回：二进制 .straw 文件字节数据，如果不是知识卡片则返回 null
+  static Future<Uint8List?> extractStrawData(Uint8List pngBytes) async {
     try {
       return await Isolate.run(() => _extractStrawDataSync(pngBytes));
     } on Exception {
@@ -432,7 +450,7 @@ class CoverImageService {
     }
   }
 
-  static String? _extractStrawDataSync(Uint8List pngBytes) {
+  static Uint8List? _extractStrawDataSync(Uint8List pngBytes) {
     if (pngBytes.length < 8) return null;
 
     const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -464,8 +482,7 @@ class CoverImageService {
         if (keyword == _tEXtKeyword) {
           final contentBytes = chunkData.sublist(nullIndex + 1);
           final base64Str = utf8.decode(contentBytes, allowMalformed: true);
-          final jsonBytes = base64Decode(base64Str);
-          return utf8.decode(jsonBytes);
+          return base64Decode(base64Str);
         }
       }
 
@@ -493,8 +510,21 @@ class CoverImageService {
     }
   }
 
+  /// 创建嵌入二进制 .straw 数据的 PNG 知识卡片图片
+  ///
+  /// 生成封面图片并将二进制 .straw 数据嵌入其中。
+  ///
+  /// 参数：
+  /// - [strawBinaryData] - 二进制 .straw 文件字节数据
+  /// - [title] - 卡片标题（用于封面显示）
+  /// - [publisherAlias] - 发布者代号
+  /// - [publishDate] - 发布日期
+  /// - [tags] - 标签列表
+  /// - [description] - 描述
+  /// - [isAnonymous] - 是否匿名
+  /// - [customImageBytes] - 自定义封面图片字节数据
   static Future<Uint8List> createStrawPng({
-    required String strawJson,
+    required Uint8List strawBinaryData,
     required String title,
     required String publisherAlias,
     required String publishDate,
@@ -513,6 +543,6 @@ class CoverImageService {
       customImageBytes: customImageBytes,
     );
 
-    return embedStrawData(coverBytes, strawJson);
+    return embedStrawData(coverBytes, strawBinaryData);
   }
 }

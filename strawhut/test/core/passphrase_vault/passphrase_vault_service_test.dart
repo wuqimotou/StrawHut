@@ -6,12 +6,21 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models/encrypted_content.dart';
+import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
+import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
+import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_constants.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_exception.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_service.dart';
+import 'package:strawhut/data/models/card_meta.dart';
+import 'package:strawhut/data/models/format_version.dart';
+import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
+import 'package:strawhut/data/models/straw_content.dart';
+import 'package:strawhut/data/models/straw_file.dart';
 
 /// Mock FlutterSecureStorage
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
@@ -73,6 +82,38 @@ void main() {
   void stubVaultWithEntries(List<PassphraseEntry> entries) {
     when(() => mockStorage.read(key: PassphraseVaultConstants.vaultStorageKey))
         .thenAnswer((_) async => buildVaultJson(entries));
+  }
+
+  /// 创建测试用 ParsedStrawFile
+  ParsedStrawFile createTestParsedStrawFile({
+    String? saltBase64,
+    int? kdfIterations,
+  }) {
+    return ParsedStrawFile(
+      strawFile: StrawFile(
+        formatVersion: FormatVersion(1, 1, 0),
+        meta: CardMeta(
+          publisherAlias: 'Anonymous_a3f7b2c1',
+          publishDate: '2026-05-01T12:00:00Z',
+          title: '测试知识卡片',
+          isAnonymous: true,
+        ),
+        content: StrawContent(
+          encryptionAlgorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
+          chunkSize: DEFAULT_CHUNK_SIZE,
+          totalChunks: 1,
+          originalPayloadSize: 100,
+          saltBase64: saltBase64,
+          kdfIterations: kdfIterations,
+        ),
+        integrity: IntegrityInfo(
+          hash:
+              'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+          hashAlgorithm: HASH_ALGORITHM_SHA256,
+        ),
+      ),
+      chunks: [],
+    );
   }
 
   // ============================================================
@@ -423,43 +464,32 @@ void main() {
     setUp(() {
       mockCryptoService = MockCryptoService();
       registerFallbackValue(Uint8List(0));
+      registerFallbackValue(<ChunkInfo>[]);
+      registerFallbackValue(0);
     });
 
-    EncryptedContent createTestEncryptedContent({
-      String? saltBase64,
-      int? kdfIterations,
-    }) {
-      return EncryptedContent(
-        encryptedDataBase64: base64Encode(Uint8List.fromList([1, 2, 3, 4])),
-        ivBase64: base64Encode(Uint8List.fromList([5, 6, 7, 8])),
-        algorithm: 'AES-256-GCM',
-        saltBase64: saltBase64,
-        kdfIterations: kdfIterations,
-      );
-    }
-
     test('保险库为空时应返回 null', () async {
-      final encryptedContent = createTestEncryptedContent(
+      final parsedFile = createTestParsedStrawFile(
         saltBase64:
             base64Encode(Uint8List.fromList(List.generate(16, (i) => i))),
       );
 
       final result = await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
       expect(result, isNull);
     });
 
-    test('encryptedContent 无 saltBase64 时应返回 null', () async {
+    test('parsedFile 无 saltBase64 时应返回 null', () async {
       stubVaultWithEntries([
         createTestEntry(passphrase: 'testpass1'),
       ]);
-      final encryptedContent = createTestEncryptedContent(saltBase64: null);
+      final parsedFile = createTestParsedStrawFile(saltBase64: null);
 
       final result = await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
@@ -477,7 +507,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = createTestEncryptedContent(
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -487,19 +517,30 @@ void main() {
             iterations: any(named: 'iterations'),
           )).thenAnswer((_) async => derivedKey);
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
-          )).thenAnswer((_) async => '{"ops": [{"insert": "Hello"}]}');
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
+          )).thenAnswer((_) async => DecryptResult(
+            payloadMetadata: PayloadMetadata(
+              sourceType: SourceType.richText,
+              originalExtension: 'json',
+            ),
+            payloadBytes: Uint8List.fromList(
+                utf8.encode('{"ops": [{"insert": "Hello"}]}')),
+          ));
 
       final result = await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
       expect(result, isNotNull);
-      expect(result!.deltaJson, '{"ops": [{"insert": "Hello"}]}');
+      expect(
+        utf8.decode(result!.decryptResult.payloadBytes),
+        '{"ops": [{"insert": "Hello"}]}',
+      );
       expect(result.matchedLabel, '暗号 #1');
     });
 
@@ -518,7 +559,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = createTestEncryptedContent(
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -528,14 +569,15 @@ void main() {
             iterations: any(named: 'iterations'),
           )).thenAnswer((_) async => derivedKey);
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
           )).thenThrow(Exception('解密失败'));
 
       final result = await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
@@ -557,7 +599,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = createTestEncryptedContent(
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -567,15 +609,16 @@ void main() {
             iterations: any(named: 'iterations'),
           )).thenAnswer((_) async => derivedKey);
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
           )).thenThrow(Exception('解密失败'));
 
       final progressCalls = <(int, int)>[];
       await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
         onProgress: (current, total) {
           progressCalls.add((current, total));
@@ -600,7 +643,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = createTestEncryptedContent(
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -610,14 +653,21 @@ void main() {
             iterations: any(named: 'iterations'),
           )).thenAnswer((_) async => derivedKey);
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
-          )).thenAnswer((_) async => '{"ops": []}');
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
+          )).thenAnswer((_) async => DecryptResult(
+            payloadMetadata: PayloadMetadata(
+              sourceType: SourceType.richText,
+              originalExtension: 'json',
+            ),
+            payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
+          ));
 
       await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
@@ -646,6 +696,8 @@ void main() {
     setUp(() {
       mockCryptoService = MockCryptoService();
       registerFallbackValue(Uint8List(0));
+      registerFallbackValue(<ChunkInfo>[]);
+      registerFallbackValue(0);
     });
 
     test('条目应按 useCount 降序排列', () async {
@@ -674,10 +726,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = EncryptedContent(
-        encryptedDataBase64: base64Encode(Uint8List.fromList([1, 2, 3, 4])),
-        ivBase64: base64Encode(Uint8List.fromList([5, 6, 7, 8])),
-        algorithm: 'AES-256-GCM',
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -692,14 +741,15 @@ void main() {
         return derivedKey;
       });
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
           )).thenThrow(Exception('解密失败'));
 
       await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 
@@ -735,10 +785,7 @@ void main() {
         ),
       ]);
 
-      final encryptedContent = EncryptedContent(
-        encryptedDataBase64: base64Encode(Uint8List.fromList([1, 2, 3, 4])),
-        ivBase64: base64Encode(Uint8List.fromList([5, 6, 7, 8])),
-        algorithm: 'AES-256-GCM',
+      final parsedFile = createTestParsedStrawFile(
         saltBase64: base64Encode(salt),
       );
 
@@ -753,14 +800,15 @@ void main() {
         return derivedKey;
       });
 
-      when(() => mockCryptoService.decryptContent(
-            encryptedDataBase64: any(named: 'encryptedDataBase64'),
-            ivBase64: any(named: 'ivBase64'),
+      when(() => mockCryptoService.decrypt(
+            chunks: any(named: 'chunks'),
             key: any(named: 'key'),
+            chunkSize: any(named: 'chunkSize'),
+            originalPayloadSize: any(named: 'originalPayloadSize'),
           )).thenThrow(Exception('解密失败'));
 
       await service.tryAutoDecrypt(
-        encryptedContent: encryptedContent,
+        parsedFile: parsedFile,
         cryptoService: mockCryptoService,
       );
 

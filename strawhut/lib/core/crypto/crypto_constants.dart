@@ -63,7 +63,7 @@ const String HASH_ALGORITHM_SHA256 = 'SHA-256';
 /// - 主版本相同 → 正常读取
 /// - 文件主版本高于当前软件 → 拒绝读取，提示更新
 /// - 文件主版本低于当前软件 → 兼容模式读取
-const String STRAW_FORMAT_VERSION = '1.1.0';
+const String STRAW_FORMAT_VERSION = '2.0.0';
 
 /// .key 密钥文件格式版本号
 ///
@@ -139,3 +139,59 @@ const int PASSPHRASE_RECOMMENDED_LENGTH = 12;
 /// 口令中不允许出现 6 个及以上连续相同字符，
 /// 如 "aaaaaa" 或 "111111"，防止弱口令。
 const int MAX_CONSECUTIVE_SAME_CHAR = 6;
+
+/// 默认分块大小（1MB）
+///
+/// 分块加密/解密时每个分块的明文大小上限。
+/// 1MB = 1048576 字节，在内存占用和加密性能之间取得平衡。
+/// 第一个分块因包含元数据前缀，实际载荷容量会略小。
+const int DEFAULT_CHUNK_SIZE = 1048576;
+
+/// 分块 IV 长度（字节）
+///
+/// 每个加密分块使用独立的 16 字节 IV（初始化向量），
+/// 确保相同密钥下不同分块的 IV 不重复。
+const int CHUNK_IV_LENGTH_BYTES = 16;
+
+/// GCM 认证标签长度（字节）
+///
+/// AES-256-GCM 模式在密文末尾附加 16 字节认证标签（MAC），
+/// 用于验证密文完整性和真实性。
+/// 加密后每个分块的密文大小 = 明文大小 + GCM_TAG_LENGTH_BYTES。
+const int GCM_TAG_LENGTH_BYTES = 16;
+
+// ============================================================================
+// 二进制容器格式常量（.straw v2.0）
+// ============================================================================
+
+/// 二进制 .straw 文件 Magic Bytes
+///
+/// 8 字节 ASCII 字符串 "STRAWHUT"，位于二进制文件偏移 0x00000000。
+/// 用于快速识别文件是否为 StrawHut 二进制格式。
+const List<int> STRAW_MAGIC_BYTES = [
+  0x53,
+  0x54,
+  0x52,
+  0x41,
+  0x57,
+  0x48,
+  0x55,
+  0x54,
+]; // "STRAWHUT"
+
+/// Magic Bytes 长度（字节）
+///
+/// 固定为 8 字节，与 STRAW_MAGIC_BYTES 长度一致。
+const int MAGIC_BYTES_LENGTH = 8;
+
+/// 二进制格式主版本号
+///
+/// 位于二进制文件偏移 0x00000008，2 字节 uint16 LE。
+/// 当前值为 2，对应 .straw v2.0 格式。
+const int BINARY_FORMAT_MAJOR = 2;
+
+/// 二进制格式次版本号
+///
+/// 位于二进制文件偏移 0x0000000A，2 字节 uint16 LE。
+/// 当前值为 0，对应 .straw v2.0 格式。
+const int BINARY_FORMAT_MINOR = 0;

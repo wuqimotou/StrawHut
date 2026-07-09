@@ -32,7 +32,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:strawhut/app/routes.dart';
-import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
@@ -40,8 +39,11 @@ import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/parsed_straw_file.dart';
+import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/quill_viewer.dart';
 
@@ -78,8 +80,6 @@ StrawFile createTestStrawFile({
   bool isAnonymous = false,
   List<String> tags = const ['测试', 'Flutter'],
   String? description = '这是一段测试描述',
-  String encryptedDataBase64 = 'dGVzdEVuY3J5cHRlZERhdGE=',
-  String ivBase64 = 'dGVzdEl2',
 }) {
   return StrawFile(
     formatVersion: FormatVersion.fromString('1.0.0'),
@@ -91,10 +91,11 @@ StrawFile createTestStrawFile({
       tags: tags,
       description: description,
     ),
-    content: EncryptedContent(
-      encryptedDataBase64: encryptedDataBase64,
-      ivBase64: ivBase64,
-      algorithm: 'AES-256-GCM',
+    content: const StrawContent(
+      encryptionAlgorithm: 'AES-256-GCM',
+      chunkSize: 65536,
+      totalChunks: 1,
+      originalPayloadSize: 100,
     ),
     integrity: const IntegrityInfo(
       hash: 'sha256:testhash',
@@ -168,6 +169,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -178,8 +180,10 @@ void main() {
 
     testWidgets('页面初始加载时 FutureProvider 应触发文件加载', (WidgetTester tester) async {
       // 设置 mock 返回文件
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       await tester.pumpWidget(
@@ -194,15 +198,17 @@ void main() {
       // 验证文件确实被加载了（MetaPreview 出现说明加载成功）
       expect(find.byType(MetaPreview), findsOneWidget);
 
-      // 验证 readStrawFile 被调用
-      verify(() => mockFileIOService.readStrawFile(any<String>())).called(1);
+      // 验证 readStrawFileHeader 被调用
+      verify(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .called(1);
     });
 
     testWidgets('文件加载中状态由 FutureProvider 管理', (WidgetTester tester) async {
       // 使用 Completer 控制加载时机
-      final completer = Completer<StrawFile>();
+      final completer = Completer<ParsedStrawFile>();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
         (_) async => completer.future,
       );
 
@@ -217,10 +223,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       // 验证文件加载被调用
-      verify(() => mockFileIOService.readStrawFile(any<String>())).called(1);
+      verify(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .called(1);
 
       // 完成加载
-      completer.complete(createTestStrawFile());
+      completer.complete(
+          ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []));
       await tester.pumpAndSettle();
     });
   });
@@ -247,8 +255,9 @@ void main() {
         description: '测试描述内容',
       );
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => testStrawFile,
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
       );
 
       container = ProviderContainer(
@@ -256,6 +265,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -369,8 +379,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -378,6 +390,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -399,8 +412,10 @@ void main() {
     });
 
     testWidgets('解密对话框应包含卡片元数据预览', (WidgetTester tester) async {
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(title: '对话框测试卡片'),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async => ParsedStrawFile(
+            strawFile: createTestStrawFile(title: '对话框测试卡片'), chunks: []),
       );
 
       await tester.pumpWidget(
@@ -484,8 +499,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -493,6 +510,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -503,7 +521,8 @@ void main() {
 
     testWidgets('文件加载失败时应显示错误状态', (WidgetTester tester) async {
       // Mock 文件加载失败
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenThrow(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenThrow(
         Exception('文件不存在'),
       );
 
@@ -535,7 +554,8 @@ void main() {
     });
 
     testWidgets('错误状态应显示重试按钮', (WidgetTester tester) async {
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenThrow(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenThrow(
         Exception('文件读取失败'),
       );
 
@@ -553,13 +573,14 @@ void main() {
 
     testWidgets('点击重试按钮应重新加载文件', (WidgetTester tester) async {
       var callCount = 0;
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
         (_) async {
           callCount++;
           if (callCount == 1) {
             throw Exception('第一次加载失败');
           }
-          return createTestStrawFile();
+          return ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []);
         },
       );
 
@@ -583,7 +604,8 @@ void main() {
     });
 
     testWidgets('错误状态应显示错误图标', (WidgetTester tester) async {
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenThrow(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenThrow(
         Exception('测试错误'),
       );
 
@@ -603,7 +625,8 @@ void main() {
     });
 
     testWidgets('错误提示应使用主题的错误颜色', (WidgetTester tester) async {
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenThrow(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenThrow(
         Exception('颜色测试错误'),
       );
 
@@ -635,8 +658,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -644,6 +669,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -694,8 +720,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -703,6 +731,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -741,8 +770,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -750,6 +781,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -895,8 +927,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -904,6 +938,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -986,8 +1021,10 @@ void main() {
       mockCryptoService = MockCryptoService();
       mockIntegrityService = MockIntegrityService();
 
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenAnswer(
-        (_) async => createTestStrawFile(),
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenAnswer(
+        (_) async =>
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
       );
 
       container = ProviderContainer(
@@ -995,6 +1032,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -1053,6 +1091,7 @@ void main() {
           fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          migrationCheckProvider.overrideWith((ref) => (_) async => false),
         ],
       );
     });
@@ -1062,7 +1101,8 @@ void main() {
     });
 
     testWidgets('加载异常时应显示错误状态', (WidgetTester tester) async {
-      when(() => mockFileIOService.readStrawFile(any<String>())).thenThrow(
+      when(() => mockFileIOService.readStrawFileHeader(any<String>()))
+          .thenThrow(
         Exception('文件系统错误'),
       );
 

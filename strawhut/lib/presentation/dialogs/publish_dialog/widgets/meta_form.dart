@@ -147,6 +147,16 @@ class MetaFormState extends State<MetaForm> {
   /// 获取表单数据 - 是否匿名模式
   bool get isAnonymous => _isAnonymous;
 
+  /// 更新标题字段值
+  ///
+  /// 外部调用方可通过此方法自动填充标题。
+  /// 使用场景：
+  /// - 编辑器内容模式：从编辑器首行文本自动填充
+  /// - 文件上传模式：从文件名（不含扩展名）自动填充
+  void updateTitle(String newTitle) {
+    _titleController.text = newTitle;
+  }
+
   /// 构建表单 UI
   ///
   /// 布局结构：

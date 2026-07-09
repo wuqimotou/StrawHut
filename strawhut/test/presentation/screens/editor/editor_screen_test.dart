@@ -21,6 +21,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/screens/editor/editor_screen.dart';
 
@@ -204,10 +205,17 @@ void main() {
 
   group('EditorScreen 返回功能', () {
     testWidgets('点击返回按钮应该调用 Navigator.pop', (tester) async {
-      // 使用 Navigator 包装以测试返回
+      // 使用 GoRouter 进行导航测试
+      // EditorScreen 的 _handleBack 方法使用 context.canPop() (go_router)，
+      // 因此必须在 GoRouter 上下文中测试
+
+      // 重置路由到首页
+      appRouter.go('/');
+
       await tester.pumpWidget(
         ProviderScope(
-          child: MaterialApp(
+          child: MaterialApp.router(
+            routerConfig: appRouter,
             localizationsDelegates: const [
               quill.FlutterQuillLocalizations.delegate,
               AppLocalizations.delegate,
@@ -215,26 +223,16 @@ void main() {
               GlobalWidgetsLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,
-            home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const EditorScreen(),
-                    ),
-                  );
-                },
-                child: const Text('打开编辑器'),
-              ),
-            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // 打开编辑器
-      await tester.tap(find.text('打开编辑器'));
+      // 验证在首页
+      expect(find.text('欢迎使用 StrawHut'), findsOneWidget);
+
+      // 使用 push 导航到编辑器（保留返回栈）
+      appRouter.push('/editor');
       await tester.pumpAndSettle();
 
       // 验证编辑器页面显示
@@ -244,8 +242,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
 
-      // 验证返回到主页面
-      expect(find.text('打开编辑器'), findsOneWidget);
+      // 验证返回到首页
+      expect(find.text('欢迎使用 StrawHut'), findsOneWidget);
       expect(find.text('编辑知识卡片'), findsNothing);
     });
   });

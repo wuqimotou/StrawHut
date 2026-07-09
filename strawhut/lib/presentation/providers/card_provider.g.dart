@@ -6,15 +6,15 @@ part of 'card_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentCardHash() => r'1f81777f9bba53f6730e7152e239b7fa2ee11a4e';
+String _$currentCardHash() => r'3fea240a6be673d091e7ccedc2615617bb62f2fc';
 
 /// 当前加载的知识卡片 Provider
 ///
 /// 使用 Riverpod 的 @Riverpod 注解定义，用于管理 ReaderScreen 中
 /// 当前正在查看的知识卡片文件状态。
 ///
-/// 架构位置：应用层 → Riverpod Provider
-/// 状态类型：AsyncValue<StrawFile?>（异步数据流，支持 loading/success/error 状态）
+/// 架构位置：应用层 - Riverpod Provider
+/// 状态类型：AsyncValue<ParsedStrawFile?>（异步数据流，支持 loading/success/error 状态）
 /// keepAlive: false（页面销毁后自动清空，不保留缓存）
 ///
 /// 使用场景：
@@ -28,7 +28,7 @@ String _$currentCardHash() => r'1f81777f9bba53f6730e7152e239b7fa2ee11a4e';
 /// // 读取状态
 /// final cardAsync = ref.watch(currentCardProvider);
 /// cardAsync.when(
-///   data: (strawFile) => showMeta(strawFile),
+///   data: (parsed) => showMeta(parsed?.strawFile),
 ///   loading: () => showLoading(),
 ///   error: (e, st) => showError(e),
 /// );
@@ -36,8 +36,8 @@ String _$currentCardHash() => r'1f81777f9bba53f6730e7152e239b7fa2ee11a4e';
 ///
 /// Copied from [CurrentCard].
 @ProviderFor(CurrentCard)
-final currentCardProvider =
-    AutoDisposeNotifierProvider<CurrentCard, AsyncValue<StrawFile?>>.internal(
+final currentCardProvider = AutoDisposeNotifierProvider<CurrentCard,
+    AsyncValue<ParsedStrawFile?>>.internal(
   CurrentCard.new,
   name: r'currentCardProvider',
   debugGetCreateSourceHash:
@@ -46,6 +46,6 @@ final currentCardProvider =
   allTransitiveDependencies: null,
 );
 
-typedef _$CurrentCard = AutoDisposeNotifier<AsyncValue<StrawFile?>>;
+typedef _$CurrentCard = AutoDisposeNotifier<AsyncValue<ParsedStrawFile?>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
