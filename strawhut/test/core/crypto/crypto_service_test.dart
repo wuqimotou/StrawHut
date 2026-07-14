@@ -9,6 +9,7 @@ import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 
 /// 辅助函数：创建 CryptoService 测试实例
 CryptoService _createCryptoService() => CryptoService(IntegrityService());
@@ -362,6 +363,78 @@ void main() {
         originalPayloadSize: encryptResult.originalPayloadSize,
       );
       expect(utf8.decode(decryptResult.payloadBytes), originalText);
+    });
+  });
+
+  group('CryptoService cancellation', () {
+    test('cancel before decrypt prevents all work', () async {
+      final cryptoService = _createCryptoService();
+      final key = await cryptoService.generateKey();
+      final encrypted = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(
+          List<int>.generate(512, (i) => i % 256),
+        ),
+        payloadMetadata: _richTextMetadata(),
+        key: key.bytes,
+        chunkSize: 128,
+      );
+      final token = CancellationToken()..cancel();
+
+      await expectLater(
+        cryptoService.decrypt(
+          chunks: encrypted.chunks,
+          key: key.bytes,
+          chunkSize: encrypted.chunkSize,
+          originalPayloadSize: encrypted.originalPayloadSize,
+          cancellationToken: token,
+        ),
+        throwsA(isA<OperationCancelledException>()),
+      );
+    });
+
+    test('cancel after first chunk prevents subsequent progress', () async {
+      final cryptoService = _createCryptoService();
+      final key = await cryptoService.generateKey();
+      final encrypted = await cryptoService.encrypt(
+        payloadBytes: Uint8List.fromList(
+          List<int>.generate(2048, (i) => i % 256),
+        ),
+        payloadMetadata: _richTextMetadata(),
+        key: key.bytes,
+        chunkSize: 128,
+      );
+      final token = CancellationToken();
+      final progress = <int>[];
+
+      await expectLater(
+        cryptoService.decrypt(
+          chunks: encrypted.chunks,
+          key: key.bytes,
+          chunkSize: encrypted.chunkSize,
+          originalPayloadSize: encrypted.originalPayloadSize,
+          cancellationToken: token,
+          onProgress: (current, total) {
+            progress.add(current);
+            if (current == 1) token.cancel();
+          },
+        ),
+        throwsA(isA<OperationCancelledException>()),
+      );
+      expect(progress, [1]);
+    });
+
+    test('cancelled passphrase derivation does not return a key', () async {
+      final cryptoService = _createCryptoService();
+      final token = CancellationToken()..cancel();
+
+      await expectLater(
+        cryptoService.deriveKeyFromPassphrase(
+          passphrase: 'cancel-me',
+          salt: Uint8List(16),
+          cancellationToken: token,
+        ),
+        throwsA(isA<OperationCancelledException>()),
+      );
     });
   });
 }

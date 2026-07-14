@@ -5,6 +5,7 @@ import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 
 import 'native_crypto_service.dart';
 
@@ -99,13 +100,28 @@ class FallbackCryptoService implements ICryptoService {
     required String passphrase,
     required Uint8List salt,
     int iterations = KDF_ITERATIONS,
+    CancellationToken? cancellationToken,
   }) async {
+    // Native PBKDF2 is synchronous on the Android platform thread and through
+    // Windows FFI. For user-cancellable decrypt flows, keep derivation in a
+    // Dart worker isolate so the UI can process the cancellation request.
+    if (cancellationToken != null) {
+      final dartService = CryptoService(integrityService);
+      return dartService.deriveKeyFromPassphrase(
+        passphrase: passphrase,
+        salt: salt,
+        iterations: iterations,
+        cancellationToken: cancellationToken,
+      );
+    }
+
     final delegate = await _getDelegate();
     try {
       return delegate.deriveKeyFromPassphrase(
         passphrase: passphrase,
         salt: salt,
         iterations: iterations,
+        cancellationToken: cancellationToken,
       );
     } on UnsupportedError {
       // 原生 PBKDF2 不支持（Windows 版本过低），回退到纯 Dart 实现
@@ -114,6 +130,7 @@ class FallbackCryptoService implements ICryptoService {
         passphrase: passphrase,
         salt: salt,
         iterations: iterations,
+        cancellationToken: cancellationToken,
       );
     }
   }
@@ -162,6 +179,7 @@ class FallbackCryptoService implements ICryptoService {
     required int chunkSize,
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
+    CancellationToken? cancellationToken,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -171,6 +189,7 @@ class FallbackCryptoService implements ICryptoService {
         chunkSize: chunkSize,
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
+        cancellationToken: cancellationToken,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -180,6 +199,7 @@ class FallbackCryptoService implements ICryptoService {
         chunkSize: chunkSize,
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
+        cancellationToken: cancellationToken,
       );
     }
   }
@@ -229,6 +249,7 @@ class FallbackCryptoService implements ICryptoService {
     required int chunkSize,
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
+    CancellationToken? cancellationToken,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -239,6 +260,7 @@ class FallbackCryptoService implements ICryptoService {
         chunkSize: chunkSize,
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
+        cancellationToken: cancellationToken,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -249,6 +271,7 @@ class FallbackCryptoService implements ICryptoService {
         chunkSize: chunkSize,
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
+        cancellationToken: cancellationToken,
       );
     }
   }

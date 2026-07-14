@@ -26,6 +26,7 @@ import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/export_opti
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/key_display.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/meta_form.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/passphrase_input.dart';
+import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/publish_security_notices.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
 import 'package:strawhut/presentation/providers/picked_file_provider.dart';
@@ -393,6 +394,8 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   /// 10. 清理敏感数据
   /// 11. 显示密钥
   Future<void> _handlePublish() async {
+    final l10n = AppLocalizations.of(context)!;
+
     // 步骤 1：验证表单
     if (!_metaFormKey.currentState!.validate()) return;
 
@@ -640,8 +643,6 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       );
 
       String savePath;
-      final l10n = AppLocalizations.of(context)!;
-
       if (_effectiveExportFormat == 'png') {
         // PNG 导出：将二进制 .straw 数据嵌入封面图
         final pngBytes = await CoverImageService.createStrawPng(
@@ -755,8 +756,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
           negotiatedPassphrase.isNotEmpty &&
           mounted) {
         final vaultService = ref.read(passphraseVaultServiceProvider);
-        final alreadySaved =
-            await vaultService.containsPassphrase(negotiatedPassphrase);
+        final alreadySaved = await vaultService.containsPassphrase(
+          negotiatedPassphrase,
+        );
         if (!alreadySaved && mounted) {
           final shouldSave = await _showSavePassphrasePrompt();
           if (shouldSave == true && mounted) {
@@ -777,17 +779,18 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         String saveMessage;
         if (_effectiveExportFormat == 'png') {
           saveMessage = l10n.pngSavedToPhotos;
-        } else if (_exportKeyFile && _encryptionMode == 'random') {
-          saveMessage = l10n.keySavedToDownloads;
         } else {
           saveMessage = l10n.strawSavedToDownloads;
         }
+        if (_exportKeyFile && _encryptionMode == 'random') {
+          saveMessage = '$saveMessage\n${l10n.keySavedToDownloads}';
+        }
         _showSuccess(saveMessage);
       } else {
-        _showSuccess('发布成功！文件已保存至：$savePath');
+        _showSuccess(l10n.publishSavedToPath(savePath));
       }
     } on Exception catch (e) {
-      _showError('发布失败：$e');
+      _showError(l10n.publishFailed(e.toString()));
       setState(() {
         _isLoading = false;
         _encryptProgress = 0.0;
@@ -1326,8 +1329,11 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
           children: [
             Row(
               children: [
-                Icon(Icons.insert_drive_file,
-                    color: Colors.blue[700], size: 20),
+                Icon(
+                  Icons.insert_drive_file,
+                  color: Colors.blue[700],
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1551,110 +1557,31 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     final isNegotiated = _encryptionMode == 'negotiated';
 
     return AlertDialog(
-      title: const Text('发布成功'),
+      title: Text(l10n.publishSuccessTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 成功提示
-            const Text(
-              '知识卡片已成功发布！',
+            Text(
+              l10n.publishSuccessMessage,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 16),
 
             // 文件路径信息
-            const Text('文件路径：'),
-            Text(_savedFilePath ?? '未知', style: const TextStyle(fontSize: 12)),
-            if (_effectiveExportFormat == 'png') ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange, size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '提示：知识卡片已保存。分享时请务必以"原图"方式发送，否则图片压缩会导致数据丢失，接收方将无法解密。',
-                        style: TextStyle(fontSize: 13, color: Colors.orange),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            Text(l10n.filePathLabel),
+            Text(
+              _savedFilePath ?? l10n.unknownValue,
+              style: const TextStyle(fontSize: 12),
+            ),
             const SizedBox(height: 16),
-
-            // 根据加密模式显示不同内容
-            if (isNegotiated) ...[
-              // 协商密钥模式：显示暗号分享提示
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.share_outlined,
-                          color: Colors.blue[700],
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.passphraseShareNote,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.blue[800],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.warning_amber_rounded,
-                          color: Colors.orange[700],
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.passphraseSecurityNote,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.orange[800],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // 随机密钥模式：使用 KeyDisplay 组件展示密钥
-              KeyDisplay(keyBase64: _generatedKeyBase64!),
-            ],
+            PublishSecurityNotices(
+              exportFormat: _effectiveExportFormat,
+              isNegotiated: isNegotiated,
+              keyBase64: _generatedKeyBase64,
+            ),
           ],
         ),
       ),
@@ -1666,7 +1593,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
             // 使用 context.go 返回首页，避免 Navigator.pop 的问题
             context.go('/');
           },
-          child: const Text('完成'),
+          child: Text(l10n.done),
         ),
       ],
     );
@@ -2279,8 +2206,11 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
           children: [
             Row(
               children: [
-                Icon(Icons.insert_drive_file,
-                    color: Colors.blue[700], size: 20),
+                Icon(
+                  Icons.insert_drive_file,
+                  color: Colors.blue[700],
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2321,15 +2251,20 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
-          border:
-              Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+          border: Border.all(
+            color: Colors.grey[300]!,
+            style: BorderStyle.solid,
+          ),
           borderRadius: BorderRadius.circular(8),
           color: Colors.grey[50],
         ),
         child: Column(
           children: [
-            Icon(Icons.cloud_upload_outlined,
-                size: 36, color: Colors.grey[500]),
+            Icon(
+              Icons.cloud_upload_outlined,
+              size: 36,
+              color: Colors.grey[500],
+            ),
             const SizedBox(height: 8),
             Text(
               '点击选择文件',
@@ -2731,8 +2666,9 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
           negotiatedPassphrase.isNotEmpty &&
           mounted) {
         final vaultService = ref.read(passphraseVaultServiceProvider);
-        final alreadySaved =
-            await vaultService.containsPassphrase(negotiatedPassphrase);
+        final alreadySaved = await vaultService.containsPassphrase(
+          negotiatedPassphrase,
+        );
         if (!alreadySaved && mounted) {
           final shouldSave = await _showMobileSavePassphrasePrompt();
           if (shouldSave == true && mounted) {
@@ -2752,15 +2688,16 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
         String saveMessage;
         if (_effectiveExportFormat == 'png') {
           saveMessage = l10n.pngSavedToPhotos;
-        } else if (_exportKeyFile && _encryptionMode == 'random') {
-          saveMessage = l10n.keySavedToDownloads;
         } else {
           saveMessage = l10n.strawSavedToDownloads;
+        }
+        if (_exportKeyFile && _encryptionMode == 'random') {
+          saveMessage = '$saveMessage\n${l10n.keySavedToDownloads}';
         }
         _showMobileSuccess(saveMessage);
       }
     } on Exception catch (e) {
-      _showMobileError('发布失败：$e');
+      _showMobileError(l10n.publishFailed(e.toString()));
       setState(() {
         _isLoading = false;
         _encryptProgress = 0.0;
@@ -2987,7 +2924,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('发布成功'),
+        title: Text(l10n.publishSuccessTitle),
         leading: const SizedBox.shrink(),
       ),
       body: Column(
@@ -2998,109 +2935,22 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '知识卡片已成功发布！',
+                  Text(
+                    l10n.publishSuccessMessage,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 16),
-                  const Text('文件路径：'),
+                  Text(l10n.filePathLabel),
                   Text(
-                    _savedFilePath ?? '未知',
+                    _savedFilePath ?? l10n.unknownValue,
                     style: const TextStyle(fontSize: 12),
                   ),
-                  if (_effectiveExportFormat == 'png') ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.orange.withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.orange,
-                            size: 18,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '提示：知识卡片已保存。分享时请务必以"原图"方式发送，否则图片压缩会导致数据丢失，接收方将无法解密。',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.orange,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 16),
-                  if (isNegotiated) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.share_outlined,
-                                color: Colors.blue[700],
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  l10n.passphraseShareNote,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.blue[800],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.orange[700],
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  l10n.passphraseSecurityNote,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.orange[800],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else ...[
-                    KeyDisplay(keyBase64: _generatedKeyBase64!),
-                  ],
+                  PublishSecurityNotices(
+                    exportFormat: _effectiveExportFormat,
+                    isNegotiated: isNegotiated,
+                    keyBase64: _generatedKeyBase64,
+                  ),
                 ],
               ),
             ),
@@ -3132,7 +2982,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                     Navigator.of(context).pop();
                     context.go('/');
                   },
-                  child: const Text('完成'),
+                  child: Text(l10n.done),
                 ),
               ),
             ),
@@ -3160,10 +3010,7 @@ enum _FileSizeWarningLevel {
 
 /// 文件大小警告信息
 class _FileSizeWarning {
-  const _FileSizeWarning({
-    required this.level,
-    required this.message,
-  });
+  const _FileSizeWarning({required this.level, required this.message});
 
   final _FileSizeWarningLevel level;
   final String message;

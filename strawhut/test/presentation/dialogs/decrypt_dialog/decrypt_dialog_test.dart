@@ -24,6 +24,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +36,7 @@ import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
@@ -44,6 +46,7 @@ import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// Mock ICryptoService
 class MockCryptoService extends Mock implements ICryptoService {}
@@ -70,6 +73,7 @@ StrawFile createTestStrawFile({
   List<String> tags = const ['测试', 'Flutter'],
   String? description,
   bool isAnonymous = false,
+  bool negotiated = false,
 }) {
   return StrawFile(
     formatVersion: FormatVersion.fromString('1.0.0'),
@@ -86,11 +90,11 @@ StrawFile createTestStrawFile({
       chunkSize: 65536,
       totalChunks: 1,
       originalPayloadSize: 100,
+      saltBase64: negotiated ? base64Encode(Uint8List(16)) : null,
+      kdfAlgorithm: negotiated ? 'PBKDF2-HMAC-SHA256' : null,
+      kdfIterations: negotiated ? 100000 : null,
     ),
-    integrity: IntegrityInfo(
-      hash: integrityHash,
-      hashAlgorithm: 'SHA-256',
-    ),
+    integrity: IntegrityInfo(hash: integrityHash, hashAlgorithm: 'SHA-256'),
   );
 }
 
@@ -101,6 +105,7 @@ Widget _buildDecryptDialog({
   required StrawFile strawFile,
   required void Function(DecryptResult result) onDecryptSuccess,
   required ProviderContainer container,
+  String? strawFilePath,
 }) {
   return UncontrolledProviderScope(
     container: container,
@@ -120,6 +125,7 @@ Widget _buildDecryptDialog({
               strawFile: strawFile,
               parsedFile: ParsedStrawFile(strawFile: strawFile, chunks: []),
               onDecryptSuccess: onDecryptSuccess,
+              strawFilePath: strawFilePath,
             );
           },
         ),
@@ -131,9 +137,7 @@ Widget _buildDecryptDialog({
 /// 构建用于对话框测试的 Widget
 ///
 /// 使用 showDialog 弹出真实对话框。
-Widget _buildDialogTestHarness({
-  required Widget dialog,
-}) {
+Widget _buildDialogTestHarness({required Widget dialog}) {
   return MaterialApp(
     locale: const Locale('zh'),
     localizationsDelegates: const [
@@ -160,6 +164,48 @@ Widget _buildDialogTestHarness({
           ),
         );
       },
+    ),
+  );
+}
+
+Widget _buildShowDialogHarness({
+  required StrawFile strawFile,
+  required ProviderContainer container,
+  required void Function(DecryptResult result) onDecryptSuccess,
+  String? strawFilePath,
+}) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () {
+                DecryptDialog.show(
+                  context,
+                  strawFile: strawFile,
+                  parsedFile: ParsedStrawFile(
+                    strawFile: strawFile,
+                    chunks: const [],
+                  ),
+                  onDecryptSuccess: onDecryptSuccess,
+                  strawFilePath: strawFilePath,
+                );
+              },
+              child: const Text('Open decrypt flow'),
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -264,9 +310,7 @@ void main() {
     });
 
     testWidgets('对话框应该显示标签', (WidgetTester tester) async {
-      final strawFile = createTestStrawFile(
-        tags: ['Flutter', '加密', '测试'],
-      );
+      final strawFile = createTestStrawFile(tags: ['Flutter', '加密', '测试']);
 
       await tester.pumpWidget(
         _buildDialogTestHarness(
@@ -288,9 +332,7 @@ void main() {
     });
 
     testWidgets('对话框应该显示描述', (WidgetTester tester) async {
-      final strawFile = createTestStrawFile(
-        description: '这是一段测试描述',
-      );
+      final strawFile = createTestStrawFile(description: '这是一段测试描述');
 
       await tester.pumpWidget(
         _buildDialogTestHarness(
@@ -411,6 +453,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       );
     });
@@ -446,12 +489,10 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenThrow(
-        const CryptoException(
-          '解密失败：密钥错误或密文损坏',
-          code: 'DECRYPTION_FAILED',
-        ),
+        const CryptoException('解密失败：密钥错误或密文损坏', code: 'DECRYPTION_FAILED'),
       );
     });
 
@@ -475,9 +516,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // 输入一个格式正确但内容错误的密钥（32 字节的 Base64 编码，44 字符）
-      final wrongKey = base64Encode(Uint8List.fromList(
-        List.generate(32, (i) => i + 100),
-      ));
+      final wrongKey = base64Encode(
+        Uint8List.fromList(List.generate(32, (i) => i + 100)),
+      );
       final textField = find.byType(TextField).first;
       await tester.enterText(textField, wrongKey);
       await tester.pumpAndSettle();
@@ -506,9 +547,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // 输入一个格式正确但内容错误的密钥
-      final wrongKey = base64Encode(Uint8List.fromList(
-        List.generate(32, (i) => i + 200),
-      ));
+      final wrongKey = base64Encode(
+        Uint8List.fromList(List.generate(32, (i) => i + 200)),
+      );
       final textField = find.byType(TextField).first;
       await tester.enterText(textField, wrongKey);
       await tester.pumpAndSettle();
@@ -551,6 +592,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
@@ -572,12 +614,15 @@ void main() {
         ),
       ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
 
-      // Mock computeHashFromBytes 返回不匹配的哈希（校验失败）
+      // Mock incremental integrity hash 返回不匹配的哈希（校验失败）
       when(
-        () => mockIntegrityService.computeHashFromBytes(
-          any(),
+        () => mockIntegrityService.computeHashFromChunks(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenReturn('sha256:differenthash');
+      ).thenAnswer((_) async => 'sha256:differenthash');
 
       // Mock clearSensitiveData
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
@@ -613,10 +658,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 应该显示完整性校验失败提示
-      expect(
-        find.text('文件可能被篡改'),
-        findsOneWidget,
-      );
+      expect(find.text('文件可能被篡改'), findsOneWidget);
     });
 
     testWidgets('完整性校验失败时不应该调用 onDecryptSuccess', (WidgetTester tester) async {
@@ -735,6 +777,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
@@ -756,12 +799,15 @@ void main() {
         ),
       ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
 
-      // Mock computeHashFromBytes 返回匹配的哈希（校验成功）
+      // Mock incremental integrity hash 返回匹配的哈希（校验成功）
       when(
-        () => mockIntegrityService.computeHashFromBytes(
-          any(),
+        () => mockIntegrityService.computeHashFromChunks(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenReturn('sha256:testhash');
+      ).thenAnswer((_) async => 'sha256:testhash');
 
       // Mock clearSensitiveData
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
@@ -891,8 +937,9 @@ void main() {
       container.dispose();
     });
 
-    testWidgets('解密过程中应该显示 CircularProgressIndicator',
-        (WidgetTester tester) async {
+    testWidgets('解密过程中应该显示 CircularProgressIndicator', (
+      WidgetTester tester,
+    ) async {
       // 使用 Completer 控制解密操作的完成时机
       final completer = Completer<DecryptResult>();
 
@@ -903,6 +950,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -914,10 +962,13 @@ void main() {
       ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
 
       when(
-        () => mockIntegrityService.computeHashFromBytes(
-          any(),
+        () => mockIntegrityService.computeHashFromChunks(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenReturn('sha256:testhash');
+      ).thenAnswer((_) async => 'sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -949,13 +1000,15 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsWidgets);
 
       // 完成解密操作
-      completer.complete(DecryptResult(
-        payloadMetadata: PayloadMetadata(
-          sourceType: SourceType.richText,
-          originalExtension: 'delta',
+      completer.complete(
+        DecryptResult(
+          payloadMetadata: PayloadMetadata(
+            sourceType: SourceType.richText,
+            originalExtension: 'delta',
+          ),
+          payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
         ),
-        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
-      ));
+      );
       await tester.pumpAndSettle();
     });
 
@@ -969,6 +1022,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -980,10 +1034,13 @@ void main() {
       ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
 
       when(
-        () => mockIntegrityService.computeHashFromBytes(
-          any(),
+        () => mockIntegrityService.computeHashFromChunks(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenReturn('sha256:testhash');
+      ).thenAnswer((_) async => 'sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -1014,17 +1071,19 @@ void main() {
       expect(find.widgetWithText(FilledButton, '解密'), findsNothing);
 
       // 完成解密操作
-      completer.complete(DecryptResult(
-        payloadMetadata: PayloadMetadata(
-          sourceType: SourceType.richText,
-          originalExtension: 'delta',
+      completer.complete(
+        DecryptResult(
+          payloadMetadata: PayloadMetadata(
+            sourceType: SourceType.richText,
+            originalExtension: 'delta',
+          ),
+          payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
         ),
-        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
-      ));
+      );
       await tester.pumpAndSettle();
     });
 
-    testWidgets('Loading 状态下取消按钮应该被禁用', (WidgetTester tester) async {
+    testWidgets('Loading 状态下取消按钮保持可用并可终止解密', (WidgetTester tester) async {
       final completer = Completer<DecryptResult>();
 
       when(
@@ -1034,6 +1093,7 @@ void main() {
           chunkSize: any(named: 'chunkSize'),
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -1045,10 +1105,13 @@ void main() {
       ).thenAnswer((_) => Uint8List.fromList([1, 2, 3, 4]));
 
       when(
-        () => mockIntegrityService.computeHashFromBytes(
-          any(),
+        () => mockIntegrityService.computeHashFromChunks(
+          strawFile: any(named: 'strawFile'),
+          chunks: any(named: 'chunks'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
         ),
-      ).thenReturn('sha256:testhash');
+      ).thenAnswer((_) async => 'sha256:testhash');
 
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
@@ -1058,6 +1121,7 @@ void main() {
             strawFile: strawFile,
             onDecryptSuccess: (_) {},
             container: container,
+            strawFilePath: r'C:\test\encrypted-card.png',
           ),
         ),
       );
@@ -1074,17 +1138,109 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '解密'));
       await tester.pump();
 
-      // 验证取消按钮文字仍然存在，但按钮应该是禁用的
-      expect(find.text('取消'), findsOneWidget);
+      final cancelFinder = find.byKey(const ValueKey('decrypt_cancel_button'));
+      final cancelButton = tester.widget<TextButton>(cancelFinder);
+      expect(cancelButton.onPressed, isNotNull);
 
-      completer.complete(DecryptResult(
-        payloadMetadata: PayloadMetadata(
-          sourceType: SourceType.richText,
-          originalExtension: 'delta',
-        ),
-        payloadBytes: Uint8List.fromList(utf8.encode('{"ops": []}')),
-      ));
+      await tester.tap(cancelFinder);
       await tester.pumpAndSettle();
+
+      expect(find.byType(DecryptDialog), findsNothing);
+
+      final capturedToken = verify(
+        () => mockCryptoService.decrypt(
+          chunks: any(named: 'chunks'),
+          key: any(named: 'key'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
+          cancellationToken: captureAny(named: 'cancellationToken'),
+        ),
+      ).captured.single as CancellationToken;
+      expect(capturedToken.isCancelled, isTrue);
+      verifyNever(
+        () => mockCryptoService.decryptStream(
+          strawFilePath: any(named: 'strawFilePath'),
+          key: any(named: 'key'),
+          targetPath: any(named: 'targetPath'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
+        ),
+      );
+
+      completer.completeError(const OperationCancelledException());
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('Android passphrase derivation can be cancelled immediately', (
+      WidgetTester tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+      final negotiatedFile = createTestStrawFile(negotiated: true);
+      final completer = Completer<Uint8List>();
+      var successCalled = false;
+
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
+          integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
+          fileIOServiceProvider.overrideWith((ref) => mockFileIOService),
+          passphraseEntriesProvider.overrideWith((ref) async => const []),
+        ],
+      );
+
+      when(
+        () => mockCryptoService.deriveKeyFromPassphrase(
+          passphrase: any(named: 'passphrase'),
+          salt: any(named: 'salt'),
+          iterations: any(named: 'iterations'),
+          cancellationToken: any(named: 'cancellationToken'),
+        ),
+      ).thenAnswer((_) => completer.future);
+
+      await tester.pumpWidget(
+        _buildShowDialogHarness(
+          strawFile: negotiatedFile,
+          container: container,
+          onDecryptSuccess: (_) => successCalled = true,
+        ),
+      );
+      await tester.tap(find.text('Open decrypt flow'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Saved Secret 123!');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pump();
+
+      final cancelFinder = find.byKey(
+        const ValueKey('decrypt_cancel_button'),
+      );
+      expect(tester.widget<TextButton>(cancelFinder).onPressed, isNotNull);
+
+      await tester.tap(cancelFinder);
+      await tester.pumpAndSettle();
+
+      expect(cancelFinder, findsNothing);
+      expect(successCalled, isFalse);
+
+      final capturedToken = verify(
+        () => mockCryptoService.deriveKeyFromPassphrase(
+          passphrase: any(named: 'passphrase'),
+          salt: any(named: 'salt'),
+          iterations: any(named: 'iterations'),
+          cancellationToken: captureAny(named: 'cancellationToken'),
+        ),
+      ).captured.single as CancellationToken;
+      expect(capturedToken.isCancelled, isTrue);
+
+      completer.completeError(const OperationCancelledException());
+      await tester.pumpAndSettle();
+      expect(successCalled, isFalse);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 

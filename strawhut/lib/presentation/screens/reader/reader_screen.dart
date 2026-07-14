@@ -7,17 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:strawhut/core/crypto/crypto_models/content_type_classifier.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
-import 'package:strawhut/core/file_io/file_selection_service.dart';
 import 'package:strawhut/core/migration/migration_service.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
-import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
-import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
-import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/file_save_prompt.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/quill_viewer.dart';
@@ -40,6 +36,19 @@ import 'package:strawhut/presentation/screens/reader/widgets/text_viewer.dart';
 /// ```
 final migrationCheckProvider = Provider<Future<bool> Function(String)>((ref) {
   return MigrationService.isOldFormatFile;
+});
+
+/// Loads a streamed text payload and removes its temporary file.
+///
+/// Exposed as a provider so Reader integration tests can avoid depending on a
+/// platform filesystem implementation while exercising the same state flow.
+final streamedTextPayloadLoaderProvider =
+    Provider<Future<Uint8List> Function(String)>((ref) {
+  return (filePath) async {
+    final payloadBytes = await File(filePath).readAsBytes();
+    await TempFileManager.deleteTempFile(filePath);
+    return payloadBytes;
+  };
 });
 
 /// 阅读器状态枚举
@@ -372,6 +381,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
     // 如果需要临时文件，先写入内部临时目录
     String? tempFilePath;
+    var displayResult = result;
     if (needsTemp) {
       if (result.decryptedFilePath != null) {
         // 流式解密：文件已经写入临时目录，直接使用
@@ -395,11 +405,34 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           return;
         }
       }
+    } else if (result.decryptedFilePath != null) {
+      // Path-based .straw files are decrypted to a temporary file even when
+      // their payload is text. Read that file before handing the result to the
+      // text viewers; the stream result intentionally has empty payloadBytes.
+      try {
+        final payloadBytes = await ref.read(streamedTextPayloadLoaderProvider)(
+          result.decryptedFilePath!,
+        );
+        displayResult = DecryptResult(
+          payloadMetadata: result.payloadMetadata,
+          payloadBytes: payloadBytes,
+        );
+      } on Exception catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('读取解密内容失败：$e'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
     }
 
     if (mounted) {
       setState(() {
-        _decryptResult = result;
+        _decryptResult = displayResult;
         _contentType = contentType;
         _tempFilePath = tempFilePath;
         _status = ReaderStatus.decrypted;
@@ -411,12 +444,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// 自动弹出 DecryptDialog，让用户输入密钥进行解密。
   ///
-  /// 对于暗号加密的卡片，会先尝试从保险库自动匹配暗号解密：
-  /// 1. 如果 kdfAlgorithm != null（暗号加密模式）且保险库不为空，
-  ///    先尝试自动匹配解密
-  /// 2. 自动匹配成功：直接展示内容，不弹出对话框
-  /// 3. 自动匹配失败或保险库为空：弹出原有的解密对话框
-  /// 4. 随机密钥模式：直接弹出解密对话框
+  /// 暗号模式和随机密钥模式都进入同一个显式解密界面。暗号模式
+  /// 可以手动输入，也可以由用户从保险库中选择一条记录；不会自动
+  /// 遍历或尝试保险库内容。
   void _showDecryptDialog() {
     // 防止重复弹出对话框
     if (_hasShownDecryptDialog || _strawFile == null) {
@@ -425,240 +455,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _hasShownDecryptDialog = true;
 
     final strawFile = _strawFile!;
-
-    // 判断是否为暗号加密模式
-    final isNegotiatedMode = strawFile.strawFile.content.kdfAlgorithm != null;
-
-    if (isNegotiatedMode) {
-      // 暗号加密模式：尝试自动匹配
-      _tryAutoDecrypt();
-    } else {
-      // 随机密钥模式：直接弹出解密对话框
-      DecryptDialog.show(
-        context,
-        strawFile: strawFile.strawFile,
-        parsedFile: strawFile,
-        strawFilePath: _filePath,
-        onDecryptSuccess: (result) {
-          _handleDecryptSuccess(result);
-        },
-      );
-    }
-  }
-
-  /// 尝试从保险库自动匹配暗号解密
-  ///
-  /// 流程：
-  /// 1. 如果 chunks 为空（流式加载的大文件），不尝试自动匹配，直接弹出解密对话框
-  /// 2. 从保险库获取暗号列表
-  /// 3. 如果保险库为空，直接弹出解密对话框
-  /// 4. 如果保险库不为空，显示加载状态并逐个尝试自动匹配
-  /// 5. 匹配成功：直接展示解密内容
-  /// 6. 匹配失败：弹出解密对话框
-  Future<void> _tryAutoDecrypt() async {
-    final strawFile = _strawFile;
-    if (strawFile == null || !mounted) return;
-
-    // 流式加载的大文件（chunks 为空）：不尝试自动匹配，直接弹出解密对话框
-    // 因为自动匹配需要逐个尝试暗号，对大文件会很慢
-    if (strawFile.chunks.isEmpty) {
-      if (mounted) {
-        DecryptDialog.show(
-          context,
-          strawFile: strawFile.strawFile,
-          parsedFile: strawFile,
-          strawFilePath: _filePath,
-          onDecryptSuccess: (result) {
-            _handleDecryptSuccess(result);
-          },
-        );
-      }
-      return;
-    }
-
-    try {
-      final vaultService = ref.read(passphraseVaultServiceProvider);
-      final entryCount = await vaultService.getEntryCount();
-
-      if (entryCount == 0) {
-        // 保险库为空，直接弹出解密对话框
-        if (mounted) {
-          DecryptDialog.show(
-            context,
-            strawFile: strawFile.strawFile,
-            parsedFile: strawFile,
-            strawFilePath: _filePath,
-            onDecryptSuccess: (result) {
-              _handleDecryptSuccess(result);
-            },
-          );
-        }
-        return;
-      }
-
-      // 保险库不为空，显示自动匹配加载状态
-      if (mounted) {
-        setState(() {
-          _status = ReaderStatus.loading;
-        });
-      }
-
-      // 获取所有暗号条目，按智能排序（使用次数多的优先）
-      final entries = await vaultService.getAllEntries();
-
-      final cryptoService = ref.read(cryptoServiceProvider);
-
-      // 逐个尝试暗号解密
-      for (var i = 0; i < entries.length; i++) {
-        if (!mounted) break;
-
-        final entry = entries[i];
-        final passphrase = entry.passphrase;
-
-        try {
-          // 从暗号派生密钥
-          final saltBase64 = strawFile.strawFile.content.saltBase64;
-          final kdfIterations = strawFile.strawFile.content.kdfIterations;
-
-          if (saltBase64 == null || kdfIterations == null) continue;
-
-          final Uint8List salt;
-          try {
-            salt = base64Decode(saltBase64);
-          } on FormatException {
-            continue;
-          }
-
-          final keyBytes = await cryptoService.deriveKeyFromPassphrase(
-            passphrase: passphrase,
-            salt: salt,
-            iterations: kdfIterations,
-          );
-
-          // 判断是否使用流式解密（大文件且有文件路径）
-          const streamThreshold = 10 * 1024 * 1024; // 10MB
-          final useStream = _filePath != null &&
-              strawFile.strawFile.content.originalPayloadSize > streamThreshold;
-
-          // 使用 decrypt() 或 decryptStream() 方法解密
-          DecryptResult? decryptResult;
-          try {
-            if (useStream) {
-              // 流式解密：直接写入临时文件，避免 OOM
-              final tempDir = await TempFileManager.getTempDirectory();
-              final tempPath =
-                  '$tempDir${Platform.pathSeparator}auto_decrypt_temp_${DateTime.now().millisecondsSinceEpoch}';
-
-              final streamResult = await cryptoService.decryptStream(
-                strawFilePath: _filePath!,
-                key: keyBytes,
-                targetPath: tempPath,
-                chunkSize: strawFile.strawFile.content.chunkSize,
-                originalPayloadSize:
-                    strawFile.strawFile.content.originalPayloadSize,
-              );
-
-              decryptResult = DecryptResult(
-                payloadMetadata: streamResult.payloadMetadata,
-                payloadBytes: Uint8List(0),
-                decryptedFilePath: tempPath,
-              );
-            } else {
-              // 内存解密
-              decryptResult = await cryptoService.decrypt(
-                chunks: strawFile.chunks,
-                key: keyBytes,
-                chunkSize: strawFile.strawFile.content.chunkSize,
-                originalPayloadSize:
-                    strawFile.strawFile.content.originalPayloadSize,
-              );
-            }
-          } on Exception {
-            // 解密失败（密钥不匹配），清理临时文件并继续尝试
-            continue;
-          }
-
-          // 解密成功，校验完整性
-          final integrityService = ref.read(integrityServiceProvider);
-
-          final strawFileForHash = StrawFile(
-            formatVersion: strawFile.strawFile.formatVersion,
-            meta: strawFile.strawFile.meta,
-            content: strawFile.strawFile.content,
-            integrity: IntegrityInfo(
-              hash: '',
-              hashAlgorithm: strawFile.strawFile.integrity.hashAlgorithm,
-            ),
-          );
-
-          String computedHash;
-          if (useStream) {
-            // 流式完整性校验：避免 OOM
-            computedHash = await integrityService.computeHashFromStrawFile(
-              strawFile: strawFileForHash,
-              filePath: _filePath!,
-            );
-          } else {
-            // 内存完整性校验
-            final fileIOService = ref.read(fileIOServiceProvider);
-            final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
-              strawFile: strawFileForHash,
-              chunks: strawFile.chunks,
-            );
-            computedHash =
-                integrityService.computeHashFromBytes(fileBytesWithoutHash);
-          }
-
-          final isIntegrityValid =
-              computedHash == strawFile.strawFile.integrity.hash;
-
-          if (isIntegrityValid) {
-            // 完整性校验通过，更新使用统计
-            // 刷新保险库数据（使用统计已更新）
-            ref.invalidate(passphraseEntriesProvider);
-
-            // 显示自动解密成功提示
-            if (mounted) {
-              final l10n = AppLocalizations.of(context)!;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.autoDecryptSuccess(entry.label)),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-
-            // 处理解密成功
-            await _handleDecryptSuccess(decryptResult);
-            return;
-          }
-          // 完整性校验失败，继续尝试
-        } on Exception {
-          // 此暗号解密失败，继续尝试下一个
-          continue;
-        }
-      }
-
-      // 所有暗号均匹配失败，弹出解密对话框
-      if (mounted) {
-        _showManualDecryptDialog();
-      }
-    } on Exception {
-      // 保险库读取异常，回退到手动解密
-      if (mounted) {
-        _showManualDecryptDialog();
-      }
-    }
-  }
-
-  /// 弹出手动解密对话框
-  void _showManualDecryptDialog() {
-    final strawFile = _strawFile;
-    if (strawFile == null || !mounted) return;
-
-    setState(() {
-      _status = ReaderStatus.metaOnly;
-    });
 
     DecryptDialog.show(
       context,
@@ -734,9 +530,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       final sourceFile = File(_tempFilePath!);
       if (!await sourceFile.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('临时文件已丢失，请重新解密')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('临时文件已丢失，请重新解密')));
         }
         return;
       }
@@ -745,9 +541,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       fileBytes = result.payloadBytes;
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无可保存的文件内容')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无可保存的文件内容')));
       }
       return;
     }
@@ -814,10 +610,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   color: Theme.of(context).colorScheme.error,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  '加载失败',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text('加载失败', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(
                   _errorMessage ?? '未知错误',
@@ -980,10 +773,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              buildMetaHeader(),
-              contentWidget,
-            ],
+            children: [buildMetaHeader(), contentWidget],
           ),
         ),
       );

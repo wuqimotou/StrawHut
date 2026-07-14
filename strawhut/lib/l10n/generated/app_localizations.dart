@@ -386,6 +386,48 @@ abstract class AppLocalizations {
   /// **'密钥文件已保存到下载文件夹'**
   String get keySavedToDownloads;
 
+  /// 桌面端发布保存成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'发布成功！文件已保存至：{path}'**
+  String publishSavedToPath(String path);
+
+  /// 发布失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'发布失败：{error}'**
+  String publishFailed(String error);
+
+  /// 发布完成界面标题
+  ///
+  /// In zh, this message translates to:
+  /// **'发布成功'**
+  String get publishSuccessTitle;
+
+  /// 发布完成界面提示
+  ///
+  /// In zh, this message translates to:
+  /// **'知识卡片已成功发布！'**
+  String get publishSuccessMessage;
+
+  /// 已保存文件路径标签
+  ///
+  /// In zh, this message translates to:
+  /// **'文件路径：'**
+  String get filePathLabel;
+
+  /// 数据不可用时的回退值
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get unknownValue;
+
+  /// 完成按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get done;
+
   /// PNG 分享时提示以原图发送
   ///
   /// In zh, this message translates to:
@@ -413,7 +455,7 @@ abstract class AppLocalizations {
   /// 保险库空状态描述
   ///
   /// In zh, this message translates to:
-  /// **'保存常用暗号后，解密暗号加密的卡片时将自动匹配，无需手动输入'**
+  /// **'保存常用暗号后，可在解密界面直接选择，无需再次输入'**
   String get vaultEmptyDesc;
 
   /// 添加暗号按钮
@@ -503,7 +545,7 @@ abstract class AppLocalizations {
   /// 删除暗号确认消息
   ///
   /// In zh, this message translates to:
-  /// **'确定要删除暗号\"{label}\"吗？删除后，使用此暗号加密的卡片将需要手动输入暗号才能解密。'**
+  /// **'确定要删除暗号\"{label}\"吗？删除后，解密时需重新输入或选择其他暗号。'**
   String deletePassphraseMessage(String label);
 
   /// 清除全部暗号对话框标题

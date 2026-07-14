@@ -59,6 +59,9 @@
 | 📄 **Dual Format** | Export as `.straw` files or `.png` images, choose by scenario |
 | 🛡️ **Integrity Check** | SHA-256 hash verification prevents tampering |
 | 🧹 **Zero Traces** | No cards, keys, or drafts stored except for user-saved passphrases |
+| 🛑 **Decryption Cancellation** | Cancel in-progress decryption and integrity verification at any time |
+| 🔐 **Vault Selection Decrypt** | Select a passphrase from vault to decrypt, instead of auto-matching |
+| 📊 **Decrypt Progress** | Real-time percentage display during decryption and integrity verification |
 | 📁 **File Encryption Mode** | Encrypt any type of file, decrypt and save to local storage |
 | 📊 **Encryption Progress** | Real-time progress display with percentage for both encryption and decryption |
 | 💾 **Smart File Saving** | Android: media files saved to gallery, other files to Downloads; Desktop: system save dialog |
@@ -181,6 +184,9 @@ Creator                                   Reader
 | 📄 **双格式导出** | 支持 `.straw` 文件和 `.png` 图片两种格式，按场景自由选择 |
 | 🛡️ **完整性校验** | SHA-256 哈希校验，防止文件被篡改 |
 | 🧹 **零痕迹** | 除用户主动保存的暗号外，软件不保存任何卡片、密钥或草稿 |
+| 🛑 **解密取消** | 随时取消进行中的解密和完整性校验操作 |
+| 🔐 **保险库选择解密** | 从暗号保险库中选择暗号解密，替代自动匹配 |
+| 📊 **解密进度显示** | 解密和完整性校验时实时显示进度百分比 |
 | 📁 **文件加密模式** | 支持加密任意类型的文件，解密后保存到本地 |
 | 📊 **加密进度显示** | 加密和解密均有实时进度百分比显示，大文件不卡顿 |
 | 💾 **智能文件保存** | 安卓端：多媒体文件存相册，其他文件存下载目录；桌面端：系统保存对话框 |
@@ -259,4 +265,4 @@ Creator                                   Reader
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v1.1.0 | **最后更新**: 2026-07-09
+> **文档版本**: v1.1.1 | **最后更新**: 2026-07-14

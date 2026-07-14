@@ -102,6 +102,9 @@ abstract class IPassphraseVaultService {
   /// 返回值：暗号条目数量
   Future<int> getEntryCount();
 
+  /// Records a successful explicit use of a saved passphrase.
+  Future<void> markUsed(String entryId);
+
   /// 自动匹配解密
   ///
   /// 遍历保险库中的所有暗号，尝试用每个暗号派生密钥并解密加密内容。
@@ -219,7 +222,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
   /// - [secureStorage]: 可选的 FlutterSecureStorage 实例，
   ///   不提供时使用默认配置创建。注入自定义实例便于单元测试。
   PassphraseVaultService({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   /// flutter_secure_storage 实例
   final FlutterSecureStorage _secureStorage;
@@ -246,10 +249,11 @@ class PassphraseVaultService implements IPassphraseVaultService {
       final vaultData = await _readVaultData();
       final entries = vaultData['entries'] as List<dynamic>? ?? [];
 
-      final passphraseEntries = entries
-          .map((e) => PassphraseEntry.fromJson(e as Map<String, dynamic>))
-          .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final passphraseEntries =
+          entries
+              .map((e) => PassphraseEntry.fromJson(e as Map<String, dynamic>))
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       return passphraseEntries;
     });
@@ -349,10 +353,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
 
       final index = entries.indexWhere((entry) => entry.id == id);
       if (index == -1) {
-        throw const PassphraseVaultException(
-          '指定的暗号条目不存在',
-          code: 'NOT_FOUND',
-        );
+        throw const PassphraseVaultException('指定的暗号条目不存在', code: 'NOT_FOUND');
       }
 
       entries.removeAt(index);
@@ -391,6 +392,17 @@ class PassphraseVaultService implements IPassphraseVaultService {
           .toList();
 
       return entries.any((entry) => entry.passphrase == passphrase);
+    });
+  }
+
+  @override
+  Future<void> markUsed(String entryId) async {
+    return _withLock(() async {
+      final vaultData = await _readVaultData();
+      final entries = (vaultData['entries'] as List<dynamic>? ?? [])
+          .map((e) => PassphraseEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+      await _updateEntryUsage(entryId, entries);
     });
   }
 
@@ -468,11 +480,15 @@ class PassphraseVaultService implements IPassphraseVaultService {
       String? successEntryId;
       String? successEntryLabel;
 
-      for (var batchStart = 0;
-          batchStart < sortedEntries.length && result == null;
-          batchStart += batchSize) {
-        final batchEnd =
-            (batchStart + batchSize).clamp(0, sortedEntries.length);
+      for (
+        var batchStart = 0;
+        batchStart < sortedEntries.length && result == null;
+        batchStart += batchSize
+      ) {
+        final batchEnd = (batchStart + batchSize).clamp(
+          0,
+          sortedEntries.length,
+        );
         final batch = sortedEntries.sublist(batchStart, batchEnd);
 
         // 并行尝试当前批次的暗号
@@ -566,10 +582,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
       if (derivedKey != null) {
         MemoryUtils.wipeBytes(derivedKey);
       }
-      return _DecryptAttempt(
-        entryId: entry.id,
-        success: false,
-      );
+      return _DecryptAttempt(entryId: entry.id, success: false);
     }
   }
 
@@ -652,10 +665,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
 
       return decoded;
     } catch (e) {
-      throw PassphraseVaultException(
-        '读取保险库数据失败：$e',
-        code: 'STORAGE_ERROR',
-      );
+      throw PassphraseVaultException('读取保险库数据失败：$e', code: 'STORAGE_ERROR');
     }
   }
 
@@ -678,10 +688,7 @@ class PassphraseVaultService implements IPassphraseVaultService {
         value: jsonString,
       );
     } catch (e) {
-      throw PassphraseVaultException(
-        '写入保险库数据失败：$e',
-        code: 'STORAGE_ERROR',
-      );
+      throw PassphraseVaultException('写入保险库数据失败：$e', code: 'STORAGE_ERROR');
     }
   }
 
@@ -689,9 +696,9 @@ class PassphraseVaultService implements IPassphraseVaultService {
   ///
   /// 当存储中无数据时，返回此默认结构。
   Map<String, dynamic> _emptyVaultData() => {
-        'version': PassphraseVaultConstants.vaultVersion,
-        'entries': <Map<String, dynamic>>[],
-      };
+    'version': PassphraseVaultConstants.vaultVersion,
+    'entries': <Map<String, dynamic>>[],
+  };
 
   /// 使用互斥锁执行操作
   ///

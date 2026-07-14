@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
 /// 完整性校验服务接口
@@ -55,6 +57,17 @@ abstract class IIntegrityService {
   Future<String> computeHashFromStrawFile({
     required StrawFile strawFile,
     required String filePath,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// Incrementally hashes parsed chunks without rebuilding the entire binary
+  /// container in memory.
+  Future<String> computeHashFromChunks({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
   });
 
   /// 验证文件完整性
@@ -65,10 +78,7 @@ abstract class IIntegrityService {
   /// - [content] - 当前的文件内容（JSON 字符串）
   /// - [expectedHash] - 预期的哈希值（格式为 "sha256:{hex}"）
   /// 返回：true 表示哈希匹配，文件未被篡改；false 表示文件可能已被修改
-  bool verifyIntegrity({
-    required String content,
-    required String expectedHash,
-  });
+  bool verifyIntegrity({required String content, required String expectedHash});
 }
 
 /// 完整性校验服务实现
@@ -149,7 +159,10 @@ class IntegrityService implements IIntegrityService {
   Future<String> computeHashFromStrawFile({
     required StrawFile strawFile,
     required String filePath,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
   }) async {
+    cancellationToken?.throwIfCancelled();
     // 完整性校验需要计算 hash='' 版本的二进制文件哈希，
     // 与加密时 computeHashFromBytes(buildBinaryFileBytes(strawFileForHash, chunks)) 一致。
     //
@@ -197,7 +210,8 @@ class IntegrityService implements IIntegrityService {
 
       // 读取文件中的 Header Size
       final headerSizeData = await raf.read(4);
-      final fileHeaderSize = headerSizeData[0] |
+      final fileHeaderSize =
+          headerSizeData[0] |
           (headerSizeData[1] << 8) |
           (headerSizeData[2] << 16) |
           (headerSizeData[3] << 24);
@@ -209,6 +223,7 @@ class IntegrityService implements IIntegrityService {
       final totalChunks = strawFile.content.totalChunks;
 
       for (int i = 0; i < totalChunks; i++) {
+        cancellationToken?.throwIfCancelled();
         // 读取 IV (16 bytes)
         final ivData = await raf.read(CHUNK_IV_LENGTH_BYTES);
         if (ivData.length < CHUNK_IV_LENGTH_BYTES) break;
@@ -220,13 +235,19 @@ class IntegrityService implements IIntegrityService {
         input.add(lenData);
 
         // 读取加密数据
-        final encLen = lenData[0] |
+        final encLen =
+            lenData[0] |
             (lenData[1] << 8) |
             (lenData[2] << 16) |
             (lenData[3] << 24);
         final encData = await raf.read(encLen);
         if (encData.length < encLen) break;
         input.add(encData);
+        onProgress?.call(i + 1, totalChunks);
+
+        // Yield between chunks so UI cancellation stays responsive even when
+        // the source is served from a fast local filesystem cache.
+        await Future<void>.delayed(Duration.zero);
       }
     } finally {
       await raf.close();
@@ -234,8 +255,59 @@ class IntegrityService implements IIntegrityService {
 
     // 完成哈希计算
     input.close();
+    cancellationToken?.throwIfCancelled();
     final digest = digestCollector.single;
     return 'sha256:$digest';
+  }
+
+  @override
+  Future<String> computeHashFromChunks({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    cancellationToken?.throwIfCancelled();
+
+    final digestCollector = <Digest>[];
+    final outputSink = _SimpleSink<Digest>(digestCollector);
+    final input = sha256.startChunkedConversion(outputSink);
+
+    input.add(STRAW_MAGIC_BYTES);
+    input.add([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF]);
+    input.add([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
+
+    final headerBytes = utf8.encode(strawFile.assembleHeaderToJson());
+    final headerSize = headerBytes.length;
+    input
+      ..add([
+        headerSize & 0xFF,
+        (headerSize >> 8) & 0xFF,
+        (headerSize >> 16) & 0xFF,
+        (headerSize >> 24) & 0xFF,
+      ])
+      ..add(headerBytes);
+
+    for (var i = 0; i < chunks.length; i++) {
+      cancellationToken?.throwIfCancelled();
+      final chunk = chunks[i];
+      final encryptedLength = chunk.encryptedData.length;
+      input
+        ..add(chunk.iv)
+        ..add([
+          encryptedLength & 0xFF,
+          (encryptedLength >> 8) & 0xFF,
+          (encryptedLength >> 16) & 0xFF,
+          (encryptedLength >> 24) & 0xFF,
+        ])
+        ..add(chunk.encryptedData);
+      onProgress?.call(i + 1, chunks.length);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    input.close();
+    cancellationToken?.throwIfCancelled();
+    return 'sha256:${digestCollector.single}';
   }
 
   /// 验证文件完整性

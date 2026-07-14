@@ -23,6 +23,8 @@
 /// - 各状态之间的切换逻辑
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -31,11 +33,14 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:strawhut/app/routes.dart';
+import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
+import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
@@ -59,6 +64,11 @@ class MockFileIOService extends Mock implements FileIOService {}
 
 /// Mock IntegrityService，用于模拟完整性校验服务的行为
 class MockIntegrityService extends Mock implements IntegrityService {}
+
+class FakePathProviderPlatform extends PathProviderPlatform {
+  @override
+  Future<String?> getTemporaryPath() async => Directory.systemTemp.path;
+}
 
 // ============================================================================
 // 测试辅助方法
@@ -143,6 +153,7 @@ void main() {
   setUpAll(() {
     // Uint8List 是 final class，不能用 Fake，直接使用真实实例作为 fallback
     registerFallbackValue(Uint8List(32));
+    registerFallbackValue(createTestStrawFile());
   });
 
   /// 在每个测试前重置路由到初始状态
@@ -670,6 +681,14 @@ void main() {
           cryptoServiceProvider.overrideWith((ref) => mockCryptoService),
           integrityServiceProvider.overrideWith((ref) => mockIntegrityService),
           migrationCheckProvider.overrideWith((ref) => (_) async => false),
+          streamedTextPayloadLoaderProvider.overrideWith(
+            (ref) => (filePath) async {
+              final file = File(filePath);
+              final bytes = file.readAsBytesSync();
+              file.deleteSync();
+              return bytes;
+            },
+          ),
         ],
       );
     });
@@ -703,6 +722,93 @@ void main() {
 
       // 初始状态应该是 MetaPreview
       expect(find.byType(MetaPreview), findsOneWidget);
+    });
+
+    testWidgets('stream-decrypted text is loaded from the temporary file', (
+      WidgetTester tester,
+    ) async {
+      String? outputPath;
+      final previousPathProvider = PathProviderPlatform.instance;
+
+      when(
+        () => mockCryptoService.decryptStream(
+          strawFilePath: any(named: 'strawFilePath'),
+          key: any(named: 'key'),
+          targetPath: any(named: 'targetPath'),
+          chunkSize: any(named: 'chunkSize'),
+          originalPayloadSize: any(named: 'originalPayloadSize'),
+          onProgress: any(named: 'onProgress'),
+          cancellationToken: any(named: 'cancellationToken'),
+        ),
+      ).thenAnswer((invocation) async {
+        outputPath = invocation.namedArguments[#targetPath] as String;
+        File(outputPath!).writeAsStringSync('streamed plain text');
+        return DecryptStreamResult(
+          payloadMetadata: PayloadMetadata(
+            sourceType: SourceType.rawFile,
+            originalExtension: 'txt',
+          ),
+          targetPath: outputPath!,
+        );
+      });
+      when(
+        () => mockIntegrityService.computeHashFromStrawFile(
+          strawFile: any(named: 'strawFile'),
+          filePath: any(named: 'filePath'),
+          cancellationToken: any(named: 'cancellationToken'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      ).thenAnswer((_) async => 'sha256:testhash');
+      when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
+
+      await tester.pumpWidget(createRouterTestableApp(container: container));
+      navigateToReader(tester, '/test/streamed-text.straw');
+      await tester.pumpAndSettle();
+
+      final decryptSheet = find.byType(BottomSheet);
+      expect(decryptSheet, findsOneWidget);
+      PathProviderPlatform.instance = FakePathProviderPlatform();
+      final tempDirectory = await tester.runAsync(
+        TempFileManager.getTempDirectory,
+      );
+      expect(tempDirectory, isNotEmpty);
+      await tester.enterText(
+        find.descendant(
+          of: decryptSheet,
+          matching: find.byType(TextField),
+        ),
+        base64Encode(Uint8List(32)),
+      );
+      await tester.pump();
+      final decryptButton = find.descendant(
+        of: decryptSheet,
+        matching: find.widgetWithText(FilledButton, '解密'),
+      );
+      expect(tester.widget<FilledButton>(decryptButton).onPressed, isNotNull);
+      await tester.tap(decryptButton);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 500)),
+      );
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('streamed plain text').evaluate().isNotEmpty) break;
+      }
+      await tester.runAsync(
+        () async {
+          for (var i = 0; i < 20 && File(outputPath!).existsSync(); i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+        },
+      );
+      await tester.pump();
+
+      expect(outputPath, isNotNull);
+      expect(find.textContaining('读取解密内容失败'), findsNothing);
+      expect(File(outputPath!).existsSync(), isFalse);
+      expect(find.text('streamed plain text'), findsOneWidget);
+      PathProviderPlatform.instance = previousPathProvider;
     });
   });
 

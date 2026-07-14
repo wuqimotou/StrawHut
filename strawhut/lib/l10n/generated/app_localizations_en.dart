@@ -163,6 +163,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keySavedToDownloads => 'Key file saved to Downloads';
 
   @override
+  String publishSavedToPath(String path) {
+    return 'Published successfully. File saved to: $path';
+  }
+
+  @override
+  String publishFailed(String error) {
+    return 'Publish failed: $error';
+  }
+
+  @override
+  String get publishSuccessTitle => 'Published';
+
+  @override
+  String get publishSuccessMessage => 'Knowledge card published successfully!';
+
+  @override
+  String get filePathLabel => 'File path:';
+
+  @override
+  String get unknownValue => 'Unknown';
+
+  @override
+  String get done => 'Done';
+
+  @override
   String get shareAsOriginalImage =>
       'Please send as original image, otherwise recipient cannot decrypt';
 
@@ -177,7 +202,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultEmptyDesc =>
-      'Save passphrases to auto-decrypt cards encrypted with them';
+      'Save passphrases to select them directly on the decrypt screen';
 
   @override
   String get vaultAddButton => 'Add Passphrase';
@@ -228,7 +253,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String deletePassphraseMessage(String label) {
-    return 'Delete passphrase \"$label\"? Cards encrypted with this passphrase will require manual input to decrypt.';
+    return 'Delete passphrase \"$label\"? You will need to enter it again or select another passphrase when decrypting.';
   }
 
   @override

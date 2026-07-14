@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/data/models/card_meta.dart';
@@ -121,6 +122,8 @@ class DecryptDialog extends ConsumerStatefulWidget {
       return showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
         useSafeArea: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -173,6 +176,10 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 加载状态（解密进行中）
   bool _isLoading = false;
 
+  bool _isCancelling = false;
+
+  CancellationToken? _cancellationToken;
+
   /// 解密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
   double _decryptProgress = 0.0;
 
@@ -185,8 +192,27 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 是否勾选"保存此暗号到保险库"
   bool _savePassphrase = false;
 
+  bool _usingVaultPassphrase = false;
+
   /// 是否为协商密钥模式
   bool get _isNegotiatedMode => widget.strawFile.content.kdfAlgorithm != null;
+
+  @override
+  void dispose() {
+    _cancellationToken?.cancel();
+    super.dispose();
+  }
+
+  void _handleCancel() {
+    if (!_isLoading) {
+      Navigator.pop(context);
+      return;
+    }
+    if (_isCancelling) return;
+    _isCancelling = true;
+    _cancellationToken?.cancel();
+    Navigator.pop(context);
+  }
 
   /// 处理密钥变化回调（来自 KeyInput 组件）
   void _onKeyChanged(String? key) {
@@ -213,7 +239,10 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 对于大文件（originalPayloadSize > 10MB）且有文件路径时，使用流式解密避免 OOM。
   /// 当 chunks 为空（流式头部加载）且文件路径可用时，必须使用流式解密。
   /// 返回解密成功的结果或 null（如果完整性校验失败）。
-  Future<DecryptResult?> _performDecryptAndVerify(Uint8List keyBytes) async {
+  Future<DecryptResult?> _performDecryptAndVerify(
+    Uint8List keyBytes,
+    CancellationToken cancellationToken,
+  ) async {
     final cryptoService = ref.read(cryptoServiceProvider);
     final integrityService = ref.read(integrityServiceProvider);
 
@@ -221,7 +250,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     // 条件1：有文件路径（可以流式读取）
     // 条件2：分块数据为空（流式加载的头部）或文件较大（>10MB）
     const streamThreshold = 10 * 1024 * 1024; // 10MB
-    final useStream = widget.strawFilePath != null &&
+    final isRawStrawPath =
+        widget.strawFilePath?.toLowerCase().endsWith('.straw') ?? false;
+    final useStream = isRawStrawPath &&
         (widget.parsedFile.chunks.isEmpty ||
             widget.strawFile.content.originalPayloadSize > streamThreshold);
 
@@ -239,10 +270,11 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         targetPath: tempPath,
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        cancellationToken: cancellationToken,
         onProgress: (current, total) {
           if (mounted && total > 0) {
             setState(() {
-              _decryptProgress = current / total;
+              _decryptProgress = 0.05 + (current / total) * 0.85;
             });
           }
         },
@@ -260,10 +292,11 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         key: keyBytes,
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        cancellationToken: cancellationToken,
         onProgress: (current, total) {
           if (mounted && total > 0) {
             setState(() {
-              _decryptProgress = current / total;
+              _decryptProgress = 0.05 + (current / total) * 0.85;
             });
           }
         },
@@ -282,21 +315,40 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     );
 
     String computedHash;
-    if (useStream) {
-      // 流式完整性校验：直接读取 .straw 文件逐块计算哈希，避免 OOM
-      computedHash = await integrityService.computeHashFromStrawFile(
-        strawFile: strawFileForHash,
-        filePath: widget.strawFilePath!,
-      );
-    } else {
-      // 内存完整性校验
-      final fileIOService = ref.read(fileIOServiceProvider);
-      final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
-        strawFile: strawFileForHash,
-        chunks: widget.parsedFile.chunks,
-      );
-      computedHash =
-          integrityService.computeHashFromBytes(fileBytesWithoutHash);
+    try {
+      if (useStream) {
+        computedHash = await integrityService.computeHashFromStrawFile(
+          strawFile: strawFileForHash,
+          filePath: widget.strawFilePath!,
+          cancellationToken: cancellationToken,
+          onProgress: (current, total) {
+            if (mounted && total > 0) {
+              setState(() {
+                _decryptProgress = 0.9 + (current / total) * 0.09;
+              });
+            }
+          },
+        );
+      } else {
+        computedHash = await integrityService.computeHashFromChunks(
+          strawFile: strawFileForHash,
+          chunks: widget.parsedFile.chunks,
+          cancellationToken: cancellationToken,
+          onProgress: (current, total) {
+            if (mounted && total > 0) {
+              setState(() {
+                _decryptProgress = 0.9 + (current / total) * 0.09;
+              });
+            }
+          },
+        );
+      }
+      cancellationToken.throwIfCancelled();
+    } on Exception {
+      if (decryptResult.decryptedFilePath != null) {
+        await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
+      }
+      rethrow;
     }
 
     final isIntegrityValid = computedHash == widget.strawFile.integrity.hash;
@@ -330,6 +382,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     if (_isNegotiatedMode) {
       // 协商密钥模式：验证暗号是否已输入
       final passphrase = _passphraseInputKey.currentState?.passphrase;
+      final selectedEntryId = _passphraseInputKey.currentState?.selectedEntryId;
       if (passphrase == null || passphrase.isEmpty) {
         setState(() {
           _errorMessage = l10n.decryptPassphraseRequired;
@@ -337,8 +390,11 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         return;
       }
 
+      final cancellationToken = CancellationToken();
+      _cancellationToken = cancellationToken;
       setState(() {
         _isLoading = true;
+        _isCancelling = false;
         _decryptProgress = 0.0;
         _errorMessage = null;
       });
@@ -379,10 +435,14 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           passphrase: passphrase,
           salt: salt,
           iterations: kdfIterations,
+          cancellationToken: cancellationToken,
         );
 
         // ========== 步骤 3：执行解密 + 完整性校验 ==========
-        final decryptResult = await _performDecryptAndVerify(keyBytes);
+        final decryptResult = await _performDecryptAndVerify(
+          keyBytes,
+          cancellationToken,
+        );
 
         if (decryptResult == null) {
           // 完整性校验失败
@@ -399,11 +459,24 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         keyBytes = null;
         cryptoService.clearSensitiveData();
 
+        if (selectedEntryId != null) {
+          try {
+            await ref
+                .read(passphraseVaultServiceProvider)
+                .markUsed(selectedEntryId);
+            ref.invalidate(passphraseEntriesProvider);
+          } on Exception {
+            // Usage statistics must not turn a successful decrypt into a
+            // failure if secure storage is temporarily unavailable.
+          }
+        }
+
         // 清除暗号输入框中的敏感内容
         _passphraseInputKey.currentState?.clear();
 
         // 如果用户勾选了"保存此暗号"，弹出保存对话框
         if (_savePassphrase && mounted) {
+          cancellationToken.throwIfCancelled();
           final saved = await AddPassphraseDialog.show(
             context,
             initialPassphrase: passphrase,
@@ -414,12 +487,18 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         }
 
         // 调用成功回调，传入 DecryptResult
+        cancellationToken.throwIfCancelled();
         if (mounted) {
           widget.onDecryptSuccess(decryptResult);
           // 关闭对话框
           Navigator.pop(context);
         }
+      } on OperationCancelledException {
+        if (mounted && !_isCancelling) {
+          Navigator.pop(context);
+        }
       } on CryptoException {
+        if (!mounted || cancellationToken.isCancelled) return;
         // 加密服务抛出的异常（暗号错误、解密失败等）
         setState(() {
           _isLoading = false;
@@ -427,6 +506,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           _errorMessage = l10n.passphraseDecryptFailed;
         });
       } on Exception catch (e) {
+        if (!mounted || cancellationToken.isCancelled) return;
         // 其他已知异常
         setState(() {
           _isLoading = false;
@@ -439,6 +519,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           MemoryUtils.wipeBytes(keyBytes);
           keyBytes = null;
         }
+        if (identical(_cancellationToken, cancellationToken)) {
+          _cancellationToken = null;
+        }
       }
     } else {
       // 随机密钥模式：使用 Base64 密钥解密
@@ -450,8 +533,11 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         return;
       }
 
+      final cancellationToken = CancellationToken();
+      _cancellationToken = cancellationToken;
       setState(() {
         _isLoading = true;
+        _isCancelling = false;
         _decryptProgress = 0.0;
         _errorMessage = null;
       });
@@ -489,7 +575,10 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         keyBytes = decodedKey;
 
         // ========== 步骤 3：执行解密 + 完整性校验 ==========
-        final decryptResult = await _performDecryptAndVerify(keyBytes);
+        final decryptResult = await _performDecryptAndVerify(
+          keyBytes,
+          cancellationToken,
+        );
 
         if (decryptResult == null) {
           // 完整性校验失败
@@ -510,12 +599,18 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         _keyInputKey.currentState?.clear();
 
         // 调用成功回调，传入 DecryptResult
+        cancellationToken.throwIfCancelled();
         if (mounted) {
           widget.onDecryptSuccess(decryptResult);
           // 关闭对话框
           Navigator.pop(context);
         }
+      } on OperationCancelledException {
+        if (mounted && !_isCancelling) {
+          Navigator.pop(context);
+        }
       } on CryptoException {
+        if (!mounted || cancellationToken.isCancelled) return;
         // 加密服务抛出的异常（密钥错误、解密失败等）
         setState(() {
           _isLoading = false;
@@ -523,6 +618,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           _errorMessage = l10n.keyError;
         });
       } on Exception catch (e) {
+        if (!mounted || cancellationToken.isCancelled) return;
         // 其他已知异常
         setState(() {
           _isLoading = false;
@@ -535,6 +631,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           MemoryUtils.wipeBytes(keyBytes);
           keyBytes = null;
         }
+        if (identical(_cancellationToken, cancellationToken)) {
+          _cancellationToken = null;
+        }
       }
     }
   }
@@ -544,113 +643,136 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     final l10n = AppLocalizations.of(context)!;
     final meta = widget.strawFile.meta;
 
-    return AlertDialog(
-      title: Text(l10n.decrypt),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ========== 卡片元数据预览 ==========
-            _buildMetaPreview(meta),
-            const Divider(height: 24),
+    return PopScope(
+      canPop: !_isLoading,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isLoading) _handleCancel();
+      },
+      child: AlertDialog(
+        title: Text(l10n.decrypt),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ========== 卡片元数据预览 ==========
+              _buildMetaPreview(meta),
+              const Divider(height: 24),
 
-            // ========== 根据加密模式显示不同输入区域 ==========
-            if (_isNegotiatedMode) ...[
-              // 协商密钥模式：显示暗号输入
-              PassphraseDecryptInput(key: _passphraseInputKey),
-              const SizedBox(height: 8),
-              // 保存暗号到保险库复选框
-              CheckboxListTile(
-                value: _savePassphrase,
-                onChanged: _isLoading
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _savePassphrase = value ?? false;
-                        });
-                      },
-                title: Text(
-                  l10n.saveAfterDecrypt,
-                  style: Theme.of(context).textTheme.bodySmall,
+              // ========== 根据加密模式显示不同输入区域 ==========
+              if (_isNegotiatedMode) ...[
+                // 协商密钥模式：显示暗号输入
+                PassphraseDecryptInput(
+                  key: _passphraseInputKey,
+                  enabled: !_isLoading,
+                  onVaultSelectionChanged: (selected) {
+                    setState(() {
+                      _usingVaultPassphrase = selected;
+                      if (selected) _savePassphrase = false;
+                    });
+                  },
                 ),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-              ),
-            ] else ...[
-              // 随机密钥模式：显示密钥输入和文件上传
-              // ========== 方式 A：手动输入密钥 ==========
-              KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
-              const SizedBox(height: 16),
-
-              // ========== 方式 B：上传 .key 文件 ==========
-              KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
-            ],
-
-            // ========== 错误提示 ==========
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.error, color: Colors.red, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13),
-                      ),
+                if (!_usingVaultPassphrase) ...[
+                  const SizedBox(height: 8),
+                  // 保存暗号到保险库复选框
+                  CheckboxListTile(
+                    value: _savePassphrase,
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _savePassphrase = value ?? false;
+                            });
+                          },
+                    title: Text(
+                      l10n.saveAfterDecrypt,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ],
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                  ),
+                ],
+              ] else ...[
+                // 随机密钥模式：显示密钥输入和文件上传
+                // ========== 方式 A：手动输入密钥 ==========
+                KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
+                const SizedBox(height: 16),
+
+                // ========== 方式 B：上传 .key 文件 ==========
+                KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
+              ],
+
+              // ========== 错误提示 ==========
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error, color: Colors.red, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
+        actions: [
+          // 取消按钮：关闭对话框
+          TextButton(
+            key: const ValueKey('decrypt_cancel_button'),
+            onPressed: _isCancelling ? null : _handleCancel,
+            child: Text(l10n.cancel),
+          ),
+          // 解密按钮：触发解密流程
+          FilledButton(
+            onPressed: _isLoading ? null : _handleDecrypt,
+            child: _isLoading
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: _decryptProgress > 0 ? _decryptProgress : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isCancelling
+                            ? '${l10n.cancel}...'
+                            : _decryptProgress > 0
+                                ? '${(_decryptProgress * 100).toInt()}%'
+                                : '解密中...',
+                      ),
+                    ],
+                  )
+                : Text(l10n.decrypt),
+          ),
+        ],
       ),
-      actions: [
-        // 取消按钮：关闭对话框
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: Text(l10n.cancel),
-        ),
-        // 解密按钮：触发解密流程
-        FilledButton(
-          onPressed: _isLoading ? null : _handleDecrypt,
-          child: _isLoading
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        value: _decryptProgress > 0 ? _decryptProgress : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _decryptProgress > 0
-                          ? '${(_decryptProgress * 100).toInt()}%'
-                          : '解密中...',
-                    ),
-                  ],
-                )
-              : Text(l10n.decrypt),
-        ),
-      ],
     );
   }
 
@@ -837,12 +959,32 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   final _passphraseInputKey = GlobalKey<PassphraseDecryptInputState>();
 
   bool _isLoading = false;
+  bool _isCancelling = false;
   double _decryptProgress = 0.0;
   String? _errorMessage;
   String? _currentKey;
   bool _savePassphrase = false;
+  bool _usingVaultPassphrase = false;
+  CancellationToken? _cancellationToken;
 
   bool get _isNegotiatedMode => widget.strawFile.content.kdfAlgorithm != null;
+
+  @override
+  void dispose() {
+    _cancellationToken?.cancel();
+    super.dispose();
+  }
+
+  void _handleCancel() {
+    if (!_isLoading) {
+      Navigator.pop(context);
+      return;
+    }
+    if (_isCancelling) return;
+    _isCancelling = true;
+    _cancellationToken?.cancel();
+    Navigator.pop(context);
+  }
 
   void _onKeyChanged(String? key) {
     setState(() {
@@ -862,7 +1004,10 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   ///
   /// 对于大文件（originalPayloadSize > 10MB）且有文件路径时，使用流式解密避免 OOM。
   /// 当 chunks 为空（流式头部加载）且文件路径可用时，必须使用流式解密。
-  Future<DecryptResult?> _performDecryptAndVerify(Uint8List keyBytes) async {
+  Future<DecryptResult?> _performDecryptAndVerify(
+    Uint8List keyBytes,
+    CancellationToken cancellationToken,
+  ) async {
     final cryptoService = ref.read(cryptoServiceProvider);
     final integrityService = ref.read(integrityServiceProvider);
 
@@ -870,7 +1015,9 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     // 条件1：有文件路径（可以流式读取）
     // 条件2：分块数据为空（流式加载的头部）或文件较大（>10MB）
     const streamThreshold = 10 * 1024 * 1024; // 10MB
-    final useStream = widget.strawFilePath != null &&
+    final isRawStrawPath =
+        widget.strawFilePath?.toLowerCase().endsWith('.straw') ?? false;
+    final useStream = isRawStrawPath &&
         (widget.parsedFile.chunks.isEmpty ||
             widget.strawFile.content.originalPayloadSize > streamThreshold);
 
@@ -888,10 +1035,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         targetPath: tempPath,
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        cancellationToken: cancellationToken,
         onProgress: (current, total) {
           if (mounted && total > 0) {
             setState(() {
-              _decryptProgress = current / total;
+              _decryptProgress = 0.05 + (current / total) * 0.85;
             });
           }
         },
@@ -909,10 +1057,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         key: keyBytes,
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
+        cancellationToken: cancellationToken,
         onProgress: (current, total) {
           if (mounted && total > 0) {
             setState(() {
-              _decryptProgress = current / total;
+              _decryptProgress = 0.05 + (current / total) * 0.85;
             });
           }
         },
@@ -931,21 +1080,40 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     );
 
     String computedHash;
-    if (useStream) {
-      // 流式完整性校验：直接读取 .straw 文件逐块计算哈希，避免 OOM
-      computedHash = await integrityService.computeHashFromStrawFile(
-        strawFile: strawFileForHash,
-        filePath: widget.strawFilePath!,
-      );
-    } else {
-      // 内存完整性校验
-      final fileIOService = ref.read(fileIOServiceProvider);
-      final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
-        strawFile: strawFileForHash,
-        chunks: widget.parsedFile.chunks,
-      );
-      computedHash =
-          integrityService.computeHashFromBytes(fileBytesWithoutHash);
+    try {
+      if (useStream) {
+        computedHash = await integrityService.computeHashFromStrawFile(
+          strawFile: strawFileForHash,
+          filePath: widget.strawFilePath!,
+          cancellationToken: cancellationToken,
+          onProgress: (current, total) {
+            if (mounted && total > 0) {
+              setState(() {
+                _decryptProgress = 0.9 + (current / total) * 0.09;
+              });
+            }
+          },
+        );
+      } else {
+        computedHash = await integrityService.computeHashFromChunks(
+          strawFile: strawFileForHash,
+          chunks: widget.parsedFile.chunks,
+          cancellationToken: cancellationToken,
+          onProgress: (current, total) {
+            if (mounted && total > 0) {
+              setState(() {
+                _decryptProgress = 0.9 + (current / total) * 0.09;
+              });
+            }
+          },
+        );
+      }
+      cancellationToken.throwIfCancelled();
+    } on Exception {
+      if (decryptResult.decryptedFilePath != null) {
+        await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
+      }
+      rethrow;
     }
 
     final isIntegrityValid = computedHash == widget.strawFile.integrity.hash;
@@ -968,6 +1136,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
     if (_isNegotiatedMode) {
       final passphrase = _passphraseInputKey.currentState?.passphrase;
+      final selectedEntryId = _passphraseInputKey.currentState?.selectedEntryId;
       if (passphrase == null || passphrase.isEmpty) {
         setState(() {
           _errorMessage = l10n.decryptPassphraseRequired;
@@ -975,8 +1144,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         return;
       }
 
+      final cancellationToken = CancellationToken();
+      _cancellationToken = cancellationToken;
       setState(() {
         _isLoading = true;
+        _isCancelling = false;
         _decryptProgress = 0.0;
         _errorMessage = null;
       });
@@ -1013,9 +1185,13 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           passphrase: passphrase,
           salt: salt,
           iterations: kdfIterations,
+          cancellationToken: cancellationToken,
         );
 
-        final decryptResult = await _performDecryptAndVerify(keyBytes);
+        final decryptResult = await _performDecryptAndVerify(
+          keyBytes,
+          cancellationToken,
+        );
 
         if (decryptResult == null) {
           setState(() {
@@ -1030,10 +1206,22 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         keyBytes = null;
         cryptoService.clearSensitiveData();
 
+        if (selectedEntryId != null) {
+          try {
+            await ref
+                .read(passphraseVaultServiceProvider)
+                .markUsed(selectedEntryId);
+            ref.invalidate(passphraseEntriesProvider);
+          } on Exception {
+            // A statistics write must not invalidate successful decryption.
+          }
+        }
+
         _passphraseInputKey.currentState?.clear();
 
         // 如果用户勾选了"保存此暗号"，弹出保存对话框
         if (_savePassphrase && mounted) {
+          cancellationToken.throwIfCancelled();
           final saved = await AddPassphraseDialog.show(
             context,
             initialPassphrase: passphrase,
@@ -1043,17 +1231,24 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           }
         }
 
+        cancellationToken.throwIfCancelled();
         if (mounted) {
           widget.onDecryptSuccess(decryptResult);
           Navigator.pop(context);
         }
+      } on OperationCancelledException {
+        if (mounted && !_isCancelling) {
+          Navigator.pop(context);
+        }
       } on CryptoException {
+        if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
           _errorMessage = l10n.passphraseDecryptFailed;
         });
       } on Exception catch (e) {
+        if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
@@ -1064,6 +1259,9 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           MemoryUtils.wipeBytes(keyBytes);
           keyBytes = null;
         }
+        if (identical(_cancellationToken, cancellationToken)) {
+          _cancellationToken = null;
+        }
       }
     } else {
       if (_currentKey == null || _currentKey!.isEmpty) {
@@ -1073,8 +1271,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         return;
       }
 
+      final cancellationToken = CancellationToken();
+      _cancellationToken = cancellationToken;
       setState(() {
         _isLoading = true;
+        _isCancelling = false;
         _decryptProgress = 0.0;
         _errorMessage = null;
       });
@@ -1108,7 +1309,10 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
         keyBytes = decodedKey;
 
-        final decryptResult = await _performDecryptAndVerify(keyBytes);
+        final decryptResult = await _performDecryptAndVerify(
+          keyBytes,
+          cancellationToken,
+        );
 
         if (decryptResult == null) {
           setState(() {
@@ -1125,17 +1329,24 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
         _keyInputKey.currentState?.clear();
 
+        cancellationToken.throwIfCancelled();
         if (mounted) {
           widget.onDecryptSuccess(decryptResult);
           Navigator.pop(context);
         }
+      } on OperationCancelledException {
+        if (mounted && !_isCancelling) {
+          Navigator.pop(context);
+        }
       } on CryptoException {
+        if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
           _errorMessage = l10n.keyError;
         });
       } on Exception catch (e) {
+        if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
@@ -1146,6 +1357,9 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           MemoryUtils.wipeBytes(keyBytes);
           keyBytes = null;
         }
+        if (identical(_cancellationToken, cancellationToken)) {
+          _cancellationToken = null;
+        }
       }
     }
   }
@@ -1155,145 +1369,171 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     final l10n = AppLocalizations.of(context)!;
     final meta = widget.strawFile.meta;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Drag handle indicator
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                borderRadius: BorderRadius.circular(2),
+    return PopScope(
+      canPop: !_isLoading,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isLoading) _handleCancel();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag handle indicator
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          // Scrollable content
-          Flexible(
-            child: SingleChildScrollView(
-              controller: widget.scrollController,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Meta preview
-                  _buildMetaPreview(meta),
-                  const Divider(height: 24),
+            // Scrollable content
+            Flexible(
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Meta preview
+                    _buildMetaPreview(meta),
+                    const Divider(height: 24),
 
-                  // Input area based on encryption mode
-                  if (_isNegotiatedMode) ...[
-                    PassphraseDecryptInput(key: _passphraseInputKey),
-                    const SizedBox(height: 8),
-                    // 保存暗号到保险库复选框
-                    CheckboxListTile(
-                      value: _savePassphrase,
-                      onChanged: _isLoading
-                          ? null
-                          : (value) {
-                              setState(() {
-                                _savePassphrase = value ?? false;
-                              });
-                            },
-                      title: Text(
-                        l10n.saveAfterDecrypt,
-                        style: Theme.of(context).textTheme.bodySmall,
+                    // Input area based on encryption mode
+                    if (_isNegotiatedMode) ...[
+                      PassphraseDecryptInput(
+                        key: _passphraseInputKey,
+                        enabled: !_isLoading,
+                        onVaultSelectionChanged: (selected) {
+                          setState(() {
+                            _usingVaultPassphrase = selected;
+                            if (selected) _savePassphrase = false;
+                          });
+                        },
                       ),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                    ),
-                  ] else ...[
-                    KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
-                    const SizedBox(height: 16),
-                    KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
-                  ],
+                      if (!_usingVaultPassphrase) ...[
+                        const SizedBox(height: 8),
+                        // 保存暗号到保险库复选框
+                        CheckboxListTile(
+                          value: _savePassphrase,
+                          onChanged: _isLoading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _savePassphrase = value ?? false;
+                                  });
+                                },
+                          title: Text(
+                            l10n.saveAfterDecrypt,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                        ),
+                      ],
+                    ] else ...[
+                      KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
+                      const SizedBox(height: 16),
+                      KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
+                    ],
 
-                  // Error message
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.error, color: Colors.red, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 13,
+                    // Error message
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
+                    const SizedBox(height: 16),
                   ],
-                  const SizedBox(height: 16),
+                ),
+              ),
+            ),
+            // Fixed bottom action bar
+            Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    key: const ValueKey('decrypt_cancel_button'),
+                    onPressed: _isCancelling ? null : _handleCancel,
+                    child: Text(l10n.cancel),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: _isLoading ? null : _handleDecrypt,
+                      child: _isLoading
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: _decryptProgress > 0
+                                        ? _decryptProgress
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isCancelling
+                                      ? '${l10n.cancel}...'
+                                      : _decryptProgress > 0
+                                          ? '${(_decryptProgress * 100).toInt()}%'
+                                          : '解密中...',
+                                ),
+                              ],
+                            )
+                          : Text(l10n.decrypt),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          // Fixed bottom action bar
-          Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _isLoading ? null : () => Navigator.pop(context),
-                  child: Text(l10n.cancel),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: _isLoading ? null : _handleDecrypt,
-                    child: _isLoading
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  value: _decryptProgress > 0
-                                      ? _decryptProgress
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _decryptProgress > 0
-                                    ? '${(_decryptProgress * 100).toInt()}%'
-                                    : '解密中...',
-                              ),
-                            ],
-                          )
-                        : Text(l10n.decrypt),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

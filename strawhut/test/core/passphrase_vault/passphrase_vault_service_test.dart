@@ -432,6 +432,25 @@ void main() {
     });
   });
 
+  group('markUsed', () {
+    test('explicit vault selection updates useCount and lastUsedAt', () async {
+      final entry = createTestEntry(id: 'selected-entry', useCount: 2);
+      stubVaultWithEntries([entry]);
+
+      await service.markUsed(entry.id);
+
+      final captured = verify(() => mockStorage.write(
+            key: PassphraseVaultConstants.vaultStorageKey,
+            value: captureAny(named: 'value'),
+          )).captured.single as String;
+      final decoded = jsonDecode(captured) as Map<String, dynamic>;
+      final savedEntries = decoded['entries'] as List<dynamic>;
+      final savedEntry = savedEntries.single as Map<String, dynamic>;
+      expect(savedEntry['use_count'], 3);
+      expect(savedEntry['last_used_at'], isNotNull);
+    });
+  });
+
   // ============================================================
   // getEntryCount 测试
   // ============================================================

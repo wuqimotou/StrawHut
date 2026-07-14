@@ -153,6 +153,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get keySavedToDownloads => '密钥文件已保存到下载文件夹';
 
   @override
+  String publishSavedToPath(String path) {
+    return '发布成功！文件已保存至：$path';
+  }
+
+  @override
+  String publishFailed(String error) {
+    return '发布失败：$error';
+  }
+
+  @override
+  String get publishSuccessTitle => '发布成功';
+
+  @override
+  String get publishSuccessMessage => '知识卡片已成功发布！';
+
+  @override
+  String get filePathLabel => '文件路径：';
+
+  @override
+  String get unknownValue => '未知';
+
+  @override
+  String get done => '完成';
+
+  @override
   String get shareAsOriginalImage => '请以原图方式发送，否则接收方无法解密';
 
   @override
@@ -165,7 +190,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vaultEmptyTitle => '暗号保险库为空';
 
   @override
-  String get vaultEmptyDesc => '保存常用暗号后，解密暗号加密的卡片时将自动匹配，无需手动输入';
+  String get vaultEmptyDesc => '保存常用暗号后，可在解密界面直接选择，无需再次输入';
 
   @override
   String get vaultAddButton => '添加暗号';
@@ -214,7 +239,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String deletePassphraseMessage(String label) {
-    return '确定要删除暗号\"$label\"吗？删除后，使用此暗号加密的卡片将需要手动输入暗号才能解密。';
+    return '确定要删除暗号\"$label\"吗？删除后，解密时需重新输入或选择其他暗号。';
   }
 
   @override
