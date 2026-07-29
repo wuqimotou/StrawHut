@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/file_io/file_extensions.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 首页拖拽区域组件（仅 Windows 桌面端）
 ///
@@ -63,6 +66,7 @@ class _DropZoneState extends State<DropZone> {
     // Windows/macOS/Linux: render drop zone
     // Use DropTarget 包裹拖拽区域，监听拖拽事件
     // desktop_drop 包提供跨平台拖拽支持
+    final tokens = NeumorphicTokens.ofContext(context);
     return DropTarget(
       // 文件被拖入区域时触发
       // 设置 _isDragging 为 true，触发 UI 高亮反馈
@@ -91,43 +95,35 @@ class _DropZoneState extends State<DropZone> {
         _onFilesDropped(filePaths, context);
       },
       // 拖拽区域内容
-      child: Container(
-        // 容器高度固定，提供足够的拖拽目标区域
+      child: NeumorphicContainer(
+        // 凹陷容器：平时凹陷，拖入时切换为凸起高亮
+        shape: _isDragging
+            ? NeumorphicShape.convex
+            : NeumorphicShape.concave,
+        intensity: _isDragging
+            ? NeumorphicIntensity.strong
+            : NeumorphicIntensity.normal,
+        borderRadius: tokens.radiusLarge,
         height: 120,
-        // 边框样式：拖入时为实线，平时为虚线
-        decoration: BoxDecoration(
-          // 背景色：拖入时显示高亮蓝色，平时为透明
-          // 使用 withValues() 替代已弃用的 withOpacity()
-          color: _isDragging
-              ? Colors.blue.withValues(alpha: 0.1)
-              : Colors.transparent,
-          // 边框：拖入时为蓝色实线，平时为灰色虚线
-          border: Border.all(
-            color: _isDragging ? Colors.blue : Colors.grey[400]!,
-            width: _isDragging ? 2 : 1,
-            style: _isDragging ? BorderStyle.solid : BorderStyle.solid,
-          ),
-          // 圆角，让拖拽区域更美观
-          borderRadius: BorderRadius.circular(12),
-        ),
-        // 居中对齐内部内容
+        padding: EdgeInsets.zero,
         alignment: Alignment.center,
-        // 内部内容：图标 + 提示文字
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 拖拽图标：根据状态变化
-            Icon(
-              _isDragging ? Icons.file_download : Icons.cloud_upload_outlined,
+            NeumorphicIcon(
+              _isDragging ? StrawIcons.fileDownload : StrawIcons.cloudUpload,
               size: 32,
-              color: _isDragging ? Colors.blue : Colors.grey[600],
+              color: _isDragging
+                  ? tokens.inkPrimary
+                  : tokens.textSecondary,
             ),
             const SizedBox(height: 8),
-            // 提示文字：引导用户拖入 .straw 文件
             Text(
               '或将 .straw / .png 文件拖拽至此',
               style: TextStyle(
-                color: _isDragging ? Colors.blue : Colors.grey[600],
+                color: _isDragging
+                    ? tokens.inkPrimary
+                    : tokens.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -193,17 +189,12 @@ class _DropZoneState extends State<DropZone> {
   }
 
   /// 显示错误 SnackBar
-  ///
-  /// 在页面底部显示短暂的错误提示消息。
-  ///
-  /// 参数：
-  /// - [context] - BuildContext 用于显示 SnackBar
-  /// - [message] - 错误消息内容
   void _showErrorSnackBar(BuildContext context, String message) {
+    final tokens = NeumorphicTokens.ofContext(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red[700],
+        backgroundColor: tokens.error,
         duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
       ),

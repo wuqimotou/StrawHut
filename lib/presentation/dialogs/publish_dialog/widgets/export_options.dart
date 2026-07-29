@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 发布对话框 - 导出选项组件
 ///
@@ -37,41 +40,61 @@ class ExportOptions extends StatelessWidget {
   /// 构建导出选项 UI
   ///
   /// 布局结构：
-  /// - CheckboxListTile
-  ///   - title: '导出 .key 文件'
-  ///   - subtitle: '密钥文件可单独保存和传输'
-  ///
-  /// 使用 CheckboxListTile 而非单独的 Checkbox，
-  /// 因为前者提供更好的点击区域和视觉反馈。
+  /// - NeumorphicContainer（凹槽背景）
+  ///   - Row
+  ///     - NeumorphicIcon（密钥图标）
+  ///     - Expanded（标题 + 副标题）
+  ///     - Checkbox（Neumorphic tokens 配色）
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      // 复选框标题
-      title: const Text('导出 .key 文件'),
+    final tokens = NeumorphicTokens.ofContext(context);
 
-      // 副标题：解释 .key 文件的作用
-      subtitle: const Text(
-        '密钥文件可单独保存和传输，建议与 .straw 文件分开保管',
-        style: TextStyle(fontSize: 12),
+    return NeumorphicContainer(
+      shape: NeumorphicShape.concave,
+      borderRadius: tokens.radiusSmall,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          NeumorphicIcon(
+            StrawIcons.password,
+            size: 20,
+            color: tokens.inkSecondary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '导出 .key 文件',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '密钥文件可单独保存和传输，建议与 .straw 文件分开保管',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: tokens.inkPrimary,
+            checkColor: tokens.surface,
+            side: BorderSide(color: tokens.surfaceAlt, width: 1.5),
+          ),
+        ],
       ),
-
-      // 当前勾选状态
-      value: value,
-
-      // 勾选状态变化时的回调
-      onChanged: onChanged,
-
-      // 复选框位置：放在右侧
-      controlAffinity: ListTileControlAffinity.leading,
-
-      // 内容边距
-      contentPadding: EdgeInsets.zero,
-
-      // 选中时的颜色
-      activeColor: Theme.of(context).colorScheme.primary,
-
-      // 选中时显示勾选图标
-      checkColor: Colors.white,
     );
   }
 }

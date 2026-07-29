@@ -9,12 +9,14 @@ import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/home_screen.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 首页 Widget 单元测试
 ///
 /// 测试目标：验证 HomeScreen 页面布局和组件是否符合任务 3.3 验收标准
 /// 覆盖范围：
-/// - 页面包含 AppBar、标题、Logo 图标
+/// - 页面包含 PreferredSize 顶部栏、标题、Logo 图标
 /// - "发布知识卡片" 按钮存在且点击后导航到 /editor
 /// - "解密知识卡片" 按钮存在
 /// - DropZone 组件存在
@@ -57,35 +59,25 @@ void main() {
       expect(find.byType(Scaffold), findsOneWidget);
     });
 
-    testWidgets('页面应包含 AppBar 组件', (WidgetTester tester) async {
+    testWidgets('页面应包含 PreferredSize 顶部栏组件', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证存在 AppBar
-      expect(find.byType(AppBar), findsOneWidget);
+      // 验证存在 PreferredSize（软质浮动应用栏）
+      expect(find.byType(PreferredSize), findsOneWidget);
     });
 
-    testWidgets('AppBar 标题应显示 "StrawHut - 草棚"', (WidgetTester tester) async {
+    testWidgets('顶部栏标题应显示 "StrawHut · 草棚"', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证 AppBar 标题文字
+      // 验证顶部栏标题文字
       expect(
-        find.text('StrawHut - 草棚'),
+        find.text('StrawHut · 草棚'),
         findsOneWidget,
       );
-    });
-
-    testWidgets('AppBar 标题应居中显示', (WidgetTester tester) async {
-      // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
-      await tester.pumpAndSettle();
-
-      // 查找 AppBar 并验证 centerTitle 属性
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.centerTitle, true);
     });
 
     testWidgets('页面应显示欢迎标题 "欢迎使用 StrawHut"', (WidgetTester tester) async {
@@ -109,17 +101,25 @@ void main() {
       );
     });
 
-    testWidgets('页面应显示大号 Lock 图标作为 Logo', (WidgetTester tester) async {
+    testWidgets('页面应显示 NeumorphicContainer Logo 图标', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证存在 lock_outline_rounded 图标
-      expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
+      // 验证存在 Logo 容器（120x120 凸起软质容器）
+      final logoFinder = find.byWidgetPredicate(
+        (widget) => widget is NeumorphicContainer && widget.width == 120,
+      );
+      expect(logoFinder, findsOneWidget);
 
-      // 验证图标大小为 80
-      final icon = tester.widget<Icon>(find.byIcon(Icons.lock_outline_rounded));
-      expect(icon.size, 80);
+      // 验证 Logo 容器内包含 NeumorphicIcon
+      expect(
+        find.descendant(
+          of: logoFinder,
+          matching: find.byType(NeumorphicIcon),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
@@ -202,7 +202,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // 获取所有可见的文字和图标
-        final iconFinder = find.byIcon(Icons.lock_outline_rounded);
+        final logoFinder = find.byWidgetPredicate(
+          (widget) => widget is NeumorphicContainer && widget.width == 120,
+        );
         final welcomeFinder = find.text('欢迎使用 StrawHut');
         final subtitleFinder = find.text('创建加密知识卡片，安全分享你的知识');
         final createButtonFinder = find.text('发布知识卡片');
@@ -210,7 +212,7 @@ void main() {
         final dropZoneFinder = find.text('或将 .straw / .png 文件拖拽至此');
 
         // 验证所有元素都存在
-        expect(iconFinder, findsOneWidget);
+        expect(logoFinder, findsOneWidget);
         expect(welcomeFinder, findsOneWidget);
         expect(subtitleFinder, findsOneWidget);
         expect(createButtonFinder, findsOneWidget);
@@ -218,7 +220,7 @@ void main() {
         expect(dropZoneFinder, findsOneWidget);
 
         // 验证垂直排列顺序
-        final iconRect = tester.getRect(iconFinder);
+        final logoRect = tester.getRect(logoFinder);
         final welcomeRect = tester.getRect(welcomeFinder);
         final subtitleRect = tester.getRect(subtitleFinder);
         final createButtonRect = tester.getRect(createButtonFinder);
@@ -226,7 +228,7 @@ void main() {
         final dropZoneRect = tester.getRect(dropZoneFinder);
 
         // 验证从上到下的顺序
-        expect(welcomeRect.top, greaterThan(iconRect.bottom));
+        expect(welcomeRect.top, greaterThan(logoRect.bottom));
         expect(subtitleRect.top, greaterThan(welcomeRect.bottom));
         expect(createButtonRect.top, greaterThan(subtitleRect.bottom));
         expect(openButtonRect.top, greaterThan(createButtonRect.bottom));

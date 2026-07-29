@@ -25,6 +25,8 @@ import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 构建用于测试的 MetaPreview Widget
 ///
@@ -71,14 +73,14 @@ StrawFile _createTestStrawFile({
 
 void main() {
   group('MetaPreview 基本渲染测试', () {
-    testWidgets('组件应使用 Card 作为容器', (WidgetTester tester) async {
+    testWidgets('组件应使用 NeumorphicContainer 作为容器', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile();
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证 Card 容器存在
-      expect(find.byType(Card), findsOneWidget);
+      // 验证 NeumorphicContainer 容器存在
+      expect(find.byType(NeumorphicContainer), findsWidgets);
     });
 
     testWidgets('组件应使用 Column 进行垂直布局', (WidgetTester tester) async {
@@ -197,14 +199,14 @@ void main() {
       expect(find.text('知识分享'), findsOneWidget);
     });
 
-    testWidgets('标签应使用 Chip 组件渲染', (WidgetTester tester) async {
+    testWidgets('标签应使用 NeumorphicContainer 组件渲染', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(tags: ['测试标签']);
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证 Chip 组件存在（标签数量 + 可能的其他 Chip）
-      expect(find.byType(Chip), findsWidgets);
+      // 验证 NeumorphicContainer 组件存在（标签作为软质胶囊渲染）
+      expect(find.byType(NeumorphicContainer), findsWidgets);
     });
 
     testWidgets('标签为空列表时不应显示标签区域', (WidgetTester tester) async {
@@ -233,7 +235,7 @@ void main() {
       expect(find.text('匿名'), findsOneWidget);
     });
 
-    testWidgets('匿名模式下应显示 visibility_off 图标', (WidgetTester tester) async {
+    testWidgets('匿名模式下应显示 eyeOff 图标', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publisherAlias: 'Anonymous_a3f7b2c1',
         isAnonymous: true,
@@ -242,8 +244,14 @@ void main() {
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证匿名图标存在
-      expect(find.byIcon(Icons.visibility_off), findsOneWidget);
+      // 验证匿名图标存在（NeumorphicIcon 使用 SVG，无法用 byIcon 查找）
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is NeumorphicIcon && widget.iconBody == StrawIcons.eyeOff,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('非匿名模式下不应显示"匿名"标识', (WidgetTester tester) async {
@@ -258,7 +266,7 @@ void main() {
       expect(find.text('匿名'), findsNothing);
     });
 
-    testWidgets('非匿名模式下不应显示 visibility_off 图标', (WidgetTester tester) async {
+    testWidgets('非匿名模式下不应显示 eyeOff 图标', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile(
         publisherAlias: '张三',
       );
@@ -266,8 +274,14 @@ void main() {
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证匿名图标不存在
-      expect(find.byIcon(Icons.visibility_off), findsNothing);
+      // 验证匿名图标不存在（NeumorphicIcon 使用 SVG，无法用 byIcon 查找）
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is NeumorphicIcon && widget.iconBody == StrawIcons.eyeOff,
+        ),
+        findsNothing,
+      );
     });
   });
 
@@ -285,37 +299,55 @@ void main() {
       );
     });
 
-    testWidgets('应显示 lock_outline 图标', (WidgetTester tester) async {
+    testWidgets('应显示 lock 图标', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile();
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证锁图标存在
-      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      // 验证锁图标存在（NeumorphicIcon 使用 SVG，无法用 byIcon 查找）
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is NeumorphicIcon && widget.iconBody == StrawIcons.lock,
+        ),
+        findsOneWidget,
+      );
     });
   });
 
   group('MetaPreview 布局元素测试', () {
-    testWidgets('应显示 person_outline 图标（发布者图标）', (WidgetTester tester) async {
+    testWidgets('应显示 person 图标（发布者图标）', (WidgetTester tester) async {
       final strawFile = _createTestStrawFile();
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证发布者图标存在
-      expect(find.byIcon(Icons.person_outline), findsOneWidget);
+      // 验证发布者图标存在（NeumorphicIcon 使用 SVG，无法用 byIcon 查找）
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is NeumorphicIcon && widget.iconBody == StrawIcons.person,
+        ),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('应显示 calendar_today_outlined 图标（日期图标）',
+    testWidgets('应显示 calendar 图标（日期图标）',
         (WidgetTester tester) async {
       final strawFile = _createTestStrawFile();
 
       await tester.pumpWidget(_buildMetaPreview(strawFile: strawFile));
       await tester.pumpAndSettle();
 
-      // 验证日期图标存在
-      expect(find.byIcon(Icons.calendar_today_outlined), findsOneWidget);
+      // 验证日期图标存在（NeumorphicIcon 使用 SVG，无法用 byIcon 查找）
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is NeumorphicIcon && widget.iconBody == StrawIcons.calendar,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('应显示 Divider 分隔线', (WidgetTester tester) async {

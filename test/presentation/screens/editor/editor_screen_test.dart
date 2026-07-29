@@ -24,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/screens/editor/editor_screen.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 
 /// 用于 Widget 测试的辅助方法：构建被 ProviderScope 包裹的 EditorScreen
 Widget createEditorScreen() {
@@ -55,8 +56,8 @@ void main() {
       await tester.pumpWidget(createEditorScreen());
       await tester.pumpAndSettle();
 
-      // 验证返回按钮存在
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      // 验证返回按钮存在（NeumorphicIconButton 通过 tooltip 标识）
+      expect(find.byTooltip('返回'), findsOneWidget);
     });
 
     testWidgets('AppBar 标题应该显示"编辑知识卡片"', (tester) async {
@@ -71,8 +72,8 @@ void main() {
       await tester.pumpWidget(createEditorScreen());
       await tester.pumpAndSettle();
 
-      // 验证发布按钮存在
-      expect(find.byIcon(Icons.publish), findsOneWidget);
+      // 验证发布按钮存在（NeumorphicIconButton 通过 tooltip 标识）
+      expect(find.byTooltip('发布'), findsOneWidget);
     });
   });
 
@@ -99,8 +100,8 @@ void main() {
       await tester.pumpWidget(createEditorScreen());
       await tester.pumpAndSettle();
 
-      // 验证底部栏存在 OutlinedButton
-      expect(find.byType(OutlinedButton), findsOneWidget);
+      // 验证底部栏存在 NeumorphicButton（模式切换按钮）
+      expect(find.byType(NeumorphicButton), findsOneWidget);
     });
 
     testWidgets('编辑模式下底部按钮应该显示"预览"', (tester) async {
@@ -182,7 +183,8 @@ void main() {
 
       // 工具栏按钮不应该存在
       // 注意：PreviewPanel 内部也使用 QuillEditor，所以不能通过 QuillEditor 判断
-      expect(find.byType(OutlinedButton), findsOneWidget);
+      // 验证底部栏的 NeumorphicButton 仍然存在
+      expect(find.byType(NeumorphicButton), findsOneWidget);
     });
   });
 
@@ -191,11 +193,11 @@ void main() {
       await tester.pumpWidget(createEditorScreen());
       await tester.pumpAndSettle();
 
-      // 验证发布按钮存在
-      expect(find.byIcon(Icons.publish), findsOneWidget);
+      // 验证发布按钮存在（NeumorphicIconButton 通过 tooltip 标识）
+      expect(find.byTooltip('发布'), findsOneWidget);
 
       // 点击发布按钮
-      await tester.tap(find.byIcon(Icons.publish));
+      await tester.tap(find.byTooltip('发布'));
       await tester.pumpAndSettle();
 
       // 发布对话框当前为 Placeholder，验证按钮点击后没有崩溃
@@ -238,8 +240,8 @@ void main() {
       // 验证编辑器页面显示
       expect(find.text('编辑知识卡片'), findsOneWidget);
 
-      // 点击返回按钮
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      // 点击返回按钮（NeumorphicIconButton 通过 tooltip 标识）
+      await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
 
       // 验证返回到首页

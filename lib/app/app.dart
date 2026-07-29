@@ -207,8 +207,18 @@ class _StrawHutAppState extends ConsumerState<StrawHutApp>
       // 全局字体统一配置
       // 使用 builder 在所有 Material 组件外层包裹 DefaultTextStyle，
       // 确保所有组件（包括按钮、对话框、导航栏等）都使用统一的中文字体。
+      // 同时钳制 textScaler 上限，防止系统大字号设置导致按钮文字溢出容器。
       builder: (context, child) {
-        return DefaultTextStyle(style: _globalTextStyle(), child: child!);
+        // 钳制系统文字缩放：上限 1.1，避免大字号破坏紧凑按钮布局
+        final mq = MediaQuery.of(context);
+        final clampedScaler = mq.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.1,
+        );
+        return MediaQuery(
+          data: mq.copyWith(textScaler: clampedScaler),
+          child: DefaultTextStyle(style: _globalTextStyle(), child: child!),
+        );
       },
     );
   }

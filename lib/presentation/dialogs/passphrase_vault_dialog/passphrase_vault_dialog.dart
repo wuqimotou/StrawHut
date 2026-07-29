@@ -2,12 +2,16 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_exception.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_service.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/widgets/passphrase_entry_tile.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 暗号保险库管理对话框
@@ -75,23 +79,72 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.deletePassphraseTitle),
-        content: Text(l10n.deletePassphraseMessage(label)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancel),
+      builder: (context) {
+        final tokens = NeumorphicTokens.ofContext(context);
+        return Dialog(
+          backgroundColor: tokens.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.radiusXLarge),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      NeumorphicIcon(
+                        StrawIcons.trash,
+                        size: 22,
+                        color: tokens.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          l10n.deletePassphraseTitle,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: tokens.spaceMd),
+                  Text(
+                    l10n.deletePassphraseMessage(label),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  SizedBox(height: tokens.spaceLg),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      NeumorphicButton(
+                        label: l10n.cancel,
+                        style: NeumorphicButtonStyle.flat,
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                      const SizedBox(width: 8),
+                      NeumorphicButton(
+                        label: l10n.delete,
+                        style: NeumorphicButtonStyle.primary,
+                        onPressed: () => Navigator.pop(context, true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.delete),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if ((confirmed ?? false) && mounted) {
@@ -105,7 +158,7 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor: Colors.red[700],
+              backgroundColor: NeumorphicTokens.ofContext(context).error,
             ),
           );
         }
@@ -119,49 +172,97 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final tokens = NeumorphicTokens.ofContext(context);
         var inputText = '';
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final isDeleteEnabled = inputText == 'DELETE';
-            return AlertDialog(
-              title: Text(l10n.clearAllTitle),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.clearAllWarning),
-                  const SizedBox(height: 16),
-                  Text(l10n.clearAllConfirmInput),
-                  const SizedBox(height: 8),
-                  TextField(
-                    onChanged: (value) {
-                      inputText = value;
-                      setDialogState(() {});
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'DELETE',
-                    ),
-                  ),
-                ],
+            return Dialog(
+              backgroundColor: tokens.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusXLarge),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: isDeleteEnabled
-                        ? Theme.of(context).colorScheme.error
-                        : null,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          NeumorphicIcon(
+                            StrawIcons.warning,
+                            size: 22,
+                            color: tokens.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              l10n.clearAllTitle,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: tokens.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: tokens.spaceMd),
+                      Text(
+                        l10n.clearAllWarning,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: tokens.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceMd),
+                      Text(
+                        l10n.clearAllConfirmInput,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceSm),
+                      TextField(
+                        onChanged: (value) {
+                          inputText = value;
+                          setDialogState(() {});
+                        },
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(tokens.radiusSmall),
+                          ),
+                          hintText: 'DELETE',
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceLg),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          NeumorphicButton(
+                            label: l10n.cancel,
+                            style: NeumorphicButtonStyle.flat,
+                            onPressed: () => Navigator.pop(context, false),
+                          ),
+                          const SizedBox(width: 8),
+                          NeumorphicButton(
+                            label: l10n.clearAll,
+                            style: NeumorphicButtonStyle.primary,
+                            onPressed: isDeleteEnabled
+                                ? () => Navigator.pop(context, true)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  onPressed: isDeleteEnabled
-                      ? () => Navigator.pop(context, true)
-                      : null,
-                  child: Text(l10n.clearAll),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -179,7 +280,7 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor: Colors.red[700],
+              backgroundColor: NeumorphicTokens.ofContext(context).error,
             ),
           );
         }
@@ -189,40 +290,39 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
 
   /// 构建空状态界面
   Widget _buildEmptyState(AppLocalizations l10n) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.no_encryption_outlined,
+            NeumorphicIcon(
+              StrawIcons.unlock,
               size: 56,
-              color: Colors.grey[400],
+              color: tokens.textHint,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: tokens.spaceMd),
             Text(
               l10n.vaultEmptyTitle,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
+                color: tokens.textSecondary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Text(
               l10n.vaultEmptyDesc,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 13, color: tokens.textHint),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
+            SizedBox(height: tokens.spaceLg + 4),
+            NeumorphicButton(
+              label: l10n.vaultAddButton,
+              icon: StrawIcons.add,
+              style: NeumorphicButtonStyle.primary,
               onPressed: _handleAddPassphrase,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.vaultAddButton),
             ),
           ],
         ),
@@ -235,31 +335,36 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
     List<PassphraseEntry> entries,
     AppLocalizations l10n,
   ) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Column(
       children: [
         // 安全提示
-        Container(
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.shield_outlined, color: Colors.blue[700], size: 18),
+              NeumorphicIcon(
+                StrawIcons.lock,
+                size: 18,
+                color: tokens.inkSecondary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   l10n.vaultSecurityNote,
-                  style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceSm + tokens.spaceXs),
 
         // 暗号条目列表
         ...entries.map(
@@ -269,44 +374,28 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
           ),
         ),
 
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceSm + tokens.spaceXs),
 
         // 操作按钮
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: NeumorphicButton(
+                label: l10n.vaultAddButton,
+                icon: StrawIcons.add,
+                style: NeumorphicButtonStyle.secondary,
+                expanded: true,
                 onPressed: _handleAddPassphrase,
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(l10n.vaultAddButton),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton.icon(
+              child: NeumorphicButton(
+                label: l10n.vaultClearAllButton,
+                icon: StrawIcons.trash,
+                style: NeumorphicButtonStyle.secondary,
+                expanded: true,
                 onPressed: entries.isNotEmpty ? _handleClearAll : null,
-                icon: Icon(
-                  Icons.delete_sweep_outlined,
-                  size: 18,
-                  color: entries.isNotEmpty
-                      ? Theme.of(context).colorScheme.error
-                      : null,
-                ),
-                label: Text(
-                  l10n.vaultClearAllButton,
-                  style: entries.isNotEmpty
-                      ? TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        )
-                      : null,
-                ),
-                style: entries.isNotEmpty
-                    ? OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      )
-                    : null,
               ),
             ),
           ],
@@ -317,14 +406,12 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
 
   /// 构建底部计数标签
   Widget _buildCountLabel(AppLocalizations l10n, int count) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: EdgeInsets.only(top: tokens.spaceSm + tokens.spaceXs),
       child: Text(
         l10n.vaultCountLabel(count),
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
+        style: TextStyle(fontSize: 12, color: tokens.textHint),
         textAlign: TextAlign.center,
       ),
     );
@@ -333,57 +420,114 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
     final entriesAsync = ref.watch(passphraseEntriesProvider);
 
-    return AlertDialog(
-      title: Text(l10n.vaultTitle),
-      content: ConstrainedBox(
+    return Dialog(
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+      ),
+      child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 600),
-        child: SingleChildScrollView(
-          child: entriesAsync.when(
-            data: (entries) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 标题
+              Row(
                 children: [
-                  if (entries.isEmpty)
-                    _buildEmptyState(l10n)
-                  else
-                    _buildPassphraseList(entries, l10n),
-                  _buildCountLabel(l10n, entries.length),
-                ],
-              );
-            },
-            loading: () => const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (Object error, _) => SizedBox(
-              height: 200,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 40, color: Colors.red[300]),
-                    const SizedBox(height: 8),
-                    Text(
-                      error.toString(),
-                      style: TextStyle(color: Colors.red[700], fontSize: 13),
-                      textAlign: TextAlign.center,
+                  NeumorphicIcon(
+                    StrawIcons.lock,
+                    size: 22,
+                    color: tokens.inkPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      l10n.vaultTitle,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              SizedBox(height: tokens.spaceMd),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: entriesAsync.when(
+                    data: (entries) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (entries.isEmpty)
+                            _buildEmptyState(l10n)
+                          else
+                            _buildPassphraseList(entries, l10n),
+                          _buildCountLabel(l10n, entries.length),
+                        ],
+                      );
+                    },
+                    loading: () => SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: NeumorphicContainer(
+                          shape: NeumorphicShape.concave,
+                          borderRadius: tokens.radiusXLarge,
+                          padding: const EdgeInsets.all(16),
+                          child: CircularProgressIndicator(
+                            color: tokens.inkPrimary,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    error: (Object error, _) => SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            NeumorphicIcon(
+                              StrawIcons.error,
+                              size: 40,
+                              color: tokens.error,
+                            ),
+                            SizedBox(height: tokens.spaceSm),
+                            Text(
+                              error.toString(),
+                              style: TextStyle(
+                                color: tokens.error,
+                                fontSize: 13,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              SizedBox(height: tokens.spaceMd),
+              Align(
+                alignment: Alignment.centerRight,
+                child: NeumorphicButton(
+                  label: l10n.cancel,
+                  style: NeumorphicButtonStyle.flat,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
-        ),
-      ],
     );
   }
 }
@@ -410,23 +554,72 @@ class _PassphraseVaultMobileState
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.deletePassphraseTitle),
-        content: Text(l10n.deletePassphraseMessage(label)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancel),
+      builder: (context) {
+        final tokens = NeumorphicTokens.ofContext(context);
+        return Dialog(
+          backgroundColor: tokens.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.radiusXLarge),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      NeumorphicIcon(
+                        StrawIcons.trash,
+                        size: 22,
+                        color: tokens.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          l10n.deletePassphraseTitle,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: tokens.spaceMd),
+                  Text(
+                    l10n.deletePassphraseMessage(label),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  SizedBox(height: tokens.spaceLg),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      NeumorphicButton(
+                        label: l10n.cancel,
+                        style: NeumorphicButtonStyle.flat,
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                      const SizedBox(width: 8),
+                      NeumorphicButton(
+                        label: l10n.delete,
+                        style: NeumorphicButtonStyle.primary,
+                        onPressed: () => Navigator.pop(context, true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.delete),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if ((confirmed ?? false) && mounted) {
@@ -440,7 +633,7 @@ class _PassphraseVaultMobileState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor: Colors.red[700],
+              backgroundColor: NeumorphicTokens.ofContext(context).error,
             ),
           );
         }
@@ -453,49 +646,97 @@ class _PassphraseVaultMobileState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final tokens = NeumorphicTokens.ofContext(context);
         var inputText = '';
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final isDeleteEnabled = inputText == 'DELETE';
-            return AlertDialog(
-              title: Text(l10n.clearAllTitle),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.clearAllWarning),
-                  const SizedBox(height: 16),
-                  Text(l10n.clearAllConfirmInput),
-                  const SizedBox(height: 8),
-                  TextField(
-                    onChanged: (value) {
-                      inputText = value;
-                      setDialogState(() {});
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'DELETE',
-                    ),
-                  ),
-                ],
+            return Dialog(
+              backgroundColor: tokens.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusXLarge),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: isDeleteEnabled
-                        ? Theme.of(context).colorScheme.error
-                        : null,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          NeumorphicIcon(
+                            StrawIcons.warning,
+                            size: 22,
+                            color: tokens.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              l10n.clearAllTitle,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: tokens.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: tokens.spaceMd),
+                      Text(
+                        l10n.clearAllWarning,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: tokens.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceMd),
+                      Text(
+                        l10n.clearAllConfirmInput,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceSm),
+                      TextField(
+                        onChanged: (value) {
+                          inputText = value;
+                          setDialogState(() {});
+                        },
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(tokens.radiusSmall),
+                          ),
+                          hintText: 'DELETE',
+                        ),
+                      ),
+                      SizedBox(height: tokens.spaceLg),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          NeumorphicButton(
+                            label: l10n.cancel,
+                            style: NeumorphicButtonStyle.flat,
+                            onPressed: () => Navigator.pop(context, false),
+                          ),
+                          const SizedBox(width: 8),
+                          NeumorphicButton(
+                            label: l10n.clearAll,
+                            style: NeumorphicButtonStyle.primary,
+                            onPressed: isDeleteEnabled
+                                ? () => Navigator.pop(context, true)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  onPressed: isDeleteEnabled
-                      ? () => Navigator.pop(context, true)
-                      : null,
-                  child: Text(l10n.clearAll),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -513,7 +754,7 @@ class _PassphraseVaultMobileState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.message),
-              backgroundColor: Colors.red[700],
+              backgroundColor: NeumorphicTokens.ofContext(context).error,
             ),
           );
         }
@@ -522,37 +763,39 @@ class _PassphraseVaultMobileState
   }
 
   Widget _buildEmptyState(AppLocalizations l10n) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.no_encryption_outlined,
+            NeumorphicIcon(
+              StrawIcons.unlock,
               size: 56,
-              color: Colors.grey[400],
+              color: tokens.textHint,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: tokens.spaceMd),
             Text(
               l10n.vaultEmptyTitle,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
+                color: tokens.textSecondary,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Text(
               l10n.vaultEmptyDesc,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 13, color: tokens.textHint),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
+            SizedBox(height: tokens.spaceLg + 4),
+            NeumorphicButton(
+              label: l10n.vaultAddButton,
+              icon: StrawIcons.add,
+              style: NeumorphicButtonStyle.primary,
               onPressed: _handleAddPassphrase,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.vaultAddButton),
             ),
           ],
         ),
@@ -564,31 +807,36 @@ class _PassphraseVaultMobileState
     List<PassphraseEntry> entries,
     AppLocalizations l10n,
   ) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Column(
       children: [
         // 安全提示
-        Container(
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.shield_outlined, color: Colors.blue[700], size: 18),
+              NeumorphicIcon(
+                StrawIcons.lock,
+                size: 18,
+                color: tokens.inkSecondary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   l10n.vaultSecurityNote,
-                  style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceSm + tokens.spaceXs),
 
         // 暗号条目列表
         ...entries.map(
@@ -598,44 +846,28 @@ class _PassphraseVaultMobileState
           ),
         ),
 
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceSm + tokens.spaceXs),
 
         // 操作按钮
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: NeumorphicButton(
+                label: l10n.vaultAddButton,
+                icon: StrawIcons.add,
+                style: NeumorphicButtonStyle.secondary,
+                expanded: true,
                 onPressed: _handleAddPassphrase,
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(l10n.vaultAddButton),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton.icon(
+              child: NeumorphicButton(
+                label: l10n.vaultClearAllButton,
+                icon: StrawIcons.trash,
+                style: NeumorphicButtonStyle.secondary,
+                expanded: true,
                 onPressed: entries.isNotEmpty ? _handleClearAll : null,
-                icon: Icon(
-                  Icons.delete_sweep_outlined,
-                  size: 18,
-                  color: entries.isNotEmpty
-                      ? Theme.of(context).colorScheme.error
-                      : null,
-                ),
-                label: Text(
-                  l10n.vaultClearAllButton,
-                  style: entries.isNotEmpty
-                      ? TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        )
-                      : null,
-                ),
-                style: entries.isNotEmpty
-                    ? OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      )
-                    : null,
               ),
             ),
           ],
@@ -645,11 +877,12 @@ class _PassphraseVaultMobileState
   }
 
   Widget _buildCountLabel(AppLocalizations l10n, int count) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: EdgeInsets.only(top: tokens.spaceSm + tokens.spaceXs),
       child: Text(
         l10n.vaultCountLabel(count),
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: tokens.textHint),
         textAlign: TextAlign.center,
       ),
     );
@@ -658,6 +891,7 @@ class _PassphraseVaultMobileState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
     final entriesAsync = ref.watch(passphraseEntriesProvider);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
@@ -674,18 +908,34 @@ class _PassphraseVaultMobileState
               height: 4,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[400],
+                color: tokens.surfaceAlt,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
 
           // 标题
-          Text(
-            l10n.vaultTitle,
-            style: Theme.of(context).textTheme.titleLarge,
+          Row(
+            children: [
+              NeumorphicIcon(
+                StrawIcons.lock,
+                size: 22,
+                color: tokens.inkPrimary,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  l10n.vaultTitle,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: tokens.spaceSm + tokens.spaceXs),
 
           // 可滚动内容区域
           Flexible(
@@ -704,9 +954,19 @@ class _PassphraseVaultMobileState
                     ],
                   );
                 },
-                loading: () => const SizedBox(
+                loading: () => SizedBox(
                   height: 200,
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(
+                    child: NeumorphicContainer(
+                      shape: NeumorphicShape.concave,
+                      borderRadius: tokens.radiusXLarge,
+                      padding: const EdgeInsets.all(16),
+                      child: CircularProgressIndicator(
+                        color: tokens.inkPrimary,
+                        strokeWidth: 2.5,
+                      ),
+                    ),
+                  ),
                 ),
                 error: (Object error, _) => SizedBox(
                   height: 200,
@@ -714,16 +974,16 @@ class _PassphraseVaultMobileState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.error_outline,
+                        NeumorphicIcon(
+                          StrawIcons.error,
                           size: 40,
-                          color: Colors.red[300],
+                          color: tokens.error,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: tokens.spaceSm),
                         Text(
                           error.toString(),
                           style: TextStyle(
-                            color: Colors.red[700],
+                            color: tokens.error,
                             fontSize: 13,
                           ),
                           textAlign: TextAlign.center,
@@ -737,18 +997,17 @@ class _PassphraseVaultMobileState
           ),
 
           // 底部关闭按钮
-          Container(
+          Padding(
             padding: EdgeInsets.only(
               top: 8,
               bottom: 8 + bottomInset,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.cancel),
-              ),
+            child: NeumorphicButton(
+              label: l10n.cancel,
+              style: NeumorphicButtonStyle.secondary,
+              expanded: true,
+              minimumSize: const Size(0, 48),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ],

@@ -11,6 +11,7 @@ import 'package:strawhut/core/migration/migration_service.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/l10n/l10n.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
@@ -18,6 +19,9 @@ import 'package:strawhut/presentation/screens/reader/widgets/file_save_prompt.da
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/quill_viewer.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/text_viewer.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 旧版文件格式检测 Provider
 ///
@@ -188,21 +192,56 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 返回 true 表示用户选择迁移，false 表示取消。
   Future<bool?> _showMigrationDialog() {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.legacyFileFormatTitle),
-        content: Text(l10n.legacyFileFormatMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.cancel),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.legacyFileFormatTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.legacyFileFormatMessage,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: tokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  NeumorphicButton(
+                    label: l10n.cancel,
+                    style: NeumorphicButtonStyle.flat,
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                  ),
+                  const SizedBox(width: 8),
+                  NeumorphicButton(
+                    label: l10n.migrate,
+                    style: NeumorphicButtonStyle.primary,
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.migrate),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -582,48 +621,70 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// - metaOnly: 元数据预览
   /// - decrypted: 根据内容类型展示对应查看器
   Widget _buildBody() {
+    final tokens = NeumorphicTokens.ofContext(context);
     switch (_status) {
       case ReaderStatus.loading:
-        // 加载中的提示
-        return const Center(
+        return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在加载知识卡片...'),
+              // 凹陷凹槽内的软质进度
+              NeumorphicContainer(
+                shape: NeumorphicShape.concave,
+                borderRadius: tokens.radiusLarge,
+                padding: const EdgeInsets.all(24),
+                child: CircularProgressIndicator(
+                  color: tokens.inkPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '正在加载知识卡片...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: tokens.textSecondary,
+                ),
+              ),
             ],
           ),
         );
 
       case ReaderStatus.error:
-        // 错误提示
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline,
+                NeumorphicIcon(
+                  StrawIcons.error,
                   size: 64,
-                  color: Theme.of(context).colorScheme.error,
+                  color: tokens.error,
                 ),
                 const SizedBox(height: 16),
-                Text('加载失败', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  '加载失败',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   _errorMessage ?? '未知错误',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: tokens.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                FilledButton.icon(
+                NeumorphicButton(
+                  label: '重试',
+                  icon: StrawIcons.refresh,
+                  style: NeumorphicButtonStyle.primary,
                   onPressed: _handleRetry,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
                 ),
               ],
             ),
@@ -631,11 +692,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         );
 
       case ReaderStatus.metaOnly:
-        // 展示元数据预览
         return _buildMetaOnlyContent();
 
       case ReaderStatus.decrypted:
-        // 展示解密后的内容
         return _buildDecryptedContent();
     }
   }
@@ -644,25 +703,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// 展示 MetaPreview 组件，并提示用户进行解密。
   Widget _buildMetaOnlyContent() {
+    final tokens = NeumorphicTokens.ofContext(context);
     final strawFile = _strawFile;
     if (strawFile == null) {
-      return const Center(child: Text('文件数据丢失'));
+      return Center(
+        child: Text(
+          '文件数据丢失',
+          style: TextStyle(color: tokens.textSecondary),
+        ),
+      );
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 元数据预览卡片
           MetaPreview(strawFile: strawFile.strawFile),
           const SizedBox(height: 16),
-          // 解密提示
           Text(
             '该卡片已加密，请在对话框中输入密钥以解密查看完整内容。',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            style: TextStyle(
+              fontSize: 12,
+              color: tokens.textHint,
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -684,6 +748,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return const Center(child: Text('解密内容为空'));
     }
 
+    final tokens = NeumorphicTokens.ofContext(context);
     final meta = _strawFile?.strawFile.meta;
 
     // 构建元数据头部
@@ -695,10 +760,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             child: Row(
               children: [
-                Icon(
-                  Icons.person_outline,
+                NeumorphicIcon(
+                  StrawIcons.person,
                   size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: tokens.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -706,28 +771,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     meta.publisherAlias,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: tokens.textSecondary,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
-                Icon(
-                  Icons.calendar_today_outlined,
+                NeumorphicIcon(
+                  StrawIcons.calendar,
                   size: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: tokens.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   _formatDate(meta.publishDate),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: tokens.divider),
         ],
       );
     }
@@ -790,6 +857,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     // 获取卡片标题用于 AppBar
     String appBarTitle;
     if (_strawFile != null) {
@@ -810,50 +878,72 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         }
       },
       child: Scaffold(
-        // 顶部导航栏：卡片标题 + 返回按钮
-        appBar: AppBar(
-          title: Text(appBarTitle),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _handleBack,
-            tooltip: '返回首页',
+        backgroundColor: tokens.surface,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight + 8),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+              child: Row(
+                children: [
+                  NeumorphicIconButton(
+                    icon: StrawIcons.arrowBack,
+                    size: 44,
+                    iconSize: 20,
+                    tooltip: '返回首页',
+                    onPressed: _handleBack,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      appBarTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                  // 保存文件按钮（多媒体/PDF/其他）
+                  if (_status == ReaderStatus.decrypted &&
+                      _contentType != null &&
+                      _contentType != ContentType.richText &&
+                      _contentType != ContentType.text &&
+                      _contentType != ContentType.markdown)
+                    NeumorphicIconButton(
+                      icon: StrawIcons.saveAlt,
+                      size: 44,
+                      iconSize: 20,
+                      tooltip: '保存文件',
+                      onPressed: _handleSaveFile,
+                    ),
+                  // 重新解密按钮
+                  if (_status == ReaderStatus.decrypted) ...[
+                    const SizedBox(width: 8),
+                    NeumorphicIconButton(
+                      icon: StrawIcons.unlock,
+                      size: 44,
+                      iconSize: 20,
+                      tooltip: '重新解密',
+                      onPressed: () {
+                        _cleanupTempFile();
+                        setState(() {
+                          _hasShownDecryptDialog = false;
+                          _decryptResult = null;
+                          _contentType = null;
+                          _tempFilePath = null;
+                        });
+                        _showDecryptDialog();
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          actions: [
-            // 在解密状态下，为多媒体和 PDF 类型提供保存文件按钮
-            if (_status == ReaderStatus.decrypted &&
-                _contentType != null &&
-                _contentType != ContentType.richText &&
-                _contentType != ContentType.text &&
-                _contentType != ContentType.markdown)
-              IconButton(
-                icon: const Icon(Icons.save_alt),
-                onPressed: _handleSaveFile,
-                tooltip: '保存文件',
-                iconSize: 20,
-              ),
-            // 在解密状态下，提供重新解密按钮（允许用户换一个密钥重新解密）
-            if (_status == ReaderStatus.decrypted)
-              IconButton(
-                icon: const Icon(Icons.lock_open),
-                onPressed: () {
-                  // 清理临时文件和旧状态
-                  _cleanupTempFile();
-                  // 重置为未解密状态，重置对话框标记以便重新弹出
-                  setState(() {
-                    _hasShownDecryptDialog = false;
-                    _decryptResult = null;
-                    _contentType = null;
-                    _tempFilePath = null;
-                  });
-                  _showDecryptDialog();
-                },
-                tooltip: '重新解密',
-                iconSize: 20,
-              ),
-          ],
         ),
-        // 主体内容：根据状态展示不同界面
         body: _buildBody(),
       ),
     );

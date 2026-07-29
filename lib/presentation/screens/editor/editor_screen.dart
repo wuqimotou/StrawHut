@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/publish_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
@@ -14,6 +15,8 @@ import 'package:strawhut/presentation/providers/picked_file_provider.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/preview_panel.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/quill_editor.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/quill_toolbar.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 知识卡片编辑器主页面
 ///
@@ -96,16 +99,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
   ///
   /// Uses a SnackBar to notify the user that their content is in memory only.
   void _showBackgroundWarning() {
-    // Schedule the SnackBar to show on the next frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final tokens = NeumorphicTokens.ofContext(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
             '内容仅保存在内存中，应用关闭后将丢失',
             style: TextStyle(fontSize: 14),
           ),
-          backgroundColor: Colors.orange[700],
+          backgroundColor: tokens.warning,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -130,37 +133,70 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   /// Show dialog to restore draft if it exists but editor is empty.
   void _showDraftRestoreDialog() {
+    final tokens = NeumorphicTokens.ofContext(context);
     showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('发现草稿'),
-        content: const Text('检测到上次编辑的草稿内容，是否恢复？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('新建文档'),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '发现草稿',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '检测到上次编辑的草稿内容，是否恢复？',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: tokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  NeumorphicButton(
+                    label: '新建文档',
+                    style: NeumorphicButtonStyle.flat,
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                  ),
+                  const SizedBox(width: 8),
+                  NeumorphicButton(
+                    label: '恢复',
+                    style: NeumorphicButtonStyle.primary,
+                    onPressed: () {
+                      Navigator.pop(dialogContext, true);
+                      ref.read(editorContentProvider.notifier).loadFromDraft();
+                      final content = ref.read(editorContentProvider);
+                      if (content.isNotEmpty) {
+                        try {
+                          final doc = quill.Document.fromJson(
+                            jsonDecode(content) as List,
+                          );
+                          _quillController.document = doc;
+                        } catch (e) {
+                          debugPrint('Failed to restore draft: $e');
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-              // Restore draft content
-              ref.read(editorContentProvider.notifier).loadFromDraft();
-              // Update Quill controller with restored content
-              final content = ref.read(editorContentProvider);
-              if (content.isNotEmpty) {
-                try {
-                  final doc = quill.Document.fromJson(
-                    jsonDecode(content) as List,
-                  );
-                  _quillController.document = doc;
-                } catch (e) {
-                  debugPrint('Failed to restore draft: $e');
-                }
-              }
-            },
-            child: const Text('恢复'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -168,16 +204,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
   /// 构建编辑器页面
   @override
   Widget build(BuildContext context) {
-    // Use MediaQuery.viewInsets to handle soft keyboard on Android
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final isMobile = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final tokens = NeumorphicTokens.ofContext(context);
 
     return PopScope(
       canPop: !_hasActualContent(),
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        // Already handled by canPop=false when content exists;
-        // but if canPop is true and we're still here, navigate back
         if (!_hasActualContent()) {
           if (context.canPop()) {
             context.pop();
@@ -189,17 +221,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
         }
       },
       child: Scaffold(
-        // AppBar：标题 + 返回按钮 + 发布按钮
-        appBar: _buildAppBar(context),
-        // 主体区域：根据编辑模式切换
+        backgroundColor: tokens.surface,
+        appBar: _buildAppBar(context, tokens),
         resizeToAvoidBottomInset: true,
         body: _isPreviewMode
             ? const PreviewPanel()
             : Column(
                 children: [
-                  // 编辑工具栏
                   QuillToolbar(controller: _quillController),
-                  // 编辑器主体，占据剩余空间
                   Expanded(
                     child: QuillEditor(
                       key: _quillEditorKey,
@@ -208,78 +237,71 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
                   ),
                 ],
               ),
-        // 底部操作栏
-        bottomNavigationBar: _buildBottomBar(context),
-        // On Android, adjust bottom padding for soft keyboard
-        bottomSheet: isMobile && bottomInset > 0 ? null : null,
+        bottomNavigationBar: _buildBottomBar(context, tokens),
       ),
     );
   }
 
-  /// 构建 AppBar
-  ///
-  /// 包含返回按钮、页面标题、发布按钮。
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      // 左侧：返回按钮
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => _handleBack(context),
-        tooltip: '返回',
-      ),
-      // 中间：页面标题，根据模式显示不同文本
-      title: Text(
-        _isPreviewMode ? '预览模式' : '编辑知识卡片',
-        style: Theme.of(context).textTheme.titleLarge,
-      ),
-      // 右侧：发布按钮
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.publish),
-          onPressed: () => _handlePublish(context),
-          tooltip: '发布',
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  /// 构建底部操作栏
-  ///
-  /// 包含预览/编辑模式切换按钮。
-  Widget _buildBottomBar(BuildContext context) {
-    final isMobile = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(
-            top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+  /// 构建软质浮动 AppBar
+  PreferredSize _buildAppBar(BuildContext context, NeumorphicTokens tokens) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 8),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          child: Row(
+            children: [
+              NeumorphicIconButton(
+                icon: StrawIcons.arrowBack,
+                size: 44,
+                iconSize: 20,
+                tooltip: '返回',
+                onPressed: () => _handleBack(context),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _isPreviewMode ? '预览模式' : '编辑知识卡片',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+              ),
+              NeumorphicIconButton(
+                icon: StrawIcons.publish,
+                size: 44,
+                iconSize: 20,
+                tooltip: '发布',
+                color: tokens.inkPrimary,
+                onPressed: () => _handlePublish(context),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 构建软质底部操作栏
+  Widget _buildBottomBar(BuildContext context, NeumorphicTokens tokens) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 切换按钮 - ensure minimum 48dp touch target
-            SizedBox(
-              height: isMobile ? 48.0 : null,
-              child: OutlinedButton.icon(
-                onPressed: _toggleMode,
-                icon: Icon(
-                  _isPreviewMode ? Icons.edit : Icons.visibility,
-                  size: 20,
-                ),
-                label: Text(_isPreviewMode ? '返回编辑' : '预览'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  minimumSize: const Size(48, 48),
-                ),
+            NeumorphicButton(
+              label: _isPreviewMode ? '返回编辑' : '预览',
+              icon: _isPreviewMode ? StrawIcons.editNote : StrawIcons.eye,
+              style: NeumorphicButtonStyle.secondary,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
               ),
+              minimumSize: const Size(48, 48),
+              onPressed: _toggleMode,
             ),
           ],
         ),
@@ -311,28 +333,63 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   /// 显示退出确认对话框
   void _showExitConfirmationDialog() {
+    final tokens = NeumorphicTokens.ofContext(context);
     showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认离开？'),
-        content: const Text('您有未保存的内容，确定要离开吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '确认离开？',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '您有未保存的内容，确定要离开吗？',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: tokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  NeumorphicButton(
+                    label: '取消',
+                    style: NeumorphicButtonStyle.flat,
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                  ),
+                  const SizedBox(width: 8),
+                  NeumorphicButton(
+                    label: '离开',
+                    style: NeumorphicButtonStyle.primary,
+                    onPressed: () {
+                      Navigator.pop(dialogContext, true);
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
-            child: const Text('离开'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -345,10 +402,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     // 先检查编辑器是否有实际内容
     if (!_hasActualContent()) {
       if (!context.mounted) return;
+      final tokens = NeumorphicTokens.ofContext(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('编辑器内容为空，无法发布'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('编辑器内容为空，无法发布'),
+          backgroundColor: tokens.warning,
         ),
       );
       return;

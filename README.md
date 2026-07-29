@@ -265,4 +265,4 @@ Creator                                   Reader
 
 This project is open source. Contributions are welcome! 🌾
 
-> **文档版本**: v1.1.1 | **最后更新**: 2026-07-14
+> **文档版本**: v1.2.0 | **最后更新**: 2026-07-30

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
@@ -23,6 +24,9 @@ import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/passphrase_
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 解密对话框
 ///
@@ -641,6 +645,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
     final meta = widget.strawFile.meta;
 
     return PopScope(
@@ -648,130 +653,172 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _isLoading) _handleCancel();
       },
-      child: AlertDialog(
-        title: Text(l10n.decrypt),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ========== 卡片元数据预览 ==========
-              _buildMetaPreview(meta),
-              const Divider(height: 24),
-
-              // ========== 根据加密模式显示不同输入区域 ==========
-              if (_isNegotiatedMode) ...[
-                // 协商密钥模式：显示暗号输入
-                PassphraseDecryptInput(
-                  key: _passphraseInputKey,
-                  enabled: !_isLoading,
-                  onVaultSelectionChanged: (selected) {
-                    setState(() {
-                      _usingVaultPassphrase = selected;
-                      if (selected) _savePassphrase = false;
-                    });
-                  },
-                ),
-                if (!_usingVaultPassphrase) ...[
-                  const SizedBox(height: 8),
-                  // 保存暗号到保险库复选框
-                  CheckboxListTile(
-                    value: _savePassphrase,
-                    onChanged: _isLoading
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _savePassphrase = value ?? false;
-                            });
-                          },
-                    title: Text(
-                      l10n.saveAfterDecrypt,
-                      style: Theme.of(context).textTheme.bodySmall,
+      child: Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 标题
+                Row(
+                  children: [
+                    NeumorphicIcon(
+                      StrawIcons.unlock,
+                      size: 22,
+                      color: tokens.inkPrimary,
                     ),
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    dense: true,
-                  ),
-                ],
-              ] else ...[
-                // 随机密钥模式：显示密钥输入和文件上传
-                // ========== 方式 A：手动输入密钥 ==========
-                KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
-                const SizedBox(height: 16),
-
-                // ========== 方式 B：上传 .key 文件 ==========
-                KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
-              ],
-
-              // ========== 错误提示 ==========
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error, color: Colors.red, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                          ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        l10n.decrypt,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.textPrimary,
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spaceMd),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ========== 卡片元数据预览 ==========
+                        _buildMetaPreview(meta),
+                        Divider(
+                          height: tokens.spaceLg,
+                          color: tokens.divider,
+                        ),
+
+                        // ========== 根据加密模式显示不同输入区域 ==========
+                        if (_isNegotiatedMode) ...[
+                          // 协商密钥模式：显示暗号输入
+                          PassphraseDecryptInput(
+                            key: _passphraseInputKey,
+                            enabled: !_isLoading,
+                            onVaultSelectionChanged: (selected) {
+                              setState(() {
+                                _usingVaultPassphrase = selected;
+                                if (selected) _savePassphrase = false;
+                              });
+                            },
+                          ),
+                          if (!_usingVaultPassphrase) ...[
+                            SizedBox(height: tokens.spaceSm),
+                            // 保存暗号到保险库复选框
+                            CheckboxListTile(
+                              value: _savePassphrase,
+                              onChanged: _isLoading
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _savePassphrase = value ?? false;
+                                      });
+                                    },
+                              title: Text(
+                                l10n.saveAfterDecrypt,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: tokens.textSecondary,
+                                ),
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              dense: true,
+                              activeColor: tokens.inkPrimary,
+                              checkColor: tokens.surface,
+                            ),
+                          ],
+                        ] else ...[
+                          // 随机密钥模式：显示密钥输入和文件上传
+                          // ========== 方式 A：手动输入密钥 ==========
+                          KeyInput(
+                            key: _keyInputKey,
+                            onKeyChanged: _onKeyChanged,
+                          ),
+                          SizedBox(height: tokens.spaceMd),
+
+                          // ========== 方式 B：上传 .key 文件 ==========
+                          KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
+                        ],
+
+                        // ========== 错误提示 ==========
+                        if (_errorMessage != null) ...[
+                          SizedBox(height: tokens.spaceSm + tokens.spaceXs),
+                          NeumorphicContainer(
+                            shape: NeumorphicShape.concave,
+                            borderRadius: tokens.radiusSmall,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                NeumorphicIcon(
+                                  StrawIcons.error,
+                                  size: 18,
+                                  color: tokens.error,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      color: tokens.error,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
+                SizedBox(height: tokens.spaceMd),
+                // 操作按钮
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    NeumorphicButton(
+                      key: const ValueKey('decrypt_cancel_button'),
+                      label: l10n.cancel,
+                      style: NeumorphicButtonStyle.flat,
+                      onPressed: _isCancelling ? null : _handleCancel,
+                    ),
+                    const SizedBox(width: 8),
+                    NeumorphicButton(
+                      label: _isLoading
+                          ? (_isCancelling
+                              ? '${l10n.cancel}...'
+                              : _decryptProgress > 0
+                                  ? '${(_decryptProgress * 100).toInt()}%'
+                                  : '解密中...')
+                          : l10n.decrypt,
+                      style: NeumorphicButtonStyle.primary,
+                      icon: _isLoading ? null : StrawIcons.unlock,
+                      onPressed: _isLoading ? null : _handleDecrypt,
+                    ),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
         ),
-        actions: [
-          // 取消按钮：关闭对话框
-          TextButton(
-            key: const ValueKey('decrypt_cancel_button'),
-            onPressed: _isCancelling ? null : _handleCancel,
-            child: Text(l10n.cancel),
-          ),
-          // 解密按钮：触发解密流程
-          FilledButton(
-            onPressed: _isLoading ? null : _handleDecrypt,
-            child: _isLoading
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          value: _decryptProgress > 0 ? _decryptProgress : null,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isCancelling
-                            ? '${l10n.cancel}...'
-                            : _decryptProgress > 0
-                                ? '${(_decryptProgress * 100).toInt()}%'
-                                : '解密中...',
-                      ),
-                    ],
-                  )
-                : Text(l10n.decrypt),
-          ),
-        ],
       ),
     );
   }
@@ -781,21 +828,24 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 展示 .straw 文件的公开元数据，帮助用户确认要解密的文件是否正确。
   /// 展示内容包括：标题、发布者、发布日期、描述、标签、匿名标识。
   Widget _buildMetaPreview(CardMeta meta) {
-    return Container(
+    final tokens = NeumorphicTokens.ofContext(context);
+    return NeumorphicContainer(
+      shape: NeumorphicShape.concave,
+      borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 标题
           Text(
             meta.title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: tokens.textPrimary,
+            ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: tokens.spaceSm),
 
           // 发布者信息行
           Wrap(
@@ -811,13 +861,13 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: tokens.warning.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     '匿名',
                     style: TextStyle(
-                      color: Colors.orange,
+                      color: tokens.warning,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -827,10 +877,10 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.person_outline,
+                  NeumorphicIcon(
+                    StrawIcons.globe,
                     size: 16,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: tokens.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Flexible(
@@ -838,7 +888,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
                       meta.publisherAlias,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: tokens.textSecondary,
                       ),
                     ),
                   ),
@@ -848,17 +898,17 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
+                  NeumorphicIcon(
+                    StrawIcons.document,
                     size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: tokens.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _formatDate(meta.publishDate),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: tokens.textSecondary,
                     ),
                   ),
                 ],
@@ -868,21 +918,21 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
           // 描述（如果有）
           if (meta.description != null && meta.description!.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Text(
               meta.description!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: tokens.textSecondary,
               ),
             ),
           ],
 
           // 标签列表
           if (meta.tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -893,16 +943,14 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withOpacity(0.5),
+                    color: tokens.inkWash.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     tag,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: tokens.inkSecondary,
                     ),
                   ),
                 );
@@ -1367,6 +1415,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
     final meta = widget.strawFile.meta;
 
     return PopScope(
@@ -1387,11 +1436,33 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
+                  color: tokens.surfaceAlt,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
+            // 标题
+            Row(
+              children: [
+                NeumorphicIcon(
+                  StrawIcons.unlock,
+                  size: 22,
+                  color: tokens.inkPrimary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    l10n.decrypt,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: tokens.spaceSm + tokens.spaceXs),
             // Scrollable content
             Flexible(
               child: SingleChildScrollView(
@@ -1401,7 +1472,10 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                   children: [
                     // Meta preview
                     _buildMetaPreview(meta),
-                    const Divider(height: 24),
+                    Divider(
+                      height: tokens.spaceLg,
+                      color: tokens.divider,
+                    ),
 
                     // Input area based on encryption mode
                     if (_isNegotiatedMode) ...[
@@ -1416,7 +1490,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                         },
                       ),
                       if (!_usingVaultPassphrase) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: tokens.spaceSm),
                         // 保存暗号到保险库复选框
                         CheckboxListTile(
                           value: _savePassphrase,
@@ -1429,48 +1503,48 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                                 },
                           title: Text(
                             l10n.saveAfterDecrypt,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: tokens.textSecondary,
+                            ),
                           ),
                           contentPadding: EdgeInsets.zero,
                           controlAffinity: ListTileControlAffinity.leading,
                           dense: true,
+                          activeColor: tokens.inkPrimary,
+                          checkColor: tokens.surface,
                         ),
                       ],
                     ] else ...[
                       KeyInput(key: _keyInputKey, onKeyChanged: _onKeyChanged),
-                      const SizedBox(height: 16),
+                      SizedBox(height: tokens.spaceMd),
                       KeyFileUpload(onKeyFileLoaded: _onKeyFileLoaded),
                     ],
 
                     // Error message
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
+                      SizedBox(height: tokens.spaceSm + tokens.spaceXs),
+                      NeumorphicContainer(
+                        shape: NeumorphicShape.concave,
+                        borderRadius: tokens.radiusSmall,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.red.withOpacity(0.3),
-                          ),
-                        ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.error,
-                              color: Colors.red,
+                            NeumorphicIcon(
+                              StrawIcons.error,
                               size: 18,
+                              color: tokens.error,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 _errorMessage!,
-                                style: const TextStyle(
-                                  color: Colors.red,
+                                style: TextStyle(
+                                  color: tokens.error,
                                   fontSize: 13,
                                 ),
                               ),
@@ -1479,55 +1553,37 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    SizedBox(height: tokens.spaceMd),
                   ],
                 ),
               ),
             ),
             // Fixed bottom action bar
-            Container(
+            Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  NeumorphicButton(
                     key: const ValueKey('decrypt_cancel_button'),
+                    label: l10n.cancel,
+                    style: NeumorphicButtonStyle.flat,
                     onPressed: _isCancelling ? null : _handleCancel,
-                    child: Text(l10n.cancel),
                   ),
                   const SizedBox(width: 8),
-                  SizedBox(
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: _isLoading ? null : _handleDecrypt,
-                      child: _isLoading
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    value: _decryptProgress > 0
-                                        ? _decryptProgress
-                                        : null,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isCancelling
-                                      ? '${l10n.cancel}...'
-                                      : _decryptProgress > 0
-                                          ? '${(_decryptProgress * 100).toInt()}%'
-                                          : '解密中...',
-                                ),
-                              ],
-                            )
-                          : Text(l10n.decrypt),
-                    ),
+                  NeumorphicButton(
+                    label: _isLoading
+                        ? (_isCancelling
+                            ? '${l10n.cancel}...'
+                            : _decryptProgress > 0
+                                ? '${(_decryptProgress * 100).toInt()}%'
+                                : '解密中...')
+                        : l10n.decrypt,
+                    style: NeumorphicButtonStyle.primary,
+                    icon: _isLoading ? null : StrawIcons.unlock,
+                    onPressed: _isLoading ? null : _handleDecrypt,
                   ),
                 ],
               ),
@@ -1539,20 +1595,23 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   }
 
   Widget _buildMetaPreview(CardMeta meta) {
-    return Container(
+    final tokens = NeumorphicTokens.ofContext(context);
+    return NeumorphicContainer(
+      shape: NeumorphicShape.concave,
+      borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             meta.title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: tokens.textPrimary,
+            ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: tokens.spaceSm),
           Wrap(
             spacing: 8,
             runSpacing: 4,
@@ -1565,13 +1624,13 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: tokens.warning.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     '匿名',
                     style: TextStyle(
-                      color: Colors.orange,
+                      color: tokens.warning,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1580,10 +1639,10 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.person_outline,
+                  NeumorphicIcon(
+                    StrawIcons.globe,
                     size: 16,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: tokens.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Flexible(
@@ -1591,7 +1650,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                       meta.publisherAlias,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: tokens.textSecondary,
                       ),
                     ),
                   ),
@@ -1600,17 +1659,17 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
+                  NeumorphicIcon(
+                    StrawIcons.document,
                     size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: tokens.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _formatDate(meta.publishDate),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: tokens.textSecondary,
                     ),
                   ),
                 ],
@@ -1618,19 +1677,19 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
             ],
           ),
           if (meta.description != null && meta.description!.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Text(
               meta.description!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: tokens.textSecondary,
               ),
             ),
           ],
           if (meta.tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: tokens.spaceSm),
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -1641,16 +1700,14 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withOpacity(0.5),
+                    color: tokens.inkWash.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     tag,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: tokens.inkSecondary,
                     ),
                   ),
                 );

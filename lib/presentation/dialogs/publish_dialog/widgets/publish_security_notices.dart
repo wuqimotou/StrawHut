@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/key_display.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// Shared completion notices for desktop and Android publish flows.
 ///
@@ -21,52 +24,54 @@ class PublishSecurityNotices extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (exportFormat == 'png') ...[
-          Container(
+          NeumorphicContainer(
+            shape: NeumorphicShape.concave,
+            borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                NeumorphicIcon(
+                  StrawIcons.info,
+                  size: 18,
+                  color: tokens.warning,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.shareAsOriginalImage,
-                    style: const TextStyle(fontSize: 13, color: Colors.orange),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: tokens.warning,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: tokens.spaceMd),
         ],
         if (isNegotiated)
-          Container(
+          NeumorphicContainer(
+            shape: NeumorphicShape.concave,
+            borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withOpacity(0.2)),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.share_outlined,
-                      color: Colors.blue[700],
+                    NeumorphicIcon(
+                      StrawIcons.publish,
                       size: 20,
+                      color: tokens.inkPrimary,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -74,7 +79,7 @@ class PublishSecurityNotices extends StatelessWidget {
                         l10n.passphraseShareNote,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.blue[800],
+                          color: tokens.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -85,10 +90,10 @@ class PublishSecurityNotices extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange[700],
+                    NeumorphicIcon(
+                      StrawIcons.warning,
                       size: 20,
+                      color: tokens.warning,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -96,7 +101,7 @@ class PublishSecurityNotices extends StatelessWidget {
                         l10n.passphraseSecurityNote,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.orange[800],
+                          color: tokens.warning,
                         ),
                       ),
                     ),

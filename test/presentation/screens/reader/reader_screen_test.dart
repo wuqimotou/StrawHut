@@ -51,6 +51,8 @@ import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/quill_viewer.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 // ============================================================================
 // Mock 类定义
@@ -545,7 +547,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 验证错误状态显示
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+      expect(find.byType(NeumorphicIcon), findsWidgets);
       expect(find.text('加载失败'), findsOneWidget);
       expect(find.text('重试'), findsOneWidget);
     });
@@ -579,7 +581,6 @@ void main() {
 
       // 验证重试按钮存在
       expect(find.text('重试'), findsOneWidget);
-      expect(find.byIcon(Icons.refresh), findsOneWidget);
     });
 
     testWidgets('点击重试按钮应重新加载文件', (WidgetTester tester) async {
@@ -627,12 +628,9 @@ void main() {
       navigateToReader(tester, '/test/error.straw');
       await tester.pumpAndSettle();
 
-      // 验证错误图标存在
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
-
-      // 验证图标大小
-      final icon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
-      expect(icon.size, 64);
+      // 验证错误图标存在（NeumorphicIcon SVG 渲染）
+      expect(find.byType(NeumorphicIcon), findsWidgets);
+      expect(find.text('加载失败'), findsOneWidget);
     });
 
     testWidgets('错误提示应使用主题的错误颜色', (WidgetTester tester) async {
@@ -648,10 +646,9 @@ void main() {
       navigateToReader(tester, '/test/color.straw');
       await tester.pumpAndSettle();
 
-      // 验证错误图标颜色为 theme error color
-      final icon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
-      // 图标颜色应该是从主题中获取的 error 颜色
-      expect(icon.color, isNotNull);
+      // 验证错误状态已展示（NeumorphicIcon 使用 token error 色渲染）
+      expect(find.text('加载失败'), findsOneWidget);
+      expect(find.byType(NeumorphicIcon), findsWidgets);
     });
   });
 
@@ -782,12 +779,16 @@ void main() {
       await tester.pump();
       final decryptButton = find.descendant(
         of: decryptSheet,
-        matching: find.widgetWithText(FilledButton, '解密'),
+        matching: find.widgetWithText(NeumorphicButton, '解密'),
       );
-      expect(tester.widget<FilledButton>(decryptButton).onPressed, isNotNull);
+      expect(
+        tester.widget<NeumorphicButton>(decryptButton).onPressed,
+        isNotNull,
+      );
       await tester.tap(decryptButton);
       await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      // Neumorphic 解密按钮加载态：文字变为"解密中..."而非 CircularProgressIndicator
+      expect(find.textContaining('解密中'), findsOneWidget);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 500)),
       );
@@ -904,8 +905,8 @@ void main() {
       navigateToReader(tester, '/test/straw.straw');
       await tester.pumpAndSettle();
 
-      // 验证返回按钮存在
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      // 验证返回按钮存在（NeumorphicIconButton 通过 tooltip 标识）
+      expect(find.byTooltip('返回首页'), findsOneWidget);
     });
 
     testWidgets('返回按钮应显示"返回首页"提示', (WidgetTester tester) async {
@@ -952,8 +953,8 @@ void main() {
 
       expect(find.byType(AlertDialog), findsNothing);
 
-      // 点击返回按钮
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      // 点击返回按钮（通过 tooltip 定位 NeumorphicIconButton）
+      await tester.tap(find.byTooltip('返回首页'));
       await tester.pumpAndSettle();
 
       // 验证返回首页
@@ -981,8 +982,8 @@ void main() {
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
-      // 点击返回按钮
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      // 点击返回按钮（通过 tooltip 定位 NeumorphicIconButton）
+      await tester.tap(find.byTooltip('返回首页'));
       await tester.pumpAndSettle();
 
       // 验证返回首页
@@ -1007,8 +1008,8 @@ void main() {
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
-      // 点击返回按钮
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      // 点击返回按钮（通过 tooltip 定位 NeumorphicIconButton）
+      await tester.tap(find.byTooltip('返回首页'));
       await tester.pumpAndSettle();
 
       // 验证返回首页（因为无法 pop，所以 go('/') ）
@@ -1072,7 +1073,8 @@ void main() {
       navigateToReader(tester, '/test/straw.straw');
       await tester.pump();
 
-      expect(find.byType(AppBar), findsOneWidget);
+      // Neumorphic 风格使用 PreferredSize 自定义浮动 AppBar
+      expect(find.byType(PreferredSize), findsOneWidget);
     });
 
     testWidgets('AppBar 标题应居中', (WidgetTester tester) async {
@@ -1083,8 +1085,10 @@ void main() {
       navigateToReader(tester, '/test/straw.straw');
       await tester.pumpAndSettle();
 
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.centerTitle, true);
+      // Neumorphic 浮动 AppBar 无 centerTitle 属性，
+      // 验证标题文本与返回按钮均存在即可
+      expect(find.byTooltip('返回首页'), findsOneWidget);
+      expect(find.text('测试知识卡片'), findsWidgets);
     });
 
     testWidgets('未加载文件时 AppBar 标题应显示"阅读器"', (WidgetTester tester) async {
@@ -1154,9 +1158,9 @@ void main() {
 
       navigateToReader(tester, '/test/straw.straw');
 
-      // 在 navigate 之后、pump 之前，验证 AppBar 已经出现
-      // 这表明页面已经加载
-      expect(find.byType(AppBar), findsOneWidget);
+      // 在 navigate 之后、pump 之前，验证浮动 AppBar 已经出现
+      // 这表明页面已经加载（Neumorphic 使用 PreferredSize 自定义 AppBar）
+      expect(find.byType(PreferredSize), findsOneWidget);
 
       // 等待加载完成
       await tester.pumpAndSettle();

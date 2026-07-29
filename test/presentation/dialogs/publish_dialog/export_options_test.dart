@@ -6,7 +6,7 @@
 // - .key 文件（可选）格式符合规范（通过 UI 交互验证）
 //
 // 测试范围：
-// - CheckboxListTile 渲染和标题文本
+// - Checkbox 渲染和标题文本
 // - 勾选状态正确反映 value 参数
 // - 勾选/取消勾选时触发 onChanged 回调
 // - 默认未勾选状态
@@ -34,12 +34,12 @@ Widget _buildExportOptions({
 
 void main() {
   group('ExportOptions 渲染测试', () {
-    testWidgets('应该渲染 CheckboxListTile 组件', (WidgetTester tester) async {
+    testWidgets('应该渲染 Checkbox 组件', (WidgetTester tester) async {
       await tester.pumpWidget(_buildExportOptions(value: false));
       await tester.pumpAndSettle();
 
-      // 验证使用 CheckboxListTile
-      expect(find.byType(CheckboxListTile), findsOneWidget);
+      // 验证使用 Checkbox
+      expect(find.byType(Checkbox), findsOneWidget);
     });
 
     testWidgets('应该显示"导出 .key 文件"标题', (WidgetTester tester) async {
@@ -60,33 +60,6 @@ void main() {
         findsOneWidget,
       );
     });
-
-    testWidgets('复选框应该放在左侧', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildExportOptions(value: false));
-      await tester.pumpAndSettle();
-
-      final checkboxListTile = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
-      );
-
-      // 验证 controlAffinity 为 leading（左侧）
-      expect(
-        checkboxListTile.controlAffinity,
-        equals(ListTileControlAffinity.leading),
-      );
-    });
-
-    testWidgets('内容边距应该为零', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildExportOptions(value: false));
-      await tester.pumpAndSettle();
-
-      final checkboxListTile = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
-      );
-
-      // 验证 contentPadding 为 EdgeInsets.zero
-      expect(checkboxListTile.contentPadding, equals(EdgeInsets.zero));
-    });
   });
 
   group('ExportOptions 勾选状态测试', () {
@@ -94,8 +67,8 @@ void main() {
       await tester.pumpWidget(_buildExportOptions(value: false));
       await tester.pumpAndSettle();
 
-      final checkbox = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
+      final checkbox = tester.widget<Checkbox>(
+        find.byType(Checkbox),
       );
 
       // 验证未勾选状态
@@ -106,8 +79,8 @@ void main() {
       await tester.pumpWidget(_buildExportOptions(value: true));
       await tester.pumpAndSettle();
 
-      final checkbox = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
+      final checkbox = tester.widget<Checkbox>(
+        find.byType(Checkbox),
       );
 
       // 验证已勾选状态
@@ -128,8 +101,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 点击 CheckboxListTile（勾选）
-      await tester.tap(find.byType(CheckboxListTile));
+      // 点击 Checkbox（勾选）
+      await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
       // 验证回调收到 true 值
@@ -148,8 +121,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 点击 CheckboxListTile（取消勾选）
-      await tester.tap(find.byType(CheckboxListTile));
+      // 点击 Checkbox（取消勾选）
+      await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
       // 验证回调收到 false 值
@@ -167,7 +140,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 直接点击 Checkbox（而非整个 ListTile）
+      // 直接点击 Checkbox
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
@@ -181,24 +154,24 @@ void main() {
       await tester.pumpWidget(_buildExportOptions(value: true));
       await tester.pumpAndSettle();
 
-      final checkboxListTile = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
+      final checkbox = tester.widget<Checkbox>(
+        find.byType(Checkbox),
       );
 
       // 验证 activeColor 不为 null（使用主题色）
-      expect(checkboxListTile.activeColor, isNotNull);
+      expect(checkbox.activeColor, isNotNull);
     });
 
-    testWidgets('勾选图标应该使用白色', (WidgetTester tester) async {
+    testWidgets('勾选图标应该设置颜色', (WidgetTester tester) async {
       await tester.pumpWidget(_buildExportOptions(value: true));
       await tester.pumpAndSettle();
 
-      final checkboxListTile = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
+      final checkbox = tester.widget<Checkbox>(
+        find.byType(Checkbox),
       );
 
-      // 验证 checkColor 为白色
-      expect(checkboxListTile.checkColor, equals(Colors.white));
+      // 验证 checkColor 已设置（Neumorphic tokens surface 色）
+      expect(checkbox.checkColor, isNotNull);
     });
   });
 
@@ -209,11 +182,11 @@ void main() {
       await tester.pumpWidget(_buildExportOptions(value: false));
       await tester.pumpAndSettle();
 
-      final checkboxListTile = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
+      final checkbox = tester.widget<Checkbox>(
+        find.byType(Checkbox),
       );
 
-      expect(checkboxListTile.value, isFalse);
+      expect(checkbox.value, isFalse);
     });
   });
 
@@ -232,7 +205,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 第一次点击：false -> true
-      await tester.tap(find.byType(CheckboxListTile));
+      await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(callbackCount, equals(1));
       expect(lastValue, isTrue);
@@ -248,7 +221,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(CheckboxListTile));
+      await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(callbackCount, equals(2));
       expect(lastValue, isFalse);

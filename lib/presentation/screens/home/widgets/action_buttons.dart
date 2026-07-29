@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart'
@@ -8,10 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/publish_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/picked_file_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 首页操作按钮组件
 ///
@@ -39,45 +41,34 @@ class ActionButtons extends ConsumerWidget {
   /// - 按钮之间有足够的间距
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On mobile, buttons need 56dp minimum height for touch targets
     final isMobile = !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
-    final buttonMinHeight = isMobile ? 56.0 : 48.0;
+    final minHeight = isMobile ? 56.0 : 48.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // "新建知识卡片" 按钮
-        // 点击后导航到编辑器页面，用户可以开始创建新的加密知识卡片
-        SizedBox(
-          height: buttonMinHeight,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _onCreateNewCard(context);
-            },
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('发布知识卡片'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
+        // "发布知识卡片"：主 CTA（墨色填充）
+        NeumorphicButton(
+          label: '发布知识卡片',
+          icon: StrawIcons.plusCircle,
+          style: NeumorphicButtonStyle.primary,
+          expanded: true,
+          minimumSize: Size(double.infinity, minHeight),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          onPressed: () => _onCreateNewCard(context),
         ),
         const SizedBox(height: 16),
-        // "打开知识卡片" 按钮
-        // 点击后弹出文件选择器，用户可以选择已有的 .straw 文件进行查看
-        SizedBox(
-          height: buttonMinHeight,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _onOpenCard(context, ref);
-            },
-            icon: const Icon(Icons.folder_open_outlined),
-            label: const Text('解密知识卡片'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
+        // "解密知识卡片"：次级 CTA（软质凸起）
+        NeumorphicButton(
+          label: '解密知识卡片',
+          icon: StrawIcons.folderOpen,
+          style: NeumorphicButtonStyle.secondary,
+          expanded: true,
+          minimumSize: Size(double.infinity, minHeight),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          onPressed: () => _onOpenCard(context, ref),
         ),
       ],
     );
@@ -100,90 +91,141 @@ class ActionButtons extends ConsumerWidget {
     }
   }
 
-  /// 桌面端：弹出选择对话框
+  /// 桌面端：弹出软质选择对话框
+  ///
+  /// 约束：两个选项 UI 权重一致（都用 secondary 软质按钮），
+  /// 垂直排列在底部，宽度增加。
   void _showCreateOptionsDesktop(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('发布知识卡片'),
-          content: const Text('请选择内容来源：'),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  context.go('/editor');
-                },
-                icon: const Icon(Icons.edit_note),
-                label: const Text('富文本编辑'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+        return Dialog(
+          backgroundColor: tokens.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '发布知识卡片',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '请选择内容来源：',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // 选项一：富文本编辑（权重一致）
+                  NeumorphicButton(
+                    label: '富文本编辑',
+                    icon: StrawIcons.editNote,
+                    style: NeumorphicButtonStyle.secondary,
+                    expanded: true,
+                    minimumSize: const Size(double.infinity, 56),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      context.go('/editor');
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // 选项二：直接加密文件（权重一致）
+                  NeumorphicButton(
+                    label: '直接加密文件',
+                    icon: StrawIcons.uploadFile,
+                    style: NeumorphicButtonStyle.secondary,
+                    expanded: true,
+                    minimumSize: const Size(double.infinity, 56),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      PublishDialog.show(
+                        context,
+                        initialMode: ContentSourceMode.fileUpload,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  PublishDialog.show(
-                    context,
-                    initialMode: ContentSourceMode.fileUpload,
-                  );
-                },
-                icon: const Icon(Icons.upload_file),
-                label: const Text('直接加密文件'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
   }
 
-  /// 移动端：弹出底部选择框
+  /// 移动端：弹出底部软质选择框
+  ///
+  /// 约束：两个 ListTile 权重一致，垂直排列。
   void _showCreateOptionsMobile(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(tokens.radiusXLarge),
+        ),
+      ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_note),
-                title: const Text('富文本编辑'),
-                subtitle: const Text('在编辑器中创作内容后发布'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  context.go('/editor');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.upload_file),
-                title: const Text('直接加密文件'),
-                subtitle: const Text('选择文件直接加密，无需编辑'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  PublishDialog.show(
-                    context,
-                    initialMode: ContentSourceMode.fileUpload,
-                  );
-                },
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: NeumorphicIcon(
+                    StrawIcons.editNote,
+                    size: 24,
+                    color: tokens.textPrimary,
+                  ),
+                  title: const Text('富文本编辑'),
+                  subtitle: const Text('在编辑器中创作内容后发布'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    context.go('/editor');
+                  },
+                ),
+                ListTile(
+                  leading: NeumorphicIcon(
+                    StrawIcons.uploadFile,
+                    size: 24,
+                    color: tokens.textPrimary,
+                  ),
+                  title: const Text('直接加密文件'),
+                  subtitle: const Text('选择文件直接加密，无需编辑'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    PublishDialog.show(
+                      context,
+                      initialMode: ContentSourceMode.fileUpload,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -211,39 +253,56 @@ class ActionButtons extends ConsumerWidget {
     }
   }
 
-  /// 在 Android 上弹出文件来源选择对话框
+  /// 在 Android 上弹出文件来源选择软质底部框
   void _showOpenCardOptions(BuildContext context, WidgetRef ref) {
+    final tokens = NeumorphicTokens.ofContext(context);
     showModalBottomSheet<void>(
       context: context,
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(tokens.radiusXLarge),
+        ),
+      ),
       builder: (BuildContext sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('从相册加载'),
-                subtitle: const Text('选择 .png 格式的加密知识卡片图片'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  // Use a post-frame callback to ensure the bottom sheet is fully dismissed
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _doOpenCardFromGallery(context, ref);
-                  });
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('从文件系统加载'),
-                subtitle: const Text('选择 .straw 或 .png 文件'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _doOpenCard(context, ref);
-                  });
-                },
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: NeumorphicIcon(
+                    StrawIcons.image,
+                    size: 24,
+                    color: tokens.textPrimary,
+                  ),
+                  title: const Text('从相册加载'),
+                  subtitle: const Text('选择 .png 格式的加密知识卡片图片'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _doOpenCardFromGallery(context, ref);
+                    });
+                  },
+                ),
+                ListTile(
+                  leading: NeumorphicIcon(
+                    StrawIcons.folderOpen,
+                    size: 24,
+                    color: tokens.textPrimary,
+                  ),
+                  title: const Text('从文件系统加载'),
+                  subtitle: const Text('选择 .straw 或 .png 文件'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _doOpenCard(context, ref);
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },

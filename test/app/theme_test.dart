@@ -11,7 +11,7 @@ import 'package:strawhut/app/theme.dart';
 /// - 亮色主题具有正确的 Brightness.light
 /// - 暗色主题具有正确的 Brightness.dark
 /// - 两个主题均启用 Material 3
-/// - 两个主题均使用绿色 seedColor
+/// - 两个主题均使用水墨（ink-wash）强调色
 void main() {
   group('AppTheme 主题配置测试', () {
     group('AppTheme.lightTheme 亮色主题测试', () {
@@ -32,13 +32,17 @@ void main() {
         expect(theme.useMaterial3, true);
       });
 
-      test('colorScheme 应基于绿色种子颜色生成', () {
+      test('colorScheme 应基于水墨色生成', () {
         final theme = AppTheme.lightTheme;
         // 验证 colorScheme 已正确初始化
         expect(theme.colorScheme, isNotNull);
         expect(theme.colorScheme.primary, isNotNull);
-        // Material 3 中，绿色种子会生成绿色系的主色
-        expect(theme.colorScheme.primary.green, greaterThan(0));
+        // 水墨风：primary 为低饱和深色（inkPrimary ≈ #1C1C1E）
+        // 验证 primary 亮度较低（暗色系）
+        expect(
+          theme.colorScheme.primary.computeLuminance(),
+          lessThan(0.2),
+        );
       });
 
       test('应配置完整的组件主题数据', () {
@@ -68,13 +72,16 @@ void main() {
         expect(theme.useMaterial3, true);
       });
 
-      test('colorScheme 应基于绿色种子颜色生成', () {
+      test('colorScheme 应基于水墨色生成', () {
         final theme = AppTheme.darkTheme;
         // 验证 colorScheme 已正确初始化
         expect(theme.colorScheme, isNotNull);
         expect(theme.colorScheme.primary, isNotNull);
-        // Material 3 中，绿色种子在暗色模式下也会生成绿色系的主色
-        expect(theme.colorScheme.primary.green, greaterThan(0));
+        // 暗色模式下墨色反转为高亮浅色
+        expect(
+          theme.colorScheme.primary.computeLuminance(),
+          greaterThan(0.5),
+        );
       });
 
       test('暗色主题的背景色应比亮色主题暗', () {
@@ -113,19 +120,20 @@ void main() {
         expect(darkTheme.useMaterial3, true);
       });
 
-      test('亮色和暗色主题应使用相同的种子颜色', () {
+      test('亮色和暗色主题应使用同系水墨色', () {
         final lightTheme = AppTheme.lightTheme;
         final darkTheme = AppTheme.darkTheme;
 
-        // 两个主题的主色都应该基于绿色种子颜色
-        // 在 Material 3 中，相同的 seedColor 会生成相同色调的 colorScheme
-        // 验证主色的红色和绿色通道比例相似（绿色系特征）
+        // 水墨风：亮色 primary 为深墨（低亮度），暗色 primary 为浅墨（高亮度）
+        // 两者互为反转，但同属低饱和灰系
         final lightPrimary = lightTheme.colorScheme.primary;
         final darkPrimary = darkTheme.colorScheme.primary;
-        
-        // 绿色系颜色的绿色通道值应大于红色和蓝色通道
-        expect(lightPrimary.green, greaterThan(lightPrimary.red));
-        expect(darkPrimary.green, greaterThan(darkPrimary.red));
+
+        // 亮色 primary 应较暗，暗色 primary 应较亮（反转关系）
+        expect(
+          lightPrimary.computeLuminance(),
+          lessThan(darkPrimary.computeLuminance()),
+        );
       });
     });
 

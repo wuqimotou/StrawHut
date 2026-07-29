@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_models/content_type_classifier.dart';
 import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 文件保存提示组件
 ///
@@ -12,8 +16,8 @@ import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
 ///
 /// 核心功能：
 /// - 显示文件信息（文件名、类型）
-/// - 根据内容类型显示对应图标
-/// - 提供保存文件按钮
+/// - 根据内容类型显示对应软质图标
+/// - 提供保存文件按钮（NeumorphicButton）
 class FileSavePrompt extends StatelessWidget {
   /// 创建文件保存提示组件实例
   ///
@@ -42,23 +46,26 @@ class FileSavePrompt extends StatelessWidget {
   /// 保存文件回调
   final VoidCallback onSave;
 
-  /// 根据文件后缀获取图标
-  IconData _getFileIcon() {
+  /// 根据文件后缀获取软质图标 SVG body
+  ///
+  /// 优先根据内容类型选择图标，回退到根据扩展名选择。
+  /// 所有图标均来自 [StrawIcons] 线性细描边图标集。
+  String _getFileIconBody() {
     // 优先根据内容类型选择图标
     if (contentType != null) {
       switch (contentType!) {
         case ContentType.image:
-          return Icons.image_outlined;
+          return StrawIcons.image;
         case ContentType.audio:
-          return Icons.audio_file_outlined;
+          return StrawIcons.audio;
         case ContentType.video:
-          return Icons.video_file_outlined;
+          return StrawIcons.video;
         case ContentType.pdf:
-          return Icons.picture_as_pdf_outlined;
+          return StrawIcons.document;
         case ContentType.richText:
         case ContentType.text:
         case ContentType.markdown:
-          return Icons.description_outlined;
+          return StrawIcons.document;
         case ContentType.other:
           break;
       }
@@ -72,22 +79,18 @@ class FileSavePrompt extends StatelessWidget {
       case '7z':
       case 'tar':
       case 'gz':
-        return Icons.folder_zip_outlined;
       case 'doc':
       case 'docx':
-        return Icons.description_outlined;
       case 'xls':
       case 'xlsx':
-        return Icons.table_chart_outlined;
       case 'ppt':
       case 'pptx':
-        return Icons.slideshow_outlined;
       case 'apk':
       case 'exe':
       case 'dmg':
-        return Icons.install_mobile_outlined;
+        return StrawIcons.document;
       default:
-        return Icons.insert_drive_file_outlined;
+        return StrawIcons.document;
     }
   }
 
@@ -118,92 +121,105 @@ class FileSavePrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     final fileName =
         metadata.originalFileName ?? 'unknown.${metadata.originalExtension}';
     final typeLabel = _getTypeLabel();
+    final canSave = tempFilePath != null;
 
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
-        child: Card(
+        child: NeumorphicContainer(
+          shape: NeumorphicShape.convex,
+          intensity: NeumorphicIntensity.subtle,
+          borderRadius: tokens.radiusXLarge,
           margin: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 文件图标
-                Icon(
-                  _getFileIcon(),
-                  size: 72,
-                  color: Theme.of(context).colorScheme.primary,
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 文件图标（凹陷圆形软质容器内放置线性图标）
+              NeumorphicContainer(
+                shape: NeumorphicShape.concave,
+                intensity: NeumorphicIntensity.normal,
+                borderRadius: 48,
+                width: 96,
+                height: 96,
+                alignment: Alignment.center,
+                padding: EdgeInsets.zero,
+                child: NeumorphicIcon(
+                  _getFileIconBody(),
+                  size: 40,
+                  color: tokens.inkPrimary,
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 24),
 
-                // 文件名
-                Text(
-                  fileName,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+              // 文件名
+              Text(
+                fileName,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
                 ),
+              ),
+              const SizedBox(height: 8),
+
+              // 文件类型标签（凹陷软质胶囊）
+              NeumorphicContainer(
+                shape: NeumorphicShape.concave,
+                intensity: NeumorphicIntensity.subtle,
+                borderRadius: 12,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                child: Text(
+                  '$typeLabel 文件',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 提示文字
+              Text(
+                '此$typeLabel文件需要保存到本地后查看，\n请选择保存位置。',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: tokens.textSecondary,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 保存按钮（软质主按钮）
+              NeumorphicButton(
+                label: '保存文件',
+                icon: StrawIcons.saveAlt,
+                style: NeumorphicButtonStyle.primary,
+                onPressed: canSave ? onSave : null,
+              ),
+
+              // 临时文件不可用时的提示
+              if (!canSave) ...[
                 const SizedBox(height: 8),
-
-                // 文件类型标签
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .secondaryContainer
-                        .withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$typeLabel 文件',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 提示文字
                 Text(
-                  '此$typeLabel文件需要保存到本地后查看，\n请选择保存位置。',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 24),
-
-                // 保存按钮
-                FilledButton.icon(
-                  onPressed: tempFilePath != null ? onSave : null,
-                  icon: const Icon(Icons.save_alt),
-                  label: const Text('保存文件'),
-                ),
-
-                // 临时文件不可用时的提示
-                if (tempFilePath == null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '临时文件不可用',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                  '临时文件不可用',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.error,
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

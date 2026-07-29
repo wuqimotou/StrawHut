@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart' as file_picker;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/utils/image_service.dart';
 
 /// 自定义 Quill 编辑器工具栏
@@ -193,11 +194,12 @@ class _QuillToolbarState extends State<QuillToolbar> {
 
   /// 构建垂直分隔线
   Widget _buildDivider() {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Container(
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: Colors.grey.withOpacity(0.3),
+      color: tokens.divider,
     );
   }
 

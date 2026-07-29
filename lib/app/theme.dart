@@ -1,25 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// 应用主题配置
+import 'package:strawhut/app/neumorphic_tokens.dart';
+
+/// 应用主题配置（Neumorphism 水墨风）
 ///
-/// 定义 StrawHut 的亮色和暗色主题方案。
+/// 基于 [NeumorphicTokens] 构建亮/暗主题方案。
 ///
 /// 设计特点：
-/// - 使用 Material 3 设计规范（useMaterial3: true）
-/// - 主色调为绿色（seedColor: Colors.green），呼应稻草人/农业主题
-/// - 支持系统级亮色/暗色主题自动切换
-/// - 配置跨平台中文字体支持，解决 Windows/Android/iOS 上中文显示异常问题
+/// - 表面色与背景同色，靠双向阴影定义体积（Neumorphism 核心）
+/// - 强调色采用水墨黑系（inkPrimary）
+/// - 保留跨平台中文字体回退链
+/// - 圆角统一为令牌定义的档位
 ///
 /// 字体配置：
-/// - Windows：Microsoft YaHei（微软雅黑）→ 完美支持简体中文
-/// - macOS / iOS：PingFang SC（苹方-简）→ 苹果系统中文字体
-/// - Android：系统默认 Noto Sans CJK SC（思源黑体）→ Android 系统中文字体
-/// - Linux：Noto Sans CJK SC → 开源中文字体
-///
-/// 配色方案：
-/// - 亮色主题：适合日常使用，白色背景
-/// - 暗色主题：适合夜间使用，深色背景，减少眼睛疲劳
+/// - Windows：Microsoft YaHei（微软雅黑）
+/// - macOS / iOS：PingFang SC（苹方-简）
+/// - Android：Noto Sans CJK SC（思源黑体）
+/// - Linux：Noto Sans CJK SC
 ///
 /// 使用示例：
 /// ```dart
@@ -30,7 +28,6 @@ import 'package:flutter/material.dart';
 /// )
 /// ```
 class AppTheme {
-  /// 私有构造函数，防止实例化
   AppTheme._();
 
   /// Windows 平台默认中文字体
@@ -46,9 +43,6 @@ class AppTheme {
   static const String _linuxFont = 'Noto Sans CJK SC';
 
   /// 根据运行平台返回最合适的中文字体
-  ///
-  /// Flutter 会按顺序尝试列表中的字体，直到找到可用的字体。
-  /// 将当前平台字体放在第一位，确保优先使用平台原生中文字体。
   static String get _platformFont {
     switch (defaultTargetPlatform) {
       case TargetPlatform.windows:
@@ -66,9 +60,6 @@ class AppTheme {
   }
 
   /// 构建字体回退列表
-  ///
-  /// 将平台原生字体放在最前，其他平台字体作为回退。
-  /// 这样如果某个平台缺少指定字体，会尝试下一个。
   static List<String> get _fontFallbacks {
     switch (defaultTargetPlatform) {
       case TargetPlatform.windows:
@@ -86,98 +77,280 @@ class AppTheme {
   }
 
   /// 创建包含所有字体的 TextStyle
-  ///
-  /// 将字体列表作为 fontFamilyFallback，确保多平台兼容。
   static TextStyle _fontStyle() => TextStyle(
         fontFamily: _fontFallbacks.first,
         fontFamilyFallback: _fontFallbacks.skip(1).toList(),
       );
 
-  /// 构建统一的按钮样式
-  ///
-  /// Material 3 按钮有独立的字体配置，需单独设置中文字体。
-  static ButtonStyle _buttonStyle(TextStyle style) => ButtonStyle(
-        textStyle: WidgetStatePropertyAll(style),
-      );
-
-  /// 亮色主题
-  ///
-  /// 基于 Material 3 的亮色配色方案。
-  /// seedColor: Colors.green 生成一套绿色调的组件颜色。
-  static ThemeData get lightTheme {
-    final fontStyle = _fontStyle();
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-      fontFamily: _platformFont,
-      fontFamilyFallback: _fontFallbacks.skip(1).toList(),
-      textTheme: TextTheme(
-        bodyLarge: fontStyle,
-        bodyMedium: fontStyle,
-        bodySmall: fontStyle,
-        titleLarge: fontStyle,
-        titleMedium: fontStyle,
-        titleSmall: fontStyle,
-        labelLarge: fontStyle,
-        labelMedium: fontStyle,
-        labelSmall: fontStyle,
-        displayLarge: fontStyle,
-        displayMedium: fontStyle,
-        displaySmall: fontStyle,
-        headlineLarge: fontStyle,
-        headlineMedium: fontStyle,
-        headlineSmall: fontStyle,
-      ),
-      elevatedButtonTheme:
-          ElevatedButtonThemeData(style: _buttonStyle(fontStyle)),
-      filledButtonTheme: FilledButtonThemeData(style: _buttonStyle(fontStyle)),
-      textButtonTheme: TextButtonThemeData(style: _buttonStyle(fontStyle)),
-      outlinedButtonTheme:
-          OutlinedButtonThemeData(style: _buttonStyle(fontStyle)),
-      iconButtonTheme: IconButtonThemeData(style: _buttonStyle(fontStyle)),
+  /// 构建 ColorScheme（基于 NeumorphicTokens）
+  static ColorScheme _colorScheme(NeumorphicTokens tokens) {
+    return ColorScheme(
+      brightness: tokens.brightness,
+      primary: tokens.inkPrimary,
+      onPrimary: tokens.brightness == Brightness.dark
+          ? tokens.surface
+          : const Color(0xFFF5F5F5),
+      secondary: tokens.inkSecondary,
+      onSecondary: tokens.brightness == Brightness.dark
+          ? tokens.surface
+          : const Color(0xFFF5F5F5),
+      error: tokens.error,
+      onError: tokens.brightness == Brightness.dark
+          ? tokens.surface
+          : const Color(0xFFF5F5F5),
+      surface: tokens.surface,
+      onSurface: tokens.textPrimary,
+      // Material 3 新增的分量表面色
+      surfaceContainerHighest: tokens.surfaceAlt,
+      onSurfaceVariant: tokens.textSecondary,
+      outline: tokens.textHint,
+      outlineVariant: tokens.surfaceAlt,
+      shadow: tokens.darkShadow,
+      scrim: tokens.inkPrimary,
     );
   }
 
+  /// 亮色主题
+  static ThemeData get lightTheme => _buildTheme(NeumorphicTokens.light);
+
   /// 暗色主题
-  ///
-  /// 基于 Material 3 的暗色配色方案。
-  /// 在暗色背景下仍使用绿色作为主色调，保持一致的品牌视觉。
-  static ThemeData get darkTheme {
+  static ThemeData get darkTheme => _buildTheme(NeumorphicTokens.dark);
+
+  static ThemeData _buildTheme(NeumorphicTokens tokens) {
     final fontStyle = _fontStyle();
+    final colorScheme = _colorScheme(tokens);
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.green,
-        brightness: Brightness.dark,
-      ),
+      brightness: tokens.brightness,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: tokens.surface,
+      canvasColor: tokens.surface,
       fontFamily: _platformFont,
       fontFamilyFallback: _fontFallbacks.skip(1).toList(),
-      textTheme: TextTheme(
-        bodyLarge: fontStyle,
-        bodyMedium: fontStyle,
-        bodySmall: fontStyle,
-        titleLarge: fontStyle,
-        titleMedium: fontStyle,
-        titleSmall: fontStyle,
-        labelLarge: fontStyle,
-        labelMedium: fontStyle,
-        labelSmall: fontStyle,
-        displayLarge: fontStyle,
-        displayMedium: fontStyle,
-        displaySmall: fontStyle,
-        headlineLarge: fontStyle,
-        headlineMedium: fontStyle,
-        headlineSmall: fontStyle,
+      textTheme: _buildTextTheme(fontStyle, tokens),
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.surface,
+        foregroundColor: tokens.textPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        titleTextStyle: fontStyle.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: tokens.textPrimary,
+        ),
       ),
+      cardTheme: CardThemeData(
+        color: tokens.surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusLarge),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: tokens.surfaceAlt,
+        thickness: 1,
+        space: 1,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: tokens.surfaceAlt,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        hintStyle: fontStyle.copyWith(color: tokens.textHint),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: tokens.inkPrimary,
+        contentTextStyle: fontStyle.copyWith(
+          color: tokens.brightness == Brightness.dark
+              ? tokens.surface
+              : const Color(0xFFF5F5F5),
+          fontSize: 14,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: tokens.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(tokens.radiusXLarge),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: tokens.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        titleTextStyle: fontStyle.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: tokens.textPrimary,
+        ),
+        contentTextStyle: fontStyle.copyWith(
+          fontSize: 14,
+          color: tokens.textSecondary,
+        ),
+      ),
+      // 按钮保留字体配置，实际渲染由 NeumorphicButton 接管
       elevatedButtonTheme:
-          ElevatedButtonThemeData(style: _buttonStyle(fontStyle)),
-      filledButtonTheme: FilledButtonThemeData(style: _buttonStyle(fontStyle)),
-      textButtonTheme: TextButtonThemeData(style: _buttonStyle(fontStyle)),
+          ElevatedButtonThemeData(style: _buttonStyle(fontStyle, tokens)),
+      filledButtonTheme:
+          FilledButtonThemeData(style: _buttonStyle(fontStyle, tokens)),
+      textButtonTheme:
+          TextButtonThemeData(style: _buttonStyle(fontStyle, tokens)),
       outlinedButtonTheme:
-          OutlinedButtonThemeData(style: _buttonStyle(fontStyle)),
-      iconButtonTheme: IconButtonThemeData(style: _buttonStyle(fontStyle)),
+          OutlinedButtonThemeData(style: _buttonStyle(fontStyle, tokens)),
+      iconButtonTheme:
+          IconButtonThemeData(style: _buttonStyle(fontStyle, tokens)),
+    );
+  }
+
+  /// 构建文字主题
+  static TextTheme _buildTextTheme(TextStyle base, NeumorphicTokens tokens) {
+    return TextTheme(
+      // Display
+      displayLarge: base.copyWith(
+        fontSize: 48,
+        fontWeight: FontWeight.w700,
+        height: 1.1,
+        color: tokens.textPrimary,
+      ),
+      displayMedium: base.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        height: 1.15,
+        color: tokens.textPrimary,
+      ),
+      displaySmall: base.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        color: tokens.textPrimary,
+      ),
+      // Headline
+      headlineLarge: base.copyWith(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        color: tokens.textPrimary,
+      ),
+      headlineMedium: base.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        color: tokens.textPrimary,
+      ),
+      headlineSmall: base.copyWith(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.35,
+        color: tokens.textPrimary,
+      ),
+      // Title
+      titleLarge: base.copyWith(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.35,
+        color: tokens.textPrimary,
+      ),
+      titleMedium: base.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: tokens.textPrimary,
+      ),
+      titleSmall: base.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: tokens.textPrimary,
+      ),
+      // Body
+      bodyLarge: base.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.6,
+        color: tokens.textPrimary,
+      ),
+      bodyMedium: base.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+        color: tokens.textPrimary,
+      ),
+      bodySmall: base.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.4,
+        color: tokens.textSecondary,
+      ),
+      // Label
+      labelLarge: base.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: tokens.textPrimary,
+      ),
+      labelMedium: base.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: tokens.textSecondary,
+      ),
+      labelSmall: base.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+        color: tokens.textHint,
+      ),
+    );
+  }
+
+  /// 构建统一的按钮样式
+  ///
+  /// NeumorphicButton 接管主要按钮渲染，这里仅保留字体配置，
+  /// 确保未迁移的 Material 按钮仍能正常显示中文字体。
+  static ButtonStyle _buttonStyle(TextStyle style, NeumorphicTokens tokens) {
+    return ButtonStyle(
+      textStyle: WidgetStatePropertyAll(style),
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return tokens.textHint;
+        }
+        return tokens.textPrimary;
+      }),
+      backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+      elevation: const WidgetStatePropertyAll(0),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+        ),
+      ),
     );
   }
 }

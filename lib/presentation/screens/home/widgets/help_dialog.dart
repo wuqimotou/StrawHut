@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:strawhut/l10n/l10n.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 import 'package:strawhut/presentation/dialogs/migration_dialog/migration_dialog.dart';
 
 /// 使用教程对话框
@@ -13,16 +17,28 @@ class HelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final tokens = NeumorphicTokens.ofContext(context);
 
     // On Android, use full-screen dialog for better mobile UX
     if (defaultTargetPlatform == TargetPlatform.android) {
       return Dialog.fullscreen(
+        backgroundColor: tokens.surface,
         child: Scaffold(
+          backgroundColor: tokens.surface,
           appBar: AppBar(
-            title: const Text('使用教程'),
-            leading: IconButton(
-              icon: const Icon(Icons.close),
+            backgroundColor: tokens.surface,
+            foregroundColor: tokens.textPrimary,
+            elevation: 0,
+            title: Text(
+              '使用教程',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: tokens.textPrimary,
+              ),
+            ),
+            leading: NeumorphicIconButton(
+              icon: StrawIcons.close,
               onPressed: () => Navigator.pop(context),
               tooltip: '关闭',
             ),
@@ -32,7 +48,7 @@ class HelpDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(tokens.spaceMd),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -42,9 +58,9 @@ class HelpDialog extends StatelessWidget {
                           '点击首页的"发布知识卡片"按钮进入编辑器，'
                               '输入标题、内容、描述和标签后点击发布，'
                               '即可生成加密的知识卡片文件。',
-                          Icons.edit_note,
+                          StrawIcons.editNote,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: tokens.spaceMd),
                         _buildSection(
                           context,
                           '2. 选择加密模式',
@@ -53,17 +69,17 @@ class HelpDialog extends StatelessWidget {
                               '系统自动生成高强度密钥，适合文件传输场景。\n'
                               '• 协商密钥模式：通过自定义暗号派生密钥，'
                               '适合口头分享场景。',
-                          Icons.lock,
+                          StrawIcons.lock,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: tokens.spaceMd),
                         _buildSection(
                           context,
                           '3. 打开知识卡片',
                           '点击首页的"解密知识卡片"按钮选择 .straw 文件'
                               '或 .png 图片，输入密钥或暗号后即可解密查看内容。',
-                          Icons.folder_open,
+                          StrawIcons.folderOpen,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: tokens.spaceMd),
                         _buildSection(
                           context,
                           '4. 安全提示',
@@ -74,11 +90,10 @@ class HelpDialog extends StatelessWidget {
                               '• 请妥善保管密钥文件或暗号，遗忘后无法'
                               '恢复内容。\n'
                               '• 支持将加密内容嵌入 PNG 图片元数据中分享。',
-                          Icons.security,
+                          StrawIcons.lock,
                         ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 24),
-                        const SizedBox(height: 8),
+                        SizedBox(height: tokens.spaceMd),
+                        SizedBox(height: tokens.spaceXs),
                         _buildMigrationTile(context),
                       ],
                     ),
@@ -86,22 +101,16 @@ class HelpDialog extends StatelessWidget {
                 ),
                 // Bottom action button
                 Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border(
-                      top: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                        width: 1,
-                      ),
-                    ),
-                  ),
+                  padding: EdgeInsets.all(tokens.spaceMd),
+                  color: tokens.surface,
                   child: SizedBox(
                     width: double.infinity,
-                    height: 48,
-                    child: FilledButton(
+                    child: NeumorphicButton(
+                      label: '我知道了',
+                      style: NeumorphicButtonStyle.primary,
+                      expanded: true,
+                      minimumSize: const Size(0, 48),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('我知道了'),
                     ),
                   ),
                 ),
@@ -112,8 +121,12 @@ class HelpDialog extends StatelessWidget {
       );
     }
 
-    // Desktop AlertDialog style
+    // Desktop Dialog style
     return Dialog(
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: Padding(
@@ -125,15 +138,23 @@ class HelpDialog extends StatelessWidget {
               // 标题
               Row(
                 children: [
-                  Icon(Icons.school, color: primaryColor),
+                  NeumorphicIcon(
+                    StrawIcons.info,
+                    size: 22,
+                    color: tokens.inkPrimary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     '使用教程',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              SizedBox(height: tokens.spaceSm),
               // 教程内容
               Flexible(
                 child: SingleChildScrollView(
@@ -146,9 +167,9 @@ class HelpDialog extends StatelessWidget {
                         '点击首页的"发布知识卡片"按钮进入编辑器，'
                             '输入标题、内容、描述和标签后点击发布，'
                             '即可生成加密的知识卡片文件。',
-                        Icons.edit_note,
+                        StrawIcons.editNote,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: tokens.spaceMd),
                       _buildSection(
                         context,
                         '2. 选择加密模式',
@@ -157,17 +178,17 @@ class HelpDialog extends StatelessWidget {
                             '系统自动生成高强度密钥，适合文件传输场景。\n'
                             '• 协商密钥模式：通过自定义暗号派生密钥，'
                             '适合口头分享场景。',
-                        Icons.lock,
+                        StrawIcons.lock,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: tokens.spaceMd),
                       _buildSection(
                         context,
                         '3. 打开知识卡片',
                         '点击首页的"解密知识卡片"按钮选择 .straw 文件'
                             '或 .png 图片，输入密钥或暗号后即可解密查看内容。',
-                        Icons.folder_open,
+                        StrawIcons.folderOpen,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: tokens.spaceMd),
                       _buildSection(
                         context,
                         '4. 安全提示',
@@ -176,23 +197,23 @@ class HelpDialog extends StatelessWidget {
                             '• 请妥善保管密钥文件或暗号，遗忘后无法'
                             '恢复内容。\n'
                             '• 支持将加密内容嵌入 PNG 图片元数据中分享。',
-                        Icons.security,
+                        StrawIcons.lock,
                       ),
-                      const SizedBox(height: 16),
-                      const Divider(height: 24),
-                      const SizedBox(height: 8),
+                      SizedBox(height: tokens.spaceMd),
+                      SizedBox(height: tokens.spaceXs),
                       _buildMigrationTile(context),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spaceMd),
               // 关闭按钮
               Align(
                 alignment: Alignment.centerRight,
-                child: FilledButton(
+                child: NeumorphicButton(
+                  label: '我知道了',
+                  style: NeumorphicButtonStyle.primary,
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('我知道了'),
                 ),
               ),
             ],
@@ -206,16 +227,20 @@ class HelpDialog extends StatelessWidget {
     BuildContext context,
     String title,
     String content,
-    IconData icon,
+    String icon,
   ) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final tokens = NeumorphicTokens.ofContext(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: 20, color: primaryColor),
+          child: NeumorphicIcon(
+            icon,
+            size: 20,
+            color: tokens.inkPrimary,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -224,16 +249,20 @@ class HelpDialog extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 content,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[700],
-                    ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: tokens.textSecondary,
+                  height: 1.5,
+                ),
               ),
             ],
           ),
@@ -244,21 +273,36 @@ class HelpDialog extends StatelessWidget {
 
   /// 构建迁移旧版文件入口
   Widget _buildMigrationTile(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     final l10n = AppLocalizations.of(context)!;
-    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return ListTile(
-      leading: Icon(Icons.sync, color: primaryColor),
-      title: Text(l10n.migrateLegacyFile),
-      subtitle: Text(l10n.migrateLegacyFileDescription),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).dividerColor),
+    return NeumorphicContainer(
+      shape: NeumorphicShape.flat,
+      borderRadius: tokens.radiusMedium,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ListTile(
+        leading: NeumorphicIcon(
+          StrawIcons.cloudUpload,
+          size: 22,
+          color: tokens.inkPrimary,
+        ),
+        title: Text(
+          l10n.migrateLegacyFile,
+          style: TextStyle(
+            color: tokens.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          l10n.migrateLegacyFileDescription,
+          style: TextStyle(color: tokens.textSecondary),
+        ),
+        contentPadding: EdgeInsets.zero,
+        onTap: () {
+          Navigator.pop(context); // Close help dialog first
+          MigrationDialog.show(context);
+        },
       ),
-      onTap: () {
-        Navigator.pop(context); // Close help dialog first
-        MigrationDialog.show(context);
-      },
     );
   }
 }

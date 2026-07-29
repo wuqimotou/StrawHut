@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+
 /// 加载指示器组件
 ///
 /// 通用加载状态展示组件，包含圆形进度指示器和可选提示文字。
@@ -13,7 +16,7 @@ import 'package:flutter/material.dart';
 /// 设计特点：
 /// - 垂直居中布局（Column + MainAxisSize.min）
 /// - 可选的提示文字，显示在进度指示器下方
-/// - 简洁的 Material Design 风格
+/// - Neumorphism 水墨风：凹陷凹槽内嵌软质进度环
 ///
 /// 使用示例：
 /// ```dart
@@ -34,17 +37,33 @@ class LoadingIndicator extends StatelessWidget {
   /// 构建加载指示器 UI
   ///
   /// 布局结构：
-  /// - Center → Column → CircularProgressIndicator + Text（可选）
+  /// - Center → Column → NeumorphicInset(concave) 内 CircularProgressIndicator + Text（可选）
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          NeumorphicContainer(
+            shape: NeumorphicShape.concave,
+            borderRadius: tokens.radiusXLarge,
+            padding: const EdgeInsets.all(20),
+            child: CircularProgressIndicator(
+              color: tokens.inkPrimary,
+              strokeWidth: 2.5,
+            ),
+          ),
           if (message != null) ...[
             const SizedBox(height: 16),
-            Text(message!),
+            Text(
+              message!,
+              style: TextStyle(
+                fontSize: 14,
+                color: tokens.textSecondary,
+              ),
+            ),
           ],
         ],
       ),

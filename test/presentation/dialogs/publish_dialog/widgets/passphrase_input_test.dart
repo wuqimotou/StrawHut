@@ -32,6 +32,7 @@ import 'package:strawhut/core/passphrase_vault/passphrase_vault_service.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/passphrase_input.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 
 /// Mock PassphraseVaultService
 class MockPassphraseVaultService extends Mock
@@ -186,11 +187,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // 查找 "从保险库选择" 按钮
-      final button = find.widgetWithText(OutlinedButton, '从保险库选择');
+      final button = find.widgetWithText(NeumorphicButton, '从保险库选择');
       expect(button, findsOneWidget);
 
       // 按钮应可点击（onPressed 不为 null）
-      final outlinedButton = tester.widget<OutlinedButton>(button);
+      final outlinedButton = tester.widget<NeumorphicButton>(button);
       expect(outlinedButton.onPressed, isNotNull);
     });
 
@@ -201,11 +202,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // 查找 "从保险库选择" 按钮
-      final button = find.widgetWithText(OutlinedButton, '从保险库选择');
+      final button = find.widgetWithText(NeumorphicButton, '从保险库选择');
       expect(button, findsOneWidget);
 
       // 按钮应禁用（onPressed 为 null）
-      final outlinedButton = tester.widget<OutlinedButton>(button);
+      final outlinedButton = tester.widget<NeumorphicButton>(button);
       expect(outlinedButton.onPressed, isNull);
     });
 
@@ -230,7 +231,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击 "从保险库选择" 按钮
-      final button = find.widgetWithText(OutlinedButton, '从保险库选择');
+      final button = find.widgetWithText(NeumorphicButton, '从保险库选择');
       await tester.tap(button);
       await tester.pumpAndSettle();
 
@@ -257,7 +258,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击 "从保险库选择" 按钮
-      final button = find.widgetWithText(OutlinedButton, '从保险库选择');
+      final button = find.widgetWithText(NeumorphicButton, '从保险库选择');
       await tester.tap(button);
       await tester.pumpAndSettle();
 
@@ -277,8 +278,8 @@ void main() {
 
       // 空保险库时按钮是禁用的，所以无法点击
       // 但我们仍然验证按钮是禁用状态
-      final button = find.widgetWithText(OutlinedButton, '从保险库选择');
-      final outlinedButton = tester.widget<OutlinedButton>(button);
+      final button = find.widgetWithText(NeumorphicButton, '从保险库选择');
+      final outlinedButton = tester.widget<NeumorphicButton>(button);
       expect(outlinedButton.onPressed, isNull);
     });
   });

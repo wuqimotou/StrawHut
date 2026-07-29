@@ -74,9 +74,9 @@ void main() {
       await tester.pumpWidget(_buildMetaForm());
       await tester.pumpAndSettle();
 
-      // 查找 SwitchListTile
-      final switchTile = tester.widget<SwitchListTile>(
-        find.byType(SwitchListTile),
+      // 查找 Switch
+      final switchTile = tester.widget<Switch>(
+        find.byType(Switch),
       );
 
       // 验证初始状态为关闭（false）
@@ -217,7 +217,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 开启匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
@@ -487,7 +487,7 @@ void main() {
       expect(fields[1].enabled, isTrue);
 
       // 开启匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
@@ -504,7 +504,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 先开启匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
@@ -542,7 +542,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 开启匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
@@ -590,7 +590,7 @@ void main() {
       final initialCount = callbackCallCount;
 
       // 切换匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
@@ -768,7 +768,7 @@ void main() {
       expect(formKey.currentState?.isAnonymous, isFalse);
 
       // 开启匿名模式
-      final switchFinder = find.byType(SwitchListTile);
+      final switchFinder = find.byType(Switch);
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 

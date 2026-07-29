@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/key_display.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 Widget _buildKeyDisplay({required String keyBase64}) {
   return MaterialApp(
@@ -72,7 +74,7 @@ void main() {
 
     testWidgets('应该显示复制按钮', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyDisplay(keyBase64: testKeyBase64));
-      expect(find.byType(ElevatedButton), findsOneWidget);
+      expect(find.byType(NeumorphicButton), findsOneWidget);
     });
 
     testWidgets('复制按钮应该显示"复制到剪贴板"文本', (WidgetTester tester) async {
@@ -82,7 +84,11 @@ void main() {
 
     testWidgets('复制按钮应该使用复制图标', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyDisplay(keyBase64: testKeyBase64));
-      expect(find.byIcon(Icons.copy), findsOneWidget);
+      // 验证 NeumorphicButton 的 icon 属性为 StrawIcons.copy
+      final button = tester.widget<NeumorphicButton>(
+        find.byType(NeumorphicButton),
+      );
+      expect(button.icon, equals(StrawIcons.copy));
     });
 
     testWidgets('应该显示安全警告提示', (WidgetTester tester) async {
@@ -93,7 +99,8 @@ void main() {
 
     testWidgets('应该显示警告图标', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyDisplay(keyBase64: testKeyBase64));
-      expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+      // 警告图标使用 NeumorphicIcon（SVG），验证其存在
+      expect(find.byType(NeumorphicIcon), findsWidgets);
     });
   });
 
@@ -101,7 +108,7 @@ void main() {
     testWidgets('复制按钮具有正确的 onPressed 回调', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyDisplay(keyBase64: testKeyBase64));
       // 验证复制按钮有有效的 onPressed 回调（不为 null）
-      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      final button = tester.widget<NeumorphicButton>(find.byType(NeumorphicButton));
       expect(button.onPressed, isNotNull);
     });
 
@@ -120,10 +127,11 @@ void main() {
       await tester.pumpWidget(
         _buildKeyDisplay(keyBase64: testKeyBase64),
       );
-      final icon = tester.widget<Icon>(
-        find.byIcon(Icons.warning_amber_rounded),
+      // 警告图标使用 NeumorphicIcon（SVG），验证其颜色已设置
+      final icons = tester.widgetList<NeumorphicIcon>(
+        find.byType(NeumorphicIcon),
       );
-      expect(icon.color, isNotNull);
+      expect(icons.any((icon) => icon.color != null), isTrue);
     });
 
     testWidgets('安全警告应该包含两个关键提示', (WidgetTester tester) async {
@@ -192,15 +200,11 @@ void main() {
       await tester.pumpWidget(
         _buildKeyDisplay(keyBase64: testKeyBase64),
       );
-      final sizedBox = tester.widget<SizedBox>(
-        find
-            .ancestor(
-              of: find.byType(ElevatedButton),
-              matching: find.byType(SizedBox),
-            )
-            .first,
+      final button = tester.widget<NeumorphicButton>(
+        find.byType(NeumorphicButton),
       );
-      expect(sizedBox.width, equals(double.infinity));
+      // 验证 expanded 属性为 true（按钮占满宽度）
+      expect(button.expanded, isTrue);
     });
   });
 }

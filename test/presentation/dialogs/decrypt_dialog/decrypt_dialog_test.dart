@@ -47,6 +47,7 @@ import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 
 /// Mock ICryptoService
 class MockCryptoService extends Mock implements ICryptoService {}
@@ -417,7 +418,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 不输入密钥，直接点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示错误提示
@@ -442,7 +443,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 不输入密钥，直接点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证 decrypt 没有被调用
@@ -524,7 +525,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示错误提示
@@ -554,7 +555,7 @@ void main() {
       await tester.enterText(textField, wrongKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证解密按钮重新可用
@@ -654,7 +655,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 应该显示完整性校验失败提示
@@ -685,7 +686,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 回调不应该被调用
@@ -712,7 +713,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证 clearSensitiveData 被调用
@@ -739,7 +740,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 对话框应该仍然显示
@@ -841,7 +842,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证回调被调用且传入正确的 DecryptResult
@@ -875,7 +876,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证对话框已关闭
@@ -902,7 +903,7 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pumpAndSettle();
 
       // 验证 clearSensitiveData 被调用
@@ -937,7 +938,7 @@ void main() {
       container.dispose();
     });
 
-    testWidgets('解密过程中应该显示 CircularProgressIndicator', (
+    testWidgets('解密过程中应该显示加载状态文本', (
       WidgetTester tester,
     ) async {
       // 使用 Completer 控制解密操作的完成时机
@@ -992,12 +993,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       // 使用 pump 触发重绘，但不等待 Future 完成
       await tester.pump();
 
-      // 验证加载指示器显示
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      // 验证加载状态文本显示（替代 CircularProgressIndicator）
+      expect(find.text('解密中...'), findsOneWidget);
 
       // 完成解密操作
       completer.complete(
@@ -1064,11 +1065,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // 点击解密按钮
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pump();
 
-      // 验证 FilledButton 中"解密"文本不存在（被 CircularProgressIndicator 替代）
-      expect(find.widgetWithText(FilledButton, '解密'), findsNothing);
+      // 验证 NeumorphicButton 中"解密"文本不存在（loading 状态显示"解密中..."）
+      expect(find.widgetWithText(NeumorphicButton, '解密'), findsNothing);
 
       // 完成解密操作
       completer.complete(
@@ -1135,11 +1136,11 @@ void main() {
       await tester.enterText(textField, validKey);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '解密'));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pump();
 
       final cancelFinder = find.byKey(const ValueKey('decrypt_cancel_button'));
-      final cancelButton = tester.widget<TextButton>(cancelFinder);
+      final cancelButton = tester.widget<NeumorphicButton>(cancelFinder);
       expect(cancelButton.onPressed, isNotNull);
 
       await tester.tap(cancelFinder);
@@ -1213,13 +1214,13 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'Saved Secret 123!');
-      await tester.tap(find.byType(FilledButton));
+      await tester.tap(find.widgetWithText(NeumorphicButton, '解密'));
       await tester.pump();
 
       final cancelFinder = find.byKey(
         const ValueKey('decrypt_cancel_button'),
       );
-      expect(tester.widget<TextButton>(cancelFinder).onPressed, isNotNull);
+      expect(tester.widget<NeumorphicButton>(cancelFinder).onPressed, isNotNull);
 
       await tester.tap(cancelFinder);
       await tester.pumpAndSettle();

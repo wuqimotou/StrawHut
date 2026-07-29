@@ -5,11 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 import 'package:strawhut/presentation/screens/home/widgets/help_dialog.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 import 'package:strawhut/presentation/widgets/responsive_utils.dart';
 
 /// 首页界面
@@ -110,13 +114,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final horizontalPadding = getHorizontalPadding(screenWidth);
+    final tokens = NeumorphicTokens.ofContext(context);
 
     return PopScope(
       canPop: !isAndroid(),
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         if (!isAndroid()) {
-          // Non-mobile: just pop
           if (context.canPop()) {
             context.pop();
           } else {
@@ -130,96 +134,162 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('StrawHut - 草棚'),
-          centerTitle: true,
-          actions: [
-            // 暗号保险库按钮
-            IconButton(
-              icon: const Icon(Icons.password),
-              onPressed: () => PassphraseVaultDialog.show(context),
-              tooltip: '暗号保险库',
-            ),
-            // 帮助按钮
-            IconButton(
-              icon: const Icon(Icons.help_outline),
-              onPressed: () => _showHelpDialog(context),
-              tooltip: '使用教程',
-            ),
-          ],
-        ),
+        backgroundColor: tokens.surface,
+        appBar: _buildSoftAppBar(context, tokens),
         body: LayoutBuilder(
           builder: (context, constraints) {
             return Center(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal: horizontalPadding,
-                  vertical: 24,
+                  vertical: tokens.spaceXl,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 32),
-                    // 应用 Logo 区域：显示大号加密锁图标
-                    const Icon(
-                      Icons.lock_outline_rounded,
-                      size: 80,
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(height: 16),
-                    // 欢迎文字说明：引导用户操作
-                    Text(
-                      '欢迎使用 StrawHut',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '创建加密知识卡片，安全分享你的知识',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
-                    // 核心操作按钮组：新建和打开卡片
-                    const ActionButtons(),
-                    const SizedBox(height: 32),
-                    // 桌面端拖拽区域：仅 Windows 桌面端显示
-                    // 移动端自动隐藏（通过 DropZone 内部条件判断）
-                    const DropZone(),
-                    // On Android, show a hint text about receiving shared files
-                    if (defaultTargetPlatform == TargetPlatform.android) ...[
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 480,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          '您也可以从其他应用分享文件到 StrawHut 打开',
+                      // 应用 Logo：凸起圆形软质容器 + 水墨锁图标
+                      _buildLogo(tokens),
+                      SizedBox(height: tokens.spaceXl),
+                      // 欢迎标题
+                      Text(
+                        '欢迎使用 StrawHut',
+                        style: Theme.of(context).textTheme.displaySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: tokens.spaceSm),
+                      Text(
+                        '创建加密知识卡片，安全分享你的知识',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: tokens.textSecondary,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: tokens.spaceXxl),
+                      // 核心操作按钮组
+                      const ActionButtons(),
+                      SizedBox(height: tokens.spaceXl),
+                      // 桌面端拖拽区域
+                      const DropZone(),
+                      // Android 分享提示
+                      if (defaultTargetPlatform ==
+                          TargetPlatform.android) ...[
+                        SizedBox(height: tokens.spaceMd),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            '您也可以从其他应用分享文件到 StrawHut 打开',
+                            textAlign: TextAlign.center,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: tokens.textHint,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                          ),
+                        ),
+                      ],
+                      SizedBox(height: tokens.spaceLg),
+                      // 版本号
+                      if (_version.isNotEmpty)
+                        Text(
+                          _version,
                           textAlign: TextAlign.center,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[500],
-                                    fontStyle: FontStyle.italic,
+                                    color: tokens.textHint,
                                   ),
                         ),
-                      ),
                     ],
-                    const SizedBox(height: 24),
-                    // 版本号显示
-                    if (_version.isNotEmpty)
-                      Text(
-                        _version,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[400],
-                            ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// 构建浮动软质应用栏
+  ///
+  /// 透明背景 + 凸起胶囊容器包裹标题与操作按钮，
+  /// 悬浮于页面内容之上，无下边线。
+  PreferredSize _buildSoftAppBar(
+    BuildContext context,
+    NeumorphicTokens tokens,
+  ) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 16),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              // 左侧：品牌标识（凸起圆形软质图标）
+              NeumorphicIconButton(
+                icon: StrawIcons.lock,
+                size: 44,
+                iconSize: 20,
+                color: tokens.inkPrimary,
+              ),
+              const SizedBox(width: 12),
+              // 标题
+              Expanded(
+                child: Text(
+                  'StrawHut · 草棚',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+              ),
+              // 右侧：暗号保险库
+              NeumorphicIconButton(
+                icon: StrawIcons.password,
+                size: 44,
+                iconSize: 20,
+                tooltip: '暗号保险库',
+                onPressed: () => PassphraseVaultDialog.show(context),
+              ),
+              const SizedBox(width: 8),
+              // 右侧：帮助
+              NeumorphicIconButton(
+                icon: StrawIcons.help,
+                size: 44,
+                iconSize: 20,
+                tooltip: '使用教程',
+                onPressed: () => _showHelpDialog(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建应用 Logo（凸起圆形软质容器 + 应用图标）
+  Widget _buildLogo(NeumorphicTokens tokens) {
+    return Center(
+      child: NeumorphicContainer(
+        shape: NeumorphicShape.convex,
+        intensity: NeumorphicIntensity.strong,
+        borderRadius: 60,
+        width: 120,
+        height: 120,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(48),
+          child: Image.asset(
+            'assets/icons/app_icon.png',
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );

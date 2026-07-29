@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 元数据预览组件
 ///
@@ -18,7 +21,7 @@ import 'package:strawhut/data/models/straw_file.dart';
 /// - 发布者代号
 /// - 发布日期（格式化显示）
 /// - 描述文本
-/// - 标签列表（Chip 样式）
+/// - 标签列表（软质胶囊样式）
 /// - 匿名标识（如果是匿名模式）
 /// - 加密算法标识
 ///
@@ -63,151 +66,171 @@ class MetaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final tokens = NeumorphicTokens.ofContext(context);
+    return NeumorphicContainer(
+      shape: NeumorphicShape.convex,
+      intensity: NeumorphicIntensity.subtle,
+      borderRadius: tokens.radiusLarge,
       margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ========== 卡片标题（大字号） ==========
-            Text(
-              meta.title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ========== 卡片标题（大字号） ==========
+          Text(
+            meta.title,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: tokens.textPrimary,
+              height: 1.3,
             ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
 
-            // ========== 发布者信息和发布日期 ==========
-            Row(
-              children: [
-                // 匿名标识
-                if (meta.isAnonymous) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.visibility_off,
-                          size: 14,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '匿名',
-                          style: TextStyle(
-                            color: Colors.orange[800],
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                // 发布者代号
-                Icon(
-                  Icons.person_outline,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    meta.publisherAlias,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                // 发布日期
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(meta.publishDate),
+          // ========== 发布者信息和发布日期 ==========
+          Row(
+            children: [
+              // 匿名标识（软质凹陷胶囊）
+              if (meta.isAnonymous) ...[
+                _buildAnonymousTag(tokens),
+                const SizedBox(width: 8),
+              ],
+              // 发布者代号
+              NeumorphicIcon(
+                StrawIcons.person,
+                size: 18,
+                color: tokens.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  meta.publisherAlias,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                    color: tokens.textSecondary,
                   ),
                 ),
-              ],
-            ),
-
-            // ========== 描述文本 ==========
-            if (meta.description != null && meta.description!.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
+              ),
+              const Spacer(),
+              // 发布日期
+              NeumorphicIcon(
+                StrawIcons.calendar,
+                size: 16,
+                color: tokens.textSecondary,
+              ),
+              const SizedBox(width: 4),
               Text(
-                meta.description!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                _formatDate(meta.publishDate),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: tokens.textSecondary,
+                ),
               ),
             ],
+          ),
 
-            // ========== 标签列表 ==========
-            if (meta.tags.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: meta.tags.map((tag) {
-                  return Chip(
-                    label: Text(
-                      tag,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
-              ),
-            ],
-
-            // ========== 加密算法标识 ==========
+          // ========== 描述文本 ==========
+          if (meta.description != null && meta.description!.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '加密算法：${strawFile.content.encryptionAlgorithm}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+            Divider(height: 1, color: tokens.divider),
+            const SizedBox(height: 12),
+            Text(
+              meta.description!,
+              style: TextStyle(
+                fontSize: 14,
+                color: tokens.textSecondary,
+                height: 1.6,
+              ),
             ),
           ],
+
+          // ========== 标签列表（软质胶囊） ==========
+          if (meta.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, color: tokens.divider),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: meta.tags.map((tag) => _buildTag(tokens, tag)).toList(),
+            ),
+          ],
+
+          // ========== 加密算法标识 ==========
+          const SizedBox(height: 16),
+          Divider(height: 1, color: tokens.divider),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              NeumorphicIcon(
+                StrawIcons.lock,
+                size: 16,
+                color: tokens.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '加密算法：${strawFile.content.encryptionAlgorithm}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: tokens.textHint,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建匿名标识软质胶囊
+  ///
+  /// 使用凹陷态容器 + 水墨警告色，避免 Material 3 默认的橙色高饱和。
+  Widget _buildAnonymousTag(NeumorphicTokens tokens) {
+    return NeumorphicContainer(
+      shape: NeumorphicShape.concave,
+      intensity: NeumorphicIntensity.subtle,
+      borderRadius: 6,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NeumorphicIcon(
+            StrawIcons.eyeOff,
+            size: 14,
+            color: tokens.warning,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '匿名',
+            style: TextStyle(
+              color: tokens.warning,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建标签软质胶囊
+  ///
+  /// 凸起小胶囊，表面同背景色，靠双向阴影定义体积。
+  Widget _buildTag(NeumorphicTokens tokens, String tag) {
+    return NeumorphicContainer(
+      shape: NeumorphicShape.convex,
+      intensity: NeumorphicIntensity.subtle,
+      borderRadius: tokens.radiusSmall,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Text(
+        tag,
+        style: TextStyle(
+          fontSize: 12,
+          color: tokens.textSecondary,
         ),
       ),
     );

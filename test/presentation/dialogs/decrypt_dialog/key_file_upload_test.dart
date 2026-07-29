@@ -30,6 +30,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_file_upload.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 构建用于测试的 KeyFileUpload Widget
 ///
@@ -138,13 +140,14 @@ void main() {
     testWidgets('按钮应该使用上传图标', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      expect(find.byIcon(Icons.upload_file), findsOneWidget);
+      final button = tester.widget<NeumorphicButton>(find.byType(NeumorphicButton));
+      expect(button.icon, StrawIcons.uploadFile);
     });
 
-    testWidgets('按钮应该使用 FilledButton.icon 类型', (WidgetTester tester) async {
+    testWidgets('按钮应该使用 NeumorphicButton 类型', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.byType(NeumorphicButton), findsOneWidget);
     });
   });
 
@@ -152,26 +155,28 @@ void main() {
     testWidgets('初始状态下按钮应该可用', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<NeumorphicButton>(find.byType(NeumorphicButton));
       expect(button.onPressed, isNotNull);
     });
 
     testWidgets('初始状态下不应该显示加载指示器', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('正在读取...'), findsNothing);
     });
 
     testWidgets('初始状态下不应该显示错误信息', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      expect(find.byIcon(Icons.error), findsNothing);
+      // 初始状态下只有按钮的上传图标，没有错误图标
+      expect(find.byType(NeumorphicIcon), findsOneWidget);
     });
 
     testWidgets('初始状态下不应该显示成功状态', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      expect(find.byIcon(Icons.check_circle), findsNothing);
+      // 初始状态下只有按钮的上传图标，没有成功图标
+      expect(find.byType(NeumorphicIcon), findsOneWidget);
     });
   });
 
@@ -180,7 +185,7 @@ void main() {
       // 验证按钮有有效的 onPressed 回调
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<NeumorphicButton>(find.byType(NeumorphicButton));
       expect(button.onPressed, isA<Function>());
 
       // 在测试环境中，FilePicker 不可用，点击会抛异常
@@ -496,8 +501,8 @@ void main() {
     testWidgets('错误容器应该使用红色主题', (WidgetTester tester) async {
       await tester.pumpWidget(_buildKeyFileUpload());
 
-      // 验证错误容器包含红色错误图标
-      expect(find.byIcon(Icons.error), findsNothing); // 初始无错误
+      // 初始状态下只有按钮的上传图标，没有错误图标
+      expect(find.byType(NeumorphicIcon), findsOneWidget); // 初始无错误
     });
   });
 

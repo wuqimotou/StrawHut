@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 拖拽区域 Widget 单元测试
 ///
@@ -13,7 +16,7 @@ import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 /// - DropZone 组件存在并正确渲染
 /// - 拖拽区域显示提示文字和图标
 /// - 拖拽状态变化时的视觉反馈
-/// - 布局结构正确（Container、高度、圆角等）
+/// - 布局结构正确（NeumorphicContainer、高度、圆角等）
 void main() {
   /// 在每个测试前重置路由到初始状态
   setUp(() {
@@ -83,11 +86,11 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证存在 cloud_upload_outlined 图标（默认状态）
+      // 验证存在 NeumorphicIcon（默认状态渲染 cloudUpload SVG 图标）
       expect(
         find.descendant(
           of: find.byType(DropZone),
-          matching: find.byIcon(Icons.cloud_upload_outlined),
+          matching: find.byType(NeumorphicIcon),
         ),
         findsOneWidget,
       );
@@ -108,16 +111,16 @@ void main() {
       );
     });
 
-    testWidgetsOnDesktop('拖拽区域应使用 Container 容器', (WidgetTester tester) async {
+    testWidgetsOnDesktop('拖拽区域应使用 NeumorphicContainer 容器', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证 DropTarget 内部使用 Container
+      // 验证 DropTarget 内部使用 NeumorphicContainer
       expect(
         find.descendant(
           of: find.byType(DropTarget),
-          matching: find.byType(Container),
+          matching: find.byType(NeumorphicContainer),
         ),
         findsOneWidget,
       );
@@ -128,11 +131,11 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证 DropZone 内部 Container 使用 Column 布局
+      // 验证 DropZone 内部 NeumorphicContainer 使用 Column 布局
       final columnFinder = find.descendant(
         of: find.byType(DropZone),
         matching: find.byWidgetPredicate(
-          (widget) => widget is Container && widget.child is Column,
+          (widget) => widget is NeumorphicContainer && widget.child is Column,
         ),
       );
       expect(columnFinder, findsOneWidget);
@@ -145,58 +148,50 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找 DropZone 内部的 Container
+      // 查找 DropZone 内部的 NeumorphicContainer
       final containerFinder = find.descendant(
         of: find.byType(DropTarget),
-        matching: find.byType(Container),
+        matching: find.byType(NeumorphicContainer),
       );
 
-      // 验证高度约束
-      // 注意：高度是通过 decoration 或 constraints 设置的
-      // 在这里我们验证 Container 的大小
-      final rect = tester.getRect(containerFinder);
-      expect(rect.height, 120);
+      // 获取 NeumorphicContainer 实例并验证高度
+      final container = tester.widget<NeumorphicContainer>(containerFinder);
+      expect(container.height, 120);
     });
 
-    testWidgetsOnDesktop('拖拽区域应有圆角边框', (WidgetTester tester) async {
+    testWidgetsOnDesktop('拖拽区域应有圆角', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找 DropZone 内部的 Container
+      // 查找 DropZone 内部的 NeumorphicContainer
       final containerFinder = find.descendant(
         of: find.byType(DropTarget),
-        matching: find.byType(Container),
+        matching: find.byType(NeumorphicContainer),
       );
 
-      // 获取 Container 实例
-      final container = tester.widget<Container>(containerFinder);
-
-      // 验证 decoration 存在且有圆角
-      expect(container.decoration, isNotNull);
-      final decoration = container.decoration as BoxDecoration;
-      expect(decoration.borderRadius, isNotNull);
+      // 获取 NeumorphicContainer 实例并验证圆角存在
+      final container = tester.widget<NeumorphicContainer>(containerFinder);
+      expect(container.borderRadius, isNotNull);
     });
 
-    testWidgetsOnDesktop('拖拽区域默认状态边框应为灰色实线样式', (WidgetTester tester) async {
+    testWidgetsOnDesktop('拖拽区域默认状态应为凹陷软质形态', (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找 DropZone 内部的 Container
+      // 查找 DropZone 内部的 NeumorphicContainer
       final containerFinder = find.descendant(
         of: find.byType(DropTarget),
-        matching: find.byType(Container),
+        matching: find.byType(NeumorphicContainer),
       );
 
-      // 获取 Container 实例
-      final container = tester.widget<Container>(containerFinder);
-      final decoration = container.decoration as BoxDecoration;
+      // 获取 NeumorphicContainer 实例
+      final container = tester.widget<NeumorphicContainer>(containerFinder);
 
-      // 验证默认状态边框颜色为灰色
-      expect(decoration.border, isNotNull);
-      // 边框应存在
-      expect(decoration.border!.top.width, 1);
+      // 验证默认状态为凹陷形态（Neumorphism 通过凹陷/凸起切换提供视觉反馈）
+      expect(container.shape, NeumorphicShape.concave);
+      expect(container.intensity, NeumorphicIntensity.normal);
     });
 
     testWidgetsOnDesktop('拖拽区域内容应居中对齐', (WidgetTester tester) async {
@@ -204,14 +199,14 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找 DropZone 内部的 Container
+      // 查找 DropZone 内部的 NeumorphicContainer
       final containerFinder = find.descendant(
         of: find.byType(DropTarget),
-        matching: find.byType(Container),
+        matching: find.byType(NeumorphicContainer),
       );
 
-      // 获取 Container 实例
-      final container = tester.widget<Container>(containerFinder);
+      // 获取 NeumorphicContainer 实例
+      final container = tester.widget<NeumorphicContainer>(containerFinder);
 
       // 验证对齐方式为中心
       expect(container.alignment, Alignment.center);
@@ -219,17 +214,17 @@ void main() {
   });
 
   group('DropZone 状态管理测试', () {
-    testWidgetsOnDesktop('默认状态下图标应为 cloud_upload_outlined',
+    testWidgetsOnDesktop('默认状态下应显示 NeumorphicIcon 上传图标',
         (WidgetTester tester) async {
       // 构建首页
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证默认状态图标
+      // 验证默认状态存在 NeumorphicIcon
       expect(
         find.descendant(
           of: find.byType(DropZone),
-          matching: find.byIcon(Icons.cloud_upload_outlined),
+          matching: find.byType(NeumorphicIcon),
         ),
         findsOneWidget,
       );
@@ -261,7 +256,7 @@ void main() {
       // 查找图标和文字
       final iconFinder = find.descendant(
         of: find.byType(DropZone),
-        matching: find.byIcon(Icons.cloud_upload_outlined),
+        matching: find.byType(NeumorphicIcon),
       );
       final textFinder = find.descendant(
         of: find.byType(DropZone),

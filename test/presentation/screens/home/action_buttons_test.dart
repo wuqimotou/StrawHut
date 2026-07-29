@@ -5,13 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 操作按钮 Widget 单元测试
 ///
 /// 测试目标：验证 ActionButtons 的按钮点击行为是否符合任务 3.3 验收标准
 /// 覆盖范围：
-/// - "发布知识卡片" 按钮使用 ElevatedButton 样式
-/// - "解密知识卡片" 按钮使用 OutlinedButton 样式
+/// - "发布知识卡片" 按钮使用 NeumorphicButton 样式
+/// - "解密知识卡片" 按钮使用 NeumorphicButton 样式
 /// - 按钮点击后触发正确的导航
 /// - 按钮布局结构正确（Column、间距等）
 void main() {
@@ -43,71 +45,71 @@ void main() {
   }
 
   group('ActionButtons 按钮样式测试', () {
-    testWidgets('"发布知识卡片"按钮应为 ElevatedButton 类型', (WidgetTester tester) async {
+    testWidgets('"发布知识卡片"按钮应为 NeumorphicButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 查找"发布知识卡片"文字所在的 ElevatedButton
-      final elevatedButton = find.text('发布知识卡片');
-      expect(elevatedButton, findsOneWidget);
+      // 查找"发布知识卡片"文字
+      final createButton = find.text('发布知识卡片');
+      expect(createButton, findsOneWidget);
 
-      // 验证该文字在 ElevatedButton 内部
+      // 验证该文字在 NeumorphicButton 内部
       expect(
         find.descendant(
-          of: find.byType(ElevatedButton),
+          of: find.byType(NeumorphicButton),
           matching: find.text('发布知识卡片'),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('"解密知识卡片"按钮应为 ElevatedButton 类型', (WidgetTester tester) async {
+    testWidgets('"解密知识卡片"按钮应为 NeumorphicButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找"解密知识卡片"文字
-      final elevatedButton = find.text('解密知识卡片');
-      expect(elevatedButton, findsOneWidget);
+      final openButton = find.text('解密知识卡片');
+      expect(openButton, findsOneWidget);
 
-      // 验证该文字在 ElevatedButton 内部
+      // 验证该文字在 NeumorphicButton 内部
       expect(
         find.descendant(
-          of: find.byType(ElevatedButton),
+          of: find.byType(NeumorphicButton),
           matching: find.text('解密知识卡片'),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('"发布知识卡片"按钮应包含 add_circle_outline 图标',
+    testWidgets('"发布知识卡片"按钮应包含 NeumorphicIcon 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证按钮图标存在
+      // 验证按钮图标存在（NeumorphicIcon 渲染 SVG 图标）
       expect(
         find.descendant(
-          of: find.byType(ElevatedButton),
-          matching: find.byIcon(Icons.add_circle_outline),
+          of: find.widgetWithText(NeumorphicButton, '发布知识卡片'),
+          matching: find.byType(NeumorphicIcon),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('"解密知识卡片"按钮应包含 folder_open_outlined 图标',
+    testWidgets('"解密知识卡片"按钮应包含 NeumorphicIcon 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证按钮图标存在
+      // 验证按钮图标存在（NeumorphicIcon 渲染 SVG 图标）
       expect(
         find.descendant(
-          of: find.byType(ElevatedButton),
-          matching: find.byIcon(Icons.folder_open_outlined),
+          of: find.widgetWithText(NeumorphicButton, '解密知识卡片'),
+          matching: find.byType(NeumorphicIcon),
         ),
         findsOneWidget,
       );
@@ -118,8 +120,8 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 验证使用了两个 ElevatedButton.icon
-      expect(find.byType(ElevatedButton), findsNWidgets(2));
+      // 验证使用了两个 NeumorphicButton
+      expect(find.byType(NeumorphicButton), findsNWidgets(2));
     });
   });
 
@@ -169,21 +171,18 @@ void main() {
       expect(openRect.top, greaterThan(createRect.bottom));
     });
 
-    testWidgets('按钮应有合适的垂直内边距', (WidgetTester tester) async {
+    testWidgets('按钮应有合适的样式配置', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 获取第一个 ElevatedButton 实例（"发布知识卡片"按钮）
-      final elevatedButton = tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: find.text('发布知识卡片'),
-          matching: find.byType(ElevatedButton),
-        ),
+      // 获取"发布知识卡片"对应的 NeumorphicButton 实例
+      final createButton = tester.widget<NeumorphicButton>(
+        find.widgetWithText(NeumorphicButton, '发布知识卡片'),
       );
 
-      // 验证按钮样式中的 padding
-      expect(elevatedButton.style, isNotNull);
+      // 验证按钮样式已配置为主按钮
+      expect(createButton.style, NeumorphicButtonStyle.primary);
     });
   });
 
@@ -264,20 +263,14 @@ void main() {
       await tester.pumpWidget(_createTestableWidget());
       await tester.pumpAndSettle();
 
-      // 获取第一个 ElevatedButton 实例（"发布知识卡片"按钮）
-      final firstButton = tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: find.text('发布知识卡片'),
-          matching: find.byType(ElevatedButton),
-        ),
+      // 获取第一个 NeumorphicButton 实例（"发布知识卡片"按钮）
+      final firstButton = tester.widget<NeumorphicButton>(
+        find.widgetWithText(NeumorphicButton, '发布知识卡片'),
       );
 
-      // 获取第二个 ElevatedButton 实例（"解密知识卡片"按钮）
-      final secondButton = tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: find.text('解密知识卡片'),
-          matching: find.byType(ElevatedButton),
-        ),
+      // 获取第二个 NeumorphicButton 实例（"解密知识卡片"按钮）
+      final secondButton = tester.widget<NeumorphicButton>(
+        find.widgetWithText(NeumorphicButton, '解密知识卡片'),
       );
 
       // 验证 onPressed 不为 null

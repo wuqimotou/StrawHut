@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 发布对话框 - 密钥显示组件
 ///
@@ -52,19 +56,24 @@ class _KeyDisplayState extends State<KeyDisplay> {
       _isCopied = true;
     });
 
+    final tokens = NeumorphicTokens.ofContext(context);
     // 显示 SnackBar 提示（AC-COPY-02）
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.check_circle, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Flexible(child: Text('密钥已复制到剪贴板')),
+            children: [
+              NeumorphicIcon(
+                StrawIcons.check,
+                size: 20,
+                color: tokens.surface,
+              ),
+              const SizedBox(width: 8),
+              const Flexible(child: Text('密钥已复制到剪贴板')),
             ],
           ),
-          backgroundColor: Colors.green[700],
+          backgroundColor: tokens.success,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -85,87 +94,78 @@ class _KeyDisplayState extends State<KeyDisplay> {
   /// 布局结构：
   /// - Column 布局
   ///   - Text（提示文本："密钥（请妥善保存）"）
-  ///   - Container（灰色背景，包含 SelectableText 显示密钥）
-  ///   - ElevatedButton（复制按钮）
-  ///   - Text（警告提示，红色/橙色）
+  ///   - NeumorphicContainer（凹槽，包含 SelectableText 显示密钥）
+  ///   - NeumorphicButton（复制按钮）
+  ///   - NeumorphicContainer（凹槽 + 警告色，安全提示）
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 密钥标题
-        const Text(
+        Text(
           '密钥（请妥善保存）：',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-
-        // 密钥字符串显示区域
-        // 使用灰色背景容器包裹，增强视觉区分度
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: tokens.textPrimary,
           ),
+        ),
+        SizedBox(height: tokens.spaceSm),
+
+        // 密钥字符串显示区域（凹陷软槽）
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
+          padding: const EdgeInsets.all(12),
           child: SelectableText(
             widget.keyBase64,
             // 使用等宽字体显示密钥，便于用户准确识别每个字符
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 12,
               letterSpacing: 0.5,
+              color: tokens.textPrimary,
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceMd),
 
-        // 复制按钮
-        // 提供一键复制功能，方便用户粘贴到其他位置
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _copyToClipboard,
-            // 复制成功后显示不同的图标和文本
-            icon: Icon(_isCopied ? Icons.check : Icons.copy, size: 18),
-            label: Text(_isCopied ? '已复制' : '复制到剪贴板'),
-            style: ElevatedButton.styleFrom(
-              // 复制成功后变为绿色，提供视觉反馈
-              backgroundColor: _isCopied ? Colors.green[600] : null,
-              foregroundColor: _isCopied ? Colors.white : null,
-            ),
-          ),
+        // 复制按钮（软质凸起）
+        NeumorphicButton(
+          label: _isCopied ? '已复制' : '复制到剪贴板',
+          icon: _isCopied ? StrawIcons.check : StrawIcons.copy,
+          style: _isCopied
+              ? NeumorphicButtonStyle.primary
+              : NeumorphicButtonStyle.secondary,
+          expanded: true,
+          onPressed: _copyToClipboard,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: tokens.spaceLg),
 
-        // 安全警告提示
-        // 使用醒目的颜色提醒用户妥善保管密钥
-        Container(
+        // 安全警告提示（凹陷软槽 + 警告色）
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.orange[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.orange[300]!),
-          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 警告图标
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange[700],
+              NeumorphicIcon(
+                StrawIcons.warning,
                 size: 20,
+                color: tokens.warning,
               ),
               const SizedBox(width: 8),
-              // 警告文本
               Expanded(
                 child: Text(
                   '请妥善保管此密钥，丢失后无法恢复。\n'
                   '密钥丢失将无法解密知识卡片！',
                   style: TextStyle(
-                    color: Colors.orange[800],
+                    color: tokens.warning,
                     fontSize: 12,
                     height: 1.4,
                   ),

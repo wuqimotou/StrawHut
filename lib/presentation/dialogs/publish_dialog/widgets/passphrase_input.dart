@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 发布对话框 - 暗号输入组件
 ///
@@ -167,17 +171,17 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
     });
   }
 
-  /// 获取强度对应的颜色
-  Color _getStrengthColor() {
+  /// 获取强度对应的颜色（使用 Neumorphic tokens 语义色）
+  Color _getStrengthColor(NeumorphicTokens tokens) {
     switch (_strength) {
       case PassphraseStrength.strong:
-        return Colors.green;
+        return tokens.success;
       case PassphraseStrength.medium:
-        return Colors.yellow[700]!;
+        return tokens.warning;
       case PassphraseStrength.weak:
-        return Colors.orange;
+        return tokens.warning;
       case PassphraseStrength.veryWeak:
-        return Colors.red;
+        return tokens.error;
     }
   }
 
@@ -211,7 +215,7 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
 
   /// 显示保险库暗号选择器
   ///
-  /// 桌面端使用 SimpleDialog，Android 端使用 ModalBottomSheet。
+  /// 桌面端使用 Dialog，Android 端使用 ModalBottomSheet。
   /// 每个条目显示图标、备注名称和使用次数，不显示明文暗号。
   Future<void> _showVaultPicker(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
@@ -226,9 +230,11 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
     if (entries.isEmpty) {
       // 保险库为空，显示提示
       if (context.mounted) {
+        final tokens = NeumorphicTokens.ofContext(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.vaultEmptySelectHint),
+            backgroundColor: tokens.inkPrimary,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -249,10 +255,10 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
         setPassphraseFromVault(selected);
       }
     } else {
-      // 桌面端: 使用 SimpleDialog
+      // 桌面端: 使用 Dialog
       final selected = await showDialog<PassphraseEntry>(
         context: context,
-        builder: (context) => _buildVaultSimpleDialog(context, entries, l10n),
+        builder: (context) => _buildVaultDialog(context, entries, l10n),
       );
       if (selected != null) {
         setPassphraseFromVault(selected);
@@ -261,34 +267,103 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
   }
 
   /// 构建桌面端保险库选择对话框
-  Widget _buildVaultSimpleDialog(
+  Widget _buildVaultDialog(
     BuildContext context,
     List<PassphraseEntry> entries,
     AppLocalizations l10n,
   ) {
-    return SimpleDialog(
-      title: Text(l10n.selectPassphraseTitle),
-      children: entries.map((entry) {
-        return SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, entry),
-          child: Row(
+    final tokens = NeumorphicTokens.ofContext(context);
+    return Dialog(
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.lock_outline, size: 20, color: Colors.grey[600]),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  entry.label,
-                  style: const TextStyle(fontSize: 14),
-                ),
+              Row(
+                children: [
+                  NeumorphicIcon(
+                    StrawIcons.lock,
+                    size: 20,
+                    color: tokens.inkPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      l10n.selectPassphraseTitle,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                l10n.usedCount(entry.useCount),
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              SizedBox(height: tokens.spaceMd),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: entries
+                        .map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: NeumorphicContainer(
+                              shape: NeumorphicShape.flat,
+                              borderRadius: tokens.radiusSmall,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context, entry),
+                                borderRadius:
+                                    BorderRadius.circular(tokens.radiusSmall),
+                                child: Row(
+                                  children: [
+                                    NeumorphicIcon(
+                                      StrawIcons.lock,
+                                      size: 20,
+                                      color: tokens.inkSecondary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        entry.label,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: tokens.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      l10n.usedCount(entry.useCount),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: tokens.textHint,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
               ),
             ],
           ),
-        );
-      }).toList(),
+        ),
+      ),
     );
   }
 
@@ -298,54 +373,88 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
     List<PassphraseEntry> entries,
     AppLocalizations l10n,
   ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 拖拽指示条
-        Center(
-          child: Container(
+    final tokens = NeumorphicTokens.ofContext(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 拖拽指示条
+          Container(
             width: 40,
             height: 4,
             margin: const EdgeInsets.only(top: 12, bottom: 8),
             decoration: BoxDecoration(
-              color: Colors.grey[400],
+              color: tokens.surfaceAlt,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            l10n.selectPassphraseTitle,
-            style: Theme.of(context).textTheme.titleMedium,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                NeumorphicIcon(
+                  StrawIcons.lock,
+                  size: 20,
+                  color: tokens.inkPrimary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.selectPassphraseTitle,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        Flexible(
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: entries.length,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return ListTile(
-                leading: Icon(Icons.lock_outline, color: Colors.grey[600]),
-                title: Text(entry.label),
-                subtitle: Text(l10n.usedCount(entry.useCount)),
-                onTap: () => Navigator.pop(context, entry),
-              );
-            },
+          Divider(height: 1, color: tokens.divider),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return ListTile(
+                  leading: NeumorphicIcon(
+                    StrawIcons.lock,
+                    size: 22,
+                    color: tokens.inkSecondary,
+                  ),
+                  title: Text(
+                    entry.label,
+                    style: TextStyle(color: tokens.textPrimary),
+                  ),
+                  subtitle: Text(
+                    l10n.usedCount(entry.useCount),
+                    style: TextStyle(color: tokens.textHint),
+                  ),
+                  onTap: () => Navigator.pop(context, entry),
+                );
+              },
+            ),
           ),
-        ),
-        SizedBox(height: MediaQuery.viewInsetsOf(context).bottom + 16),
-      ],
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final strengthColor = _getStrengthColor();
+    final tokens = NeumorphicTokens.ofContext(context);
+    final strengthColor = _getStrengthColor(tokens);
     final entriesAsync = ref.watch(passphraseEntriesProvider);
+
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(tokens.radiusSmall),
+      borderSide: BorderSide(color: tokens.surfaceAlt, width: 1),
+    );
+    final inputBorderFocused = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(tokens.radiusSmall),
+      borderSide: BorderSide(color: tokens.inkSecondary, width: 1.5),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -353,44 +462,36 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
       children: [
         // 从保险库选择按钮
         entriesAsync.when(
-          data: (entries) {
-            if (entries.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.password, size: 18),
-                  label: Text(l10n.selectFromVault),
-                ),
-              );
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: OutlinedButton.icon(
-                onPressed: () => _showVaultPicker(context),
-                icon: const Icon(Icons.password, size: 18),
-                label: Text(l10n.selectFromVault),
-              ),
-            );
-          },
+          data: (entries) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: NeumorphicButton(
+              label: l10n.selectFromVault,
+              icon: StrawIcons.password,
+              style: NeumorphicButtonStyle.secondary,
+              expanded: true,
+              onPressed: entries.isNotEmpty
+                  ? () => _showVaultPicker(context)
+                  : null,
+            ),
+          ),
           loading: () => Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: OutlinedButton.icon(
+            child: NeumorphicButton(
+              label: l10n.selectFromVault,
+              icon: StrawIcons.password,
+              style: NeumorphicButtonStyle.secondary,
+              expanded: true,
               onPressed: null,
-              icon: const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              label: Text(l10n.selectFromVault),
             ),
           ),
           error: (_, __) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: OutlinedButton.icon(
+            child: NeumorphicButton(
+              label: l10n.selectFromVault,
+              icon: StrawIcons.password,
+              style: NeumorphicButtonStyle.secondary,
+              expanded: true,
               onPressed: null,
-              icon: const Icon(Icons.password, size: 18),
-              label: Text(l10n.selectFromVault),
             ),
           ),
         ),
@@ -402,11 +503,24 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
           obscureText: _obscurePassphrase,
           decoration: InputDecoration(
             labelText: l10n.passphraseLabel,
+            labelStyle: TextStyle(color: tokens.textSecondary),
             hintText: l10n.passphraseHint,
-            border: const OutlineInputBorder(),
+            hintStyle: TextStyle(color: tokens.textHint),
+            prefixIcon: NeumorphicIcon(
+              StrawIcons.lock,
+              size: 20,
+              color: tokens.textSecondary,
+            ),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorderFocused,
+            filled: true,
+            fillColor: tokens.surface,
             suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassphrase ? Icons.visibility_off : Icons.visibility,
+              icon: NeumorphicIcon(
+                _obscurePassphrase ? StrawIcons.eyeOff : StrawIcons.eye,
+                size: 20,
+                color: tokens.textSecondary,
               ),
               onPressed: () {
                 setState(() {
@@ -415,8 +529,9 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
               },
             ),
           ),
+          style: TextStyle(color: tokens.textPrimary),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: tokens.spaceSm),
 
         // 暗号强度指示器
         if (_passphraseController.text.isNotEmpty) ...[
@@ -424,14 +539,17 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
             children: [
               Text(
                 '${l10n.passphraseStrengthLabel}：',
-                style: const TextStyle(fontSize: 13),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: tokens.textSecondary,
+                ),
               ),
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(tokens.radiusSmall),
                   child: LinearProgressIndicator(
                     value: _getStrengthValue(),
-                    backgroundColor: Colors.grey[300],
+                    backgroundColor: tokens.surfaceAlt,
                     valueColor: AlwaysStoppedAnimation<Color>(strengthColor),
                     minHeight: 8,
                   ),
@@ -453,36 +571,39 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
             const SizedBox(height: 4),
             Text(
               l10n.strengthVeryWeakDetail,
-              style: TextStyle(fontSize: 12, color: Colors.red[700]),
+              style: TextStyle(fontSize: 12, color: tokens.error),
             ),
           ],
           // 弱强度警告
           if (_strength == PassphraseStrength.weak) ...[
             const SizedBox(height: 4),
-            Container(
+            NeumorphicContainer(
+              shape: NeumorphicShape.concave,
+              borderRadius: tokens.radiusSmall,
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
-              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber,
-                      color: Colors.orange[700], size: 16),
+                  NeumorphicIcon(
+                    StrawIcons.warning,
+                    size: 16,
+                    color: tokens.warning,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       l10n.passphraseWeakWarning,
-                      style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: tokens.warning,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          SizedBox(height: tokens.spaceSm),
         ],
 
         // 确认暗号输入框
@@ -492,12 +613,26 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
           obscureText: _obscureConfirm,
           decoration: InputDecoration(
             labelText: l10n.passphraseConfirmLabel,
+            labelStyle: TextStyle(color: tokens.textSecondary),
             hintText: l10n.passphraseConfirmHint,
-            border: const OutlineInputBorder(),
+            hintStyle: TextStyle(color: tokens.textHint),
+            prefixIcon: NeumorphicIcon(
+              StrawIcons.lock,
+              size: 20,
+              color: tokens.textSecondary,
+            ),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorderFocused,
+            filled: true,
+            fillColor: tokens.surface,
             errorText: _mismatch ? l10n.passphraseMismatch : null,
+            errorStyle: TextStyle(fontSize: 12, color: tokens.error),
             suffixIcon: IconButton(
-              icon: Icon(
-                _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+              icon: NeumorphicIcon(
+                _obscureConfirm ? StrawIcons.eyeOff : StrawIcons.eye,
+                size: 20,
+                color: tokens.textSecondary,
               ),
               onPressed: () {
                 setState(() {
@@ -506,29 +641,34 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
               },
             ),
           ),
+          style: TextStyle(color: tokens.textPrimary),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: tokens.spaceMd),
 
-        // 安全提示
-        Container(
+        // 安全提示（凹陷软槽 + 信息色）
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.withOpacity(0.2)),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                  NeumorphicIcon(
+                    StrawIcons.info,
+                    size: 16,
+                    color: tokens.inkSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       l10n.passphraseSecurityNote,
-                      style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: tokens.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -537,13 +677,19 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb_outline,
-                      color: Colors.blue[700], size: 16),
+                  NeumorphicIcon(
+                    StrawIcons.info,
+                    size: 16,
+                    color: tokens.inkSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       l10n.passphraseStrengthRequirement,
-                      style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: tokens.textSecondary,
+                      ),
                     ),
                   ),
                 ],

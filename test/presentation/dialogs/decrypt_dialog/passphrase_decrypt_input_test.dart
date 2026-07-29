@@ -5,6 +5,7 @@ import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/passphrase_decrypt_input.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 
 void main() {
   const entry = PassphraseEntry(
@@ -100,7 +101,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
+    final button = tester.widget<NeumorphicButton>(find.byType(NeumorphicButton));
     expect(button.onPressed, isNull);
   });
 }

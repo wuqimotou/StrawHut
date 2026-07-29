@@ -8,6 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/core/migration/migration_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/l10n/l10n.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/migration_provider.dart';
 
@@ -253,124 +257,176 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    final tokens = NeumorphicTokens.ofContext(context);
 
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.sync, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          Text(l10n.migrateLegacyFile),
-        ],
+    return Dialog(
+      backgroundColor: tokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radiusXLarge),
       ),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Description
-              Text(
-                l10n.migrateLegacyFileDescription,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // File selection
-              OutlinedButton.icon(
-                onPressed: _pickFile,
-                icon: const Icon(Icons.folder_open),
-                label: Text(
-                  _selectedFileName ?? l10n.selectLegacyFile,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // File format status
-              if (_selectedFileName != null) ...[
-                const SizedBox(height: 8),
-                _buildFormatStatus(context),
-              ],
-
-              // Key input (only if old format detected)
-              if (_isOldFormat ?? false) ...[
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _keyController,
-                  decoration: InputDecoration(
-                    labelText: _oldFileJson != null && _isNegotiatedKeyMode()
-                        ? l10n.decryptPassphraseLabel
-                        : l10n.copyKey,
-                    hintText: _oldFileJson != null && _isNegotiatedKeyMode()
-                        ? l10n.decryptPassphraseHint
-                        : 'Base64',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      _oldFileJson != null && _isNegotiatedKeyMode()
-                          ? Icons.lock_outline
-                          : Icons.vpn_key,
+              // 标题
+              Row(
+                children: [
+                  NeumorphicIcon(
+                    StrawIcons.cloudUpload,
+                    size: 22,
+                    color: tokens.inkPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      l10n.migrateLegacyFile,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              SizedBox(height: tokens.spaceMd),
 
-              // Migration result
-              if (_resultMessage != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: (_migrationSuccess ?? false)
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        (_migrationSuccess ?? false)
-                            ? Icons.check_circle
-                            : Icons.error,
-                        color: (_migrationSuccess ?? false)
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.error,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _resultMessage!,
-                          style: theme.textTheme.bodySmall,
+                      // Description
+                      Text(
+                        l10n.migrateLegacyFileDescription,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tokens.textSecondary,
                         ),
                       ),
+                      SizedBox(height: tokens.spaceMd),
+
+                      // File selection
+                      NeumorphicButton(
+                        label: _selectedFileName ?? l10n.selectLegacyFile,
+                        icon: StrawIcons.folderOpen,
+                        style: NeumorphicButtonStyle.secondary,
+                        expanded: true,
+                        onPressed: _pickFile,
+                      ),
+
+                      // File format status
+                      if (_selectedFileName != null) ...[
+                        SizedBox(height: tokens.spaceSm),
+                        _buildFormatStatus(context),
+                      ],
+
+                      // Key input (only if old format detected)
+                      if (_isOldFormat ?? false) ...[
+                        SizedBox(height: tokens.spaceMd),
+                        TextField(
+                          controller: _keyController,
+                          decoration: InputDecoration(
+                            labelText: _oldFileJson != null && _isNegotiatedKeyMode()
+                                ? l10n.decryptPassphraseLabel
+                                : l10n.copyKey,
+                            hintText: _oldFileJson != null && _isNegotiatedKeyMode()
+                                ? l10n.decryptPassphraseHint
+                                : 'Base64',
+                            prefixIcon: NeumorphicIcon(
+                              _oldFileJson != null && _isNegotiatedKeyMode()
+                                  ? StrawIcons.lock
+                                  : StrawIcons.password,
+                              size: 20,
+                              color: tokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Migration result
+                      if (_resultMessage != null) ...[
+                        SizedBox(height: tokens.spaceMd),
+                        NeumorphicContainer(
+                          shape: NeumorphicShape.concave,
+                          borderRadius: tokens.radiusSmall,
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              NeumorphicIcon(
+                                (_migrationSuccess ?? false)
+                                    ? StrawIcons.check
+                                    : StrawIcons.error,
+                                size: 20,
+                                color: (_migrationSuccess ?? false)
+                                    ? tokens.success
+                                    : tokens.error,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _resultMessage!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: (_migrationSuccess ?? false)
+                                        ? tokens.success
+                                        : tokens.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // Loading indicator
+                      if (_isMigrating) ...[
+                        SizedBox(height: tokens.spaceMd),
+                        Center(
+                          child: NeumorphicContainer(
+                            shape: NeumorphicShape.concave,
+                            borderRadius: tokens.radiusXLarge,
+                            padding: const EdgeInsets.all(16),
+                            child: CircularProgressIndicator(
+                              color: tokens.inkPrimary,
+                              strokeWidth: 2.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ],
+              ),
+              SizedBox(height: tokens.spaceLg),
 
-              // Loading indicator
-              if (_isMigrating) ...[
-                const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator()),
-              ],
+              // 操作按钮
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  NeumorphicButton(
+                    label: l10n.cancel,
+                    style: NeumorphicButtonStyle.flat,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 8),
+                  if ((_isOldFormat ?? false) && !_isMigrating)
+                    NeumorphicButton(
+                      label: l10n.performMigration,
+                      style: NeumorphicButtonStyle.primary,
+                      onPressed: _performMigration,
+                    ),
+                ],
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancel),
-        ),
-        if ((_isOldFormat ?? false) && !_isMigrating)
-          FilledButton(
-            onPressed: _performMigration,
-            child: Text(l10n.performMigration),
-          ),
-      ],
     );
   }
 
@@ -384,51 +440,53 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
   /// Build the format status indicator
   Widget _buildFormatStatus(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    final tokens = NeumorphicTokens.ofContext(context);
 
     if (_isOldFormat ?? false) {
-      return Container(
+      return NeumorphicContainer(
+        shape: NeumorphicShape.concave,
+        borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
         child: Row(
           children: [
-            Icon(
-              Icons.warning_amber,
+            NeumorphicIcon(
+              StrawIcons.warning,
               size: 18,
-              color: theme.colorScheme.tertiary,
+              color: tokens.warning,
             ),
             const SizedBox(width: 8),
-            Text(
-              l10n.oldFormatDetected,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.tertiary,
+            Expanded(
+              child: Text(
+                l10n.oldFormatDetected,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: tokens.warning,
+                ),
               ),
             ),
           ],
         ),
       );
     } else if (_isOldFormat == false) {
-      return Container(
+      return NeumorphicContainer(
+        shape: NeumorphicShape.concave,
+        borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-        ),
         child: Row(
           children: [
-            Icon(
-              Icons.info_outline,
+            NeumorphicIcon(
+              StrawIcons.info,
               size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
+              color: tokens.textSecondary,
             ),
             const SizedBox(width: 8),
-            Text(
-              l10n.notOldFormat,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            Expanded(
+              child: Text(
+                l10n.notOldFormat,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: tokens.textSecondary,
+                ),
               ),
             ),
           ],

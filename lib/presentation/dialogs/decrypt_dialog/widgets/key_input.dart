@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// Base64 密钥的最小合法长度（32 字节 Base64 编码）
 ///
@@ -162,18 +164,20 @@ class KeyInputState extends State<KeyInput> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 提示标签
-        const Text(
+        Text(
           '方式 A：手动输入密钥',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
+            color: tokens.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: tokens.spaceSm),
 
         // 密钥输入框
         TextField(
@@ -181,25 +185,36 @@ class KeyInputState extends State<KeyInput> {
           decoration: InputDecoration(
             hintText: '请输入 Base64 编码的密钥字符串',
             helperText: '32 字节密钥经 Base64 编码后约 43~44 个字符',
-            helperStyle: const TextStyle(fontSize: 12),
-            prefixIcon: const Icon(Icons.key),
-            border: const OutlineInputBorder(),
+            helperStyle: TextStyle(fontSize: 12, color: tokens.textHint),
+            prefixIcon: NeumorphicIcon(
+              StrawIcons.password,
+              size: 20,
+              color: tokens.textSecondary,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusSmall),
+            ),
             // 错误状态使用红色边框和错误文本
             errorText: _hasError ? _errorMessage : null,
-            errorStyle: const TextStyle(fontSize: 12),
+            errorStyle: TextStyle(fontSize: 12, color: tokens.error),
             // 清除按钮，方便用户快速清空重输
             suffixIcon: _controller.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
+                    icon: NeumorphicIcon(
+                      StrawIcons.close,
+                      size: 20,
+                      color: tokens.textSecondary,
+                    ),
                     onPressed: clear,
                     tooltip: '清除输入',
                   )
                 : null,
           ),
           // 使用等宽字体，方便阅读和比对 Base64 字符串
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 14,
+            color: tokens.textPrimary,
           ),
           // 最大行数限制，防止输入过长
           maxLines: 3,

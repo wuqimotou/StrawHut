@@ -3,9 +3,13 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
 import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 解密对话框 - 密钥文件上传组件
 ///
@@ -163,60 +167,50 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = NeumorphicTokens.ofContext(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 提示标签
-        const Text(
+        Text(
           '方式 B：上传 .key 密钥文件',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
+            color: tokens.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: tokens.spaceSm),
 
         // 上传按钮区域
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _isLoading ? null : _handleFileUpload,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.upload_file),
-                label: Text(_isLoading ? '正在读取...' : '选择 .key 文件'),
-              ),
-            ),
-          ],
+        NeumorphicButton(
+          label: _isLoading ? '正在读取...' : '选择 .key 文件',
+          icon: StrawIcons.uploadFile,
+          style: NeumorphicButtonStyle.secondary,
+          expanded: true,
+          onPressed: _isLoading ? null : _handleFileUpload,
         ),
 
         // 成功状态显示
         if (_loadedFileName != null && _errorMessage == null) ...[
-          const SizedBox(height: 8),
-          Container(
+          SizedBox(height: tokens.spaceSm),
+          NeumorphicContainer(
+            shape: NeumorphicShape.concave,
+            borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.withOpacity(0.3)),
-            ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                NeumorphicIcon(
+                  StrawIcons.check,
+                  size: 20,
+                  color: tokens.success,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '已加载密钥文件：$_loadedFileName',
-                    style: const TextStyle(
-                      color: Colors.green,
+                    style: TextStyle(
+                      color: tokens.success,
                       fontSize: 13,
                     ),
                   ),
@@ -228,24 +222,25 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
 
         // 错误信息显示
         if (_errorMessage != null) ...[
-          const SizedBox(height: 8),
-          Container(
+          SizedBox(height: tokens.spaceSm),
+          NeumorphicContainer(
+            shape: NeumorphicShape.concave,
+            borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error, color: Colors.red, size: 20),
+                NeumorphicIcon(
+                  StrawIcons.error,
+                  size: 20,
+                  color: tokens.error,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
+                    style: TextStyle(
+                      color: tokens.error,
                       fontSize: 13,
                     ),
                   ),

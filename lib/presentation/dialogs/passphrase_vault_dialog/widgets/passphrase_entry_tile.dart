@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/l10n/l10n.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 暗号保险库条目卡片组件
 ///
@@ -56,111 +60,103 @@ class _PassphraseEntryTileState extends State<PassphraseEntryTile> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+    final tokens = NeumorphicTokens.ofContext(context);
 
-    return Card(
+    return NeumorphicContainer(
+      shape: NeumorphicShape.convex,
+      borderRadius: tokens.radiusMedium,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            // 左侧锁图标
-            Icon(
-              Icons.lock_outline,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 12),
+      child: Row(
+        children: [
+          // 左侧锁图标
+          NeumorphicIcon(
+            StrawIcons.lock,
+            size: 20,
+            color: tokens.inkPrimary,
+          ),
+          const SizedBox(width: 12),
 
-            // 中间内容区域
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 备注名称（标题）
-                  Text(
-                    widget.entry.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          // 中间内容区域
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 备注名称（标题）
+                Text(
+                  widget.entry.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
                   ),
-                  const SizedBox(height: 2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
 
-                  // 创建时间（副标题）
-                  Text(
-                    _formatDateTime(widget.entry.createdAt),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                // 创建时间（副标题）
+                Text(
+                  _formatDateTime(widget.entry.createdAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: tokens.textSecondary,
                   ),
-                  const SizedBox(height: 6),
+                ),
+                const SizedBox(height: 6),
 
-                  // 暗号内容行
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _isPassphraseVisible
-                              ? widget.entry.passphrase
-                              : '********',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            color: _isPassphraseVisible
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                // 暗号内容行
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _isPassphraseVisible
+                            ? widget.entry.passphrase
+                            : '********',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: _isPassphraseVisible
+                              ? tokens.textPrimary
+                              : tokens.textHint,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 4),
-                      // 眼睛切换图标
-                      IconButton(
-                        icon: Icon(
-                          _isPassphraseVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isPassphraseVisible = !_isPassphraseVisible;
-                          });
-                        },
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    const SizedBox(width: 4),
+                    // 眼睛切换图标
+                    NeumorphicIconButton(
+                      icon: _isPassphraseVisible
+                          ? StrawIcons.eye
+                          : StrawIcons.eyeOff,
+                      size: 32,
+                      iconSize: 16,
+                      color: tokens.textSecondary,
+                      onPressed: () {
+                        setState(() {
+                          _isPassphraseVisible = !_isPassphraseVisible;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(width: 4),
+          const SizedBox(width: 4),
 
-            // 右侧删除按钮
-            IconButton(
-              icon: Icon(
-                Icons.delete_outline,
-                size: 20,
-                color: theme.colorScheme.error,
-              ),
-              onPressed: widget.onDelete,
-              tooltip: l10n.delete,
-              constraints: const BoxConstraints(
-                minWidth: 36,
-                minHeight: 36,
-              ),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        ),
+          // 右侧删除按钮
+          NeumorphicIconButton(
+            icon: StrawIcons.trash,
+            size: 36,
+            iconSize: 18,
+            color: tokens.error,
+            onPressed: widget.onDelete,
+            tooltip: l10n.delete,
+          ),
+        ],
       ),
     );
   }

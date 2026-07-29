@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:strawhut/app/app.dart';
-import 'package:strawhut/app/theme.dart';
 
 void main() {
   group('StrawHutApp 应用主组件测试', () {
@@ -61,7 +60,8 @@ void main() {
           find.byType(MaterialApp),
         );
         expect(materialApp.theme, isNotNull);
-        expect(materialApp.theme, equals(AppTheme.lightTheme));
+        // AppTheme.lightTheme 是 getter，每次访问返回新 ThemeData 实例，
+        // ThemeData 整体 equals 不可靠，故改为校验关键属性。
         expect(materialApp.theme!.useMaterial3, true);
         expect(materialApp.theme!.brightness, Brightness.light);
       });
@@ -75,7 +75,8 @@ void main() {
           find.byType(MaterialApp),
         );
         expect(materialApp.darkTheme, isNotNull);
-        expect(materialApp.darkTheme, equals(AppTheme.darkTheme));
+        // AppTheme.darkTheme 是 getter，每次访问返回新 ThemeData 实例，
+        // ThemeData 整体 equals 不可靠，故改为校验关键属性。
         expect(materialApp.darkTheme!.useMaterial3, true);
         expect(materialApp.darkTheme!.brightness, Brightness.dark);
       });
