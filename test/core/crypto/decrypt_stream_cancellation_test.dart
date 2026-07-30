@@ -35,6 +35,7 @@ void main() {
           ),
           key: key.bytes,
           chunkSize: 256,
+          useV21Security: false,
         );
         final strawFile = StrawFile(
           formatVersion: const FormatVersion(2, 0, 0),

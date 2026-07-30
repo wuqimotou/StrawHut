@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 发布对话框 - 元数据表单组件
@@ -194,6 +195,19 @@ class MetaFormState extends State<MetaForm> {
     _titleController.text = newTitle;
   }
 
+  /// 用凹陷软质容器包裹输入框，使其成为视觉焦点
+  ///
+  /// Neumorphism 层级原则：输入框是用户交互的核心区域，应通过凹陷软槽
+  /// （双向阴影模拟内壁）突出；而说明性文字区块应扁平退居次要。
+  Widget _concaveField(NeumorphicTokens tokens, TextFormField field) {
+    return NeumorphicContainer(
+      shape: NeumorphicShape.concave,
+      borderRadius: tokens.radiusSmall,
+      padding: EdgeInsets.zero,
+      child: field,
+    );
+  }
+
   /// 构建表单 UI
   ///
   /// 布局结构：
@@ -209,9 +223,10 @@ class MetaFormState extends State<MetaForm> {
     final tokens = NeumorphicTokens.ofContext(context);
 
     // 统一的输入框边框样式
+    // 未聚焦时边框透明，由外层凹陷软质容器的阴影定义边界（Neumorphism 核心原则）
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
-      borderSide: BorderSide(color: tokens.surfaceAlt, width: 1),
+      borderSide: BorderSide(color: Colors.transparent, width: 1),
     );
     final inputBorderFocused = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
@@ -224,111 +239,117 @@ class MetaFormState extends State<MetaForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 标题输入框（必填）
-          TextFormField(
-            controller: _titleController,
-            decoration: InputDecoration(
-              labelText: '卡片标题',
-              labelStyle: TextStyle(color: tokens.textSecondary),
-              hintText: '请输入知识卡片标题',
-              hintStyle: TextStyle(color: tokens.textHint),
-              prefixIcon: NeumorphicIcon(
-                StrawIcons.editNote,
-                size: 20,
-                color: tokens.textSecondary,
+          // 标题输入框（必填，凹陷软槽作为视觉焦点）
+          _concaveField(
+            tokens,
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: '卡片标题',
+                labelStyle: TextStyle(color: tokens.textSecondary),
+                hintText: '请输入知识卡片标题',
+                hintStyle: TextStyle(color: tokens.textHint),
+                prefixIcon: NeumorphicIcon(
+                  StrawIcons.editNote,
+                  size: 20,
+                  color: tokens.textSecondary,
+                ),
+                border: inputBorder,
+                enabledBorder: inputBorder,
+                focusedBorder: inputBorderFocused,
+                filled: true,
+                fillColor: tokens.surface,
               ),
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorderFocused,
-              filled: true,
-              fillColor: tokens.surface,
+              style: TextStyle(color: tokens.textPrimary),
+              // 标题验证器：不能为空
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '请输入卡片标题';
+                }
+                return null;
+              },
             ),
-            style: TextStyle(color: tokens.textPrimary),
-            // 标题验证器：不能为空
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return '请输入卡片标题';
-              }
-              return null;
-            },
           ),
           SizedBox(height: tokens.spaceMd),
 
-          // 发布者代号输入框（非匿名模式下必填）
-          TextFormField(
-            controller: _publisherController,
-            decoration: InputDecoration(
-              labelText: '发布者代号',
-              labelStyle: TextStyle(color: tokens.textSecondary),
-              hintText: '请输入你的发布者代号',
-              hintStyle: TextStyle(color: tokens.textHint),
-              prefixIcon: NeumorphicIcon(
-                StrawIcons.password,
-                size: 20,
-                color: _isAnonymous
-                    ? tokens.textHint
-                    : tokens.textSecondary,
-              ),
-              // 匿名模式下显示"匿名模式·无需输入"标识
-              suffixIcon: _isAnonymous
-                  ? Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tokens.inkWash.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          NeumorphicIcon(
-                            StrawIcons.lock,
-                            size: 12,
-                            color: tokens.inkSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '匿名·无需输入',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: tokens.inkSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : null,
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorderFocused,
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(tokens.radiusSmall),
-                borderSide: BorderSide(
-                  color: tokens.inkWash.withValues(alpha: 0.3),
-                  width: 1,
+          // 发布者代号输入框（非匿名模式下必填，凹陷软槽）
+          _concaveField(
+            tokens,
+            TextFormField(
+              controller: _publisherController,
+              decoration: InputDecoration(
+                labelText: '发布者代号',
+                labelStyle: TextStyle(color: tokens.textSecondary),
+                hintText: '请输入你的发布者代号',
+                hintStyle: TextStyle(color: tokens.textHint),
+                prefixIcon: NeumorphicIcon(
+                  StrawIcons.password,
+                  size: 20,
+                  color: _isAnonymous
+                      ? tokens.textHint
+                      : tokens.textSecondary,
                 ),
+                // 匿名模式下显示"匿名模式·无需输入"标识
+                suffixIcon: _isAnonymous
+                    ? Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tokens.inkWash.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            NeumorphicIcon(
+                              StrawIcons.lock,
+                              size: 12,
+                              color: tokens.inkSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '匿名·无需输入',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: tokens.inkSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
+                border: inputBorder,
+                enabledBorder: inputBorder,
+                focusedBorder: inputBorderFocused,
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                  borderSide: BorderSide(
+                    color: tokens.inkWash.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                filled: true,
+                fillColor: _isAnonymous
+                    ? tokens.surfaceAlt.withValues(alpha: 0.5)
+                    : tokens.surface,
               ),
-              filled: true,
-              fillColor: _isAnonymous
-                  ? tokens.surfaceAlt.withValues(alpha: 0.5)
-                  : tokens.surface,
+              style: TextStyle(
+                color: _isAnonymous ? tokens.textHint : tokens.textPrimary,
+              ),
+              // 匿名模式下禁用输入框
+              enabled: !_isAnonymous,
+              // 发布者代号验证器：非匿名模式下不能为空
+              validator: (value) {
+                if (!_isAnonymous && (value == null || value.trim().isEmpty)) {
+                  return '请输入发布者代号';
+                }
+                return null;
+              },
             ),
-            style: TextStyle(
-              color: _isAnonymous ? tokens.textHint : tokens.textPrimary,
-            ),
-            // 匿名模式下禁用输入框
-            enabled: !_isAnonymous,
-            // 发布者代号验证器：非匿名模式下不能为空
-            validator: (value) {
-              if (!_isAnonymous && (value == null || value.trim().isEmpty)) {
-                return '请输入发布者代号';
-              }
-              return null;
-            },
           ),
           SizedBox(height: tokens.spaceXs),
 
@@ -409,86 +430,116 @@ class MetaFormState extends State<MetaForm> {
           ),
           SizedBox(height: tokens.spaceSm),
 
-          // 描述输入框（可选，最多 200 字符）
-          TextFormField(
-            controller: _descriptionController,
-            decoration: InputDecoration(
-              labelText: '描述（可选）',
-              labelStyle: TextStyle(color: tokens.textSecondary),
-              hintText: '简要描述卡片内容，帮助他人识别',
-              hintStyle: TextStyle(color: tokens.textHint),
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorderFocused,
-              filled: true,
-              fillColor: tokens.surface,
-              // 显示字符计数器
-              counterText:
-                  '${_descriptionController.text.length}/$MAX_DESCRIPTION_LENGTH',
-              counterStyle: TextStyle(fontSize: 12, color: tokens.textHint),
+          // 描述输入框（可选，最多 200 字符，凹陷软槽）
+          _concaveField(
+            tokens,
+            TextFormField(
+              controller: _descriptionController,
+              decoration: InputDecoration(
+                labelText: '描述（可选）',
+                labelStyle: TextStyle(color: tokens.textSecondary),
+                hintText: '简要描述卡片内容，帮助他人识别',
+                hintStyle: TextStyle(color: tokens.textHint),
+                border: inputBorder,
+                enabledBorder: inputBorder,
+                focusedBorder: inputBorderFocused,
+                filled: true,
+                fillColor: tokens.surface,
+                // 计数器移到软槽外，此处不显示
+                counterText: '',
+              ),
+              style: TextStyle(color: tokens.textPrimary),
+              maxLines: 3,
+              // 描述验证器：不超过最大长度限制
+              maxLength: MAX_DESCRIPTION_LENGTH,
+              validator: (value) {
+                if (value != null && value.length > MAX_DESCRIPTION_LENGTH) {
+                  return '描述不能超过 $MAX_DESCRIPTION_LENGTH 个字符';
+                }
+                return null;
+              },
             ),
-            style: TextStyle(color: tokens.textPrimary),
-            maxLines: 3,
-            // 描述验证器：不超过最大长度限制
-            maxLength: MAX_DESCRIPTION_LENGTH,
-            validator: (value) {
-              if (value != null && value.length > MAX_DESCRIPTION_LENGTH) {
-                return '描述不能超过 $MAX_DESCRIPTION_LENGTH 个字符';
-              }
-              return null;
-            },
+          ),
+          // 描述字数计数器（扁平，在软槽外，动态更新）
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _descriptionController,
+                builder: (context, value, _) {
+                  return Text(
+                    '${value.text.length}/$MAX_DESCRIPTION_LENGTH',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: tokens.textHint,
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
           SizedBox(height: tokens.spaceMd),
 
-          // 标签输入框（可选，逗号分隔，最多 10 个标签）
-          TextFormField(
-            controller: _tagsController,
-            decoration: InputDecoration(
-              labelText: '标签（可选，用逗号分隔）',
-              labelStyle: TextStyle(color: tokens.textSecondary),
-              hintText: '例如：Flutter, 加密, 笔记',
-              hintStyle: TextStyle(color: tokens.textHint),
-              helperText: '最多 10 个标签，每个最多 20 个字符',
-              helperStyle: TextStyle(fontSize: 12, color: tokens.textHint),
-              prefixIcon: NeumorphicIcon(
-                StrawIcons.add,
-                size: 20,
-                color: tokens.textSecondary,
+          // 标签输入框（可选，逗号分隔，最多 10 个标签，凹陷软槽）
+          _concaveField(
+            tokens,
+            TextFormField(
+              controller: _tagsController,
+              decoration: InputDecoration(
+                labelText: '标签（可选，用逗号分隔）',
+                labelStyle: TextStyle(color: tokens.textSecondary),
+                hintText: '例如：Flutter, 加密, 笔记',
+                hintStyle: TextStyle(color: tokens.textHint),
+                // helperText 移到软槽外
+                prefixIcon: NeumorphicIcon(
+                  StrawIcons.add,
+                  size: 20,
+                  color: tokens.textSecondary,
+                ),
+                border: inputBorder,
+                enabledBorder: inputBorder,
+                focusedBorder: inputBorderFocused,
+                filled: true,
+                fillColor: tokens.surface,
               ),
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorderFocused,
-              filled: true,
-              fillColor: tokens.surface,
-            ),
-            style: TextStyle(color: tokens.textPrimary),
-            // 标签验证器：检查数量和长度限制（兼容中英文逗号）
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return null;
-              }
-
-              final parsedTags = value
-                  .split(RegExp(r'[,，]'))
-                  .map((e) => e.trim())
-                  .where((e) => e.isNotEmpty)
-                  .toList();
-
-              if (parsedTags.length > MAX_TAGS_COUNT) {
-                return '标签数量不能超过 $MAX_TAGS_COUNT 个';
-              }
-
-              for (final tag in parsedTags) {
-                if (tag.length > MAX_TAG_LENGTH) {
-                  final display =
-                      tag.length > 10 ? '${tag.substring(0, 10)}...' : tag;
-                  return '每个标签不能超过 $MAX_TAG_LENGTH 个字符（'
-                      ' 当前："$display"）';
+              style: TextStyle(color: tokens.textPrimary),
+              // 标签验证器：检查数量和长度限制（兼容中英文逗号）
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return null;
                 }
-              }
 
-              return null;
-            },
+                final parsedTags = value
+                    .split(RegExp(r'[,，]'))
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+
+                if (parsedTags.length > MAX_TAGS_COUNT) {
+                  return '标签数量不能超过 $MAX_TAGS_COUNT 个';
+                }
+
+                for (final tag in parsedTags) {
+                  if (tag.length > MAX_TAG_LENGTH) {
+                    final display =
+                        tag.length > 10 ? '${tag.substring(0, 10)}...' : tag;
+                    return '每个标签不能超过 $MAX_TAG_LENGTH 个字符（'
+                        ' 当前："$display"）';
+                  }
+                }
+
+                return null;
+              },
+            ),
+          ),
+          // 标签说明（扁平，在软槽外）
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text(
+              '最多 10 个标签，每个最多 20 个字符',
+              style: TextStyle(fontSize: 12, color: tokens.textHint),
+            ),
           ),
         ],
       ),

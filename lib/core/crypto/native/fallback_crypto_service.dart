@@ -146,6 +146,8 @@ class FallbackCryptoService implements ICryptoService {
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -155,6 +157,8 @@ class FallbackCryptoService implements ICryptoService {
         key: key,
         chunkSize: chunkSize,
         onProgress: onProgress,
+        useV21Security: useV21Security,
+        cancellationToken: cancellationToken,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -164,6 +168,8 @@ class FallbackCryptoService implements ICryptoService {
         key: key,
         chunkSize: chunkSize,
         onProgress: onProgress,
+        useV21Security: useV21Security,
+        cancellationToken: cancellationToken,
       );
     }
   }
@@ -180,6 +186,7 @@ class FallbackCryptoService implements ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -190,6 +197,7 @@ class FallbackCryptoService implements ICryptoService {
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -200,6 +208,7 @@ class FallbackCryptoService implements ICryptoService {
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
       );
     }
   }
@@ -215,6 +224,8 @@ class FallbackCryptoService implements ICryptoService {
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -224,6 +235,8 @@ class FallbackCryptoService implements ICryptoService {
         key: key,
         chunkSize: chunkSize,
         onProgress: onProgress,
+        useV21Security: useV21Security,
+        cancellationToken: cancellationToken,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -233,6 +246,8 @@ class FallbackCryptoService implements ICryptoService {
         key: key,
         chunkSize: chunkSize,
         onProgress: onProgress,
+        useV21Security: useV21Security,
+        cancellationToken: cancellationToken,
       );
     }
   }
@@ -250,6 +265,8 @@ class FallbackCryptoService implements ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
+    IntegritySink? integritySink,
   }) async {
     final delegate = await _getDelegate();
     try {
@@ -261,6 +278,8 @@ class FallbackCryptoService implements ICryptoService {
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
+        integritySink: integritySink,
       );
     } on UnsupportedError {
       final dartService = CryptoService(integrityService);
@@ -272,6 +291,8 @@ class FallbackCryptoService implements ICryptoService {
         originalPayloadSize: originalPayloadSize,
         onProgress: onProgress,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
+        integritySink: integritySink,
       );
     }
   }
@@ -304,6 +325,20 @@ class FallbackCryptoService implements ICryptoService {
       ivBase64: ivBase64,
       key: key,
     );
+  }
+
+  @override
+  Uint8List deriveHmacKey(Uint8List encryptionKey) {
+    if (_delegate != null) {
+      try {
+        return _delegate!.deriveHmacKey(encryptionKey);
+      } on UnsupportedError {
+        final dartService = CryptoService(integrityService);
+        return dartService.deriveHmacKey(encryptionKey);
+      }
+    }
+    final dartService = CryptoService(integrityService);
+    return dartService.deriveHmacKey(encryptionKey);
   }
 
   /// 获取当前使用的 delegate 类型（用于调试和测试）

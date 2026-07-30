@@ -10,7 +10,6 @@ import 'package:strawhut/presentation/screens/home/home_screen.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
-import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// 首页 Widget 单元测试
 ///
@@ -112,11 +111,11 @@ void main() {
       );
       expect(logoFinder, findsOneWidget);
 
-      // 验证 Logo 容器内包含 NeumorphicIcon
+      // 验证 Logo 容器内包含应用图标资源（PNG 位图，非 StrawIcons 线性图标集）
       expect(
         find.descendant(
           of: logoFinder,
-          matching: find.byType(NeumorphicIcon),
+          matching: find.byType(Image),
         ),
         findsOneWidget,
       );

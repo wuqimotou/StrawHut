@@ -3,6 +3,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:pointycastle/api.dart' hide Digest;
+import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/macs/hmac.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/utils/cancellation_token.dart';
@@ -70,6 +73,42 @@ abstract class IIntegrityService {
     void Function(int current, int total)? onProgress,
   });
 
+  /// 计算二进制字节数据的 HMAC-SHA256 哈希值（v2.1 容器认证）
+  ///
+  /// 使用 [hmacKey] 对字节数据进行 HMAC-SHA256 计算，
+  /// 防止攻击者重算哈希绕过完整性校验。
+  ///
+  /// 参数：
+  /// - [bytes]: 二进制文件字节数据
+  /// - [hmacKey]: HMAC 密钥（从加密密钥派生）
+  /// 返回：格式为 "hmac-sha256:{hex}" 的哈希字符串
+  String computeHmacFromBytes(Uint8List bytes, Uint8List hmacKey);
+
+  /// 从 .straw 文件流式计算 HMAC-SHA256 哈希值（v2.1 容器认证）
+  ///
+  /// 与 [computeHashFromStrawFile] 相同的覆盖范围，但使用 HMAC-SHA256。
+  ///
+  /// 参数：
+  /// - [strawFile]: StrawFile 对象（integrity.hash 应为空字符串）
+  /// - [filePath]: .straw 二进制文件路径
+  /// - [hmacKey]: HMAC 密钥
+  Future<String> computeHmacFromStrawFile({
+    required StrawFile strawFile,
+    required String filePath,
+    required Uint8List hmacKey,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// Incrementally computes HMAC-SHA256 from parsed chunks（v2.1 容器认证）
+  Future<String> computeHmacFromChunks({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+    required Uint8List hmacKey,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  });
+
   /// 验证文件完整性
   ///
   /// 重新计算内容的 SHA-256 哈希，与预期哈希进行比对。
@@ -79,6 +118,23 @@ abstract class IIntegrityService {
   /// - [expectedHash] - 预期的哈希值（格式为 "sha256:{hex}"）
   /// 返回：true 表示哈希匹配，文件未被篡改；false 表示文件可能已被修改
   bool verifyIntegrity({required String content, required String expectedHash});
+
+  /// 创建流式完整性校验 sink（边读/写边计算哈希）
+  ///
+  /// 用于在加解密过程中避免哈希阶段重新读取整个文件。
+  /// 创建时立即用 [strawFileForHash]（integrity.hash 应为空字符串）
+  /// 构造 hash='' 版本的头部并更新到 sink。
+  ///
+  /// 参数：
+  /// - [strawFileForHash]: StrawFile 对象（integrity.hash 应为空字符串）
+  /// - [hmacKey]: HMAC 密钥。null 表示使用无密钥 SHA-256（v2.0）；
+  ///   非空表示使用 HMAC-SHA256（v2.1）
+  /// 返回：[IntegritySink] 实例，调用方在处理每个 chunk 后调用
+  ///   [IntegritySink.updateChunkIv] 和 [IntegritySink.updateChunkCipher]
+  IntegritySink createIntegritySink({
+    required StrawFile strawFileForHash,
+    Uint8List? hmacKey,
+  });
 }
 
 /// 完整性校验服务实现
@@ -245,9 +301,11 @@ class IntegrityService implements IIntegrityService {
         input.add(encData);
         onProgress?.call(i + 1, totalChunks);
 
-        // Yield between chunks so UI cancellation stays responsive even when
-        // the source is served from a fast local filesystem cache.
-        await Future<void>.delayed(Duration.zero);
+        // 仅每 16 块让出一次事件循环，平衡 UI 响应性与哈希计算吞吐
+        // 同步的 cancellationToken 检查保证取消仍能在 ~1 块内响应
+        if (i & 0xF == 0xF) {
+          await Future<void>.delayed(Duration.zero);
+        }
       }
     } finally {
       await raf.close();
@@ -302,12 +360,212 @@ class IntegrityService implements IIntegrityService {
         ])
         ..add(chunk.encryptedData);
       onProgress?.call(i + 1, chunks.length);
-      await Future<void>.delayed(Duration.zero);
+      if (i & 0xF == 0xF) {
+        await Future<void>.delayed(Duration.zero);
+      }
     }
 
     input.close();
     cancellationToken?.throwIfCancelled();
     return 'sha256:${digestCollector.single}';
+  }
+
+  // ===========================================================================
+  // v2.1 容器认证：HMAC-SHA256
+  // ===========================================================================
+
+  /// 计算 HMAC-SHA256 并返回带前缀的字符串
+  ///
+  /// 内部辅助方法，使用 pointycastle 的 HMac 计算 HMAC-SHA256。
+  /// 返回格式："hmac-sha256:{64 位十六进制字符}"
+  String _computeHmacSha256Hex(Uint8List bytes, Uint8List hmacKey) {
+    final hmac = HMac.withDigest(SHA256Digest())..init(KeyParameter(hmacKey));
+    final mac = hmac.process(bytes);
+    final hex = mac.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '$HMAC_SHA256_HASH_PREFIX$hex';
+  }
+
+  @override
+  String computeHmacFromBytes(Uint8List bytes, Uint8List hmacKey) {
+    return _computeHmacSha256Hex(bytes, hmacKey);
+  }
+
+  @override
+  Future<String> computeHmacFromStrawFile({
+    required StrawFile strawFile,
+    required String filePath,
+    required Uint8List hmacKey,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    cancellationToken?.throwIfCancelled();
+
+    // 与 computeHashFromStrawFile 相同的覆盖范围，但使用 HMAC-SHA256
+    final hmac = HMac.withDigest(SHA256Digest())..init(KeyParameter(hmacKey));
+
+    // ========== 1. 构造头部字节（与 buildBinaryFileBytes 逻辑一致） ==========
+    final magicBytesUint = Uint8List.fromList(STRAW_MAGIC_BYTES);
+    hmac.update(magicBytesUint, 0, magicBytesUint.length);
+
+    // Format Version Major + Minor
+    final majorBytes = [
+      BINARY_FORMAT_MAJOR & 0xFF,
+      (BINARY_FORMAT_MAJOR >> 8) & 0xFF,
+    ];
+    hmac.update(Uint8List.fromList(majorBytes), 0, 2);
+    final minorBytes = [
+      BINARY_FORMAT_MINOR & 0xFF,
+      (BINARY_FORMAT_MINOR >> 8) & 0xFF,
+    ];
+    hmac.update(Uint8List.fromList(minorBytes), 0, 2);
+
+    // JSON Header（strawFile 中的 integrity.hash 应为空字符串）
+    final headerJson = strawFile.assembleHeaderToJson();
+    final headerBytes = utf8.encode(headerJson);
+
+    // Header Size (4 bytes uint32 LE)
+    final headerSize = headerBytes.length;
+    final headerSizeBytes = Uint8List.fromList([
+      headerSize & 0xFF,
+      (headerSize >> 8) & 0xFF,
+      (headerSize >> 16) & 0xFF,
+      (headerSize >> 24) & 0xFF,
+    ]);
+    hmac.update(headerSizeBytes, 0, 4);
+
+    // JSON Header bytes
+    hmac.update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
+
+    // ========== 2. 从文件中流式读取分块数据 ==========
+    final file = File(filePath);
+    final raf = await file.open();
+
+    try {
+      // 跳过头部：Magic(8) + Version(4) + HeaderSize(4) + HeaderJson(文件中的实际大小)
+      await raf.setPosition(MAGIC_BYTES_LENGTH + 4);
+
+      // 读取文件中的 Header Size
+      final headerSizeData = await raf.read(4);
+      final fileHeaderSize =
+          headerSizeData[0] |
+          (headerSizeData[1] << 8) |
+          (headerSizeData[2] << 16) |
+          (headerSizeData[3] << 24);
+
+      await raf.setPosition(MAGIC_BYTES_LENGTH + 4 + 4 + fileHeaderSize);
+
+      final totalChunks = strawFile.content.totalChunks;
+
+      for (int i = 0; i < totalChunks; i++) {
+        cancellationToken?.throwIfCancelled();
+        // 读取 IV (16 bytes)
+        final ivData = await raf.read(CHUNK_IV_LENGTH_BYTES);
+        if (ivData.length < CHUNK_IV_LENGTH_BYTES) break;
+        hmac.update(Uint8List.fromList(ivData), 0, ivData.length);
+
+        // 读取 encrypted_data_length (4 bytes uint32 LE)
+        final lenData = await raf.read(4);
+        if (lenData.length < 4) break;
+        hmac.update(Uint8List.fromList(lenData), 0, 4);
+
+        // 读取加密数据
+        final encLen =
+            lenData[0] |
+            (lenData[1] << 8) |
+            (lenData[2] << 16) |
+            (lenData[3] << 24);
+        final encData = await raf.read(encLen);
+        if (encData.length < encLen) break;
+        hmac.update(Uint8List.fromList(encData), 0, encData.length);
+        onProgress?.call(i + 1, totalChunks);
+
+        if (i & 0xF == 0xF) {
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+    } finally {
+      await raf.close();
+    }
+
+    cancellationToken?.throwIfCancelled();
+    final mac = Uint8List(hmac.macSize);
+    hmac.doFinal(mac, 0);
+    final hex = mac.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '$HMAC_SHA256_HASH_PREFIX$hex';
+  }
+
+  @override
+  Future<String> computeHmacFromChunks({
+    required StrawFile strawFile,
+    required List<ChunkInfo> chunks,
+    required Uint8List hmacKey,
+    CancellationToken? cancellationToken,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    cancellationToken?.throwIfCancelled();
+
+    final hmac = HMac.withDigest(SHA256Digest())..init(KeyParameter(hmacKey));
+
+    final magicBytesUint = Uint8List.fromList(STRAW_MAGIC_BYTES);
+    hmac.update(magicBytesUint, 0, magicBytesUint.length);
+    hmac.update(
+      Uint8List.fromList([
+        BINARY_FORMAT_MAJOR & 0xFF,
+        (BINARY_FORMAT_MAJOR >> 8) & 0xFF,
+      ]),
+      0,
+      2,
+    );
+    hmac.update(
+      Uint8List.fromList([
+        BINARY_FORMAT_MINOR & 0xFF,
+        (BINARY_FORMAT_MINOR >> 8) & 0xFF,
+      ]),
+      0,
+      2,
+    );
+
+    final headerBytes = utf8.encode(strawFile.assembleHeaderToJson());
+    final headerSize = headerBytes.length;
+    hmac.update(
+      Uint8List.fromList([
+        headerSize & 0xFF,
+        (headerSize >> 8) & 0xFF,
+        (headerSize >> 16) & 0xFF,
+        (headerSize >> 24) & 0xFF,
+      ]),
+      0,
+      4,
+    );
+    hmac.update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
+
+    for (var i = 0; i < chunks.length; i++) {
+      cancellationToken?.throwIfCancelled();
+      final chunk = chunks[i];
+      final encryptedLength = chunk.encryptedData.length;
+      hmac.update(chunk.iv, 0, chunk.iv.length);
+      hmac.update(
+        Uint8List.fromList([
+          encryptedLength & 0xFF,
+          (encryptedLength >> 8) & 0xFF,
+          (encryptedLength >> 16) & 0xFF,
+          (encryptedLength >> 24) & 0xFF,
+        ]),
+        0,
+        4,
+      );
+      hmac.update(chunk.encryptedData, 0, chunk.encryptedData.length);
+      onProgress?.call(i + 1, chunks.length);
+      if (i & 0xF == 0xF) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    cancellationToken?.throwIfCancelled();
+    final mac = Uint8List(hmac.macSize);
+    hmac.doFinal(mac, 0);
+    final hex = mac.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '$HMAC_SHA256_HASH_PREFIX$hex';
   }
 
   /// 验证文件完整性
@@ -326,6 +584,19 @@ class IntegrityService implements IIntegrityService {
   }) {
     final computedHash = computeHash(content);
     return computedHash == expectedHash;
+  }
+
+  @override
+  IntegritySink createIntegritySink({
+    required StrawFile strawFileForHash,
+    Uint8List? hmacKey,
+  }) {
+    final IntegritySink sink = hmacKey != null
+        ? _HmacSha256IntegritySink(hmacKey)
+        : _Sha256IntegritySink();
+    // 立即用 hash='' 版本的头部更新 sink
+    sink._updateHeaderInternal(strawFileForHash);
+    return sink;
   }
 }
 
@@ -347,5 +618,136 @@ class _SimpleSink<T> implements Sink<T> {
   @override
   void close() {
     // 无操作，结果已添加到 collector 中
+  }
+}
+
+/// 流式完整性校验 sink（边读/写边计算哈希）
+///
+/// 用于在加解密过程中避免哈希阶段重新读取整个文件。
+/// 创建时由 [IntegrityService.createIntegritySink] 自动调用
+/// [_updateHeaderInternal] 更新头部（hash='' 版本），
+/// 调用方随后对每个 chunk 调用 [updateChunkIv] 和 [updateChunkCipher]，
+/// 最后调用 [finalize] 获取哈希字符串。
+abstract class IntegritySink {
+  /// 内部方法：用 [strawFileForHash] 构造头部字节并更新 sink
+  ///
+  /// 由 [IntegrityService.createIntegritySink] 在创建时调用，
+  /// 调用方不应直接调用。
+  void _updateHeaderInternal(StrawFile strawFileForHash) {
+    // Magic Bytes
+    updateHeader(STRAW_MAGIC_BYTES);
+
+    // Format Version Major (2 bytes uint16 LE)
+    updateHeader([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF]);
+
+    // Format Version Minor (2 bytes uint16 LE)
+    updateHeader([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
+
+    // JSON Header（hash='' 版本）
+    final headerJson = strawFileForHash.assembleHeaderToJson();
+    final headerBytes = utf8.encode(headerJson);
+
+    // Header Size (4 bytes uint32 LE)
+    updateHeader([
+      headerBytes.length & 0xFF,
+      (headerBytes.length >> 8) & 0xFF,
+      (headerBytes.length >> 16) & 0xFF,
+      (headerBytes.length >> 24) & 0xFF,
+    ]);
+
+    // JSON Header bytes
+    updateHeader(headerBytes);
+  }
+
+  /// 更新文件头部字节（Magic + Version + HeaderSize + HeaderJson）
+  ///
+  /// 由 [_updateHeaderInternal] 内部调用，调用方不应直接调用。
+  void updateHeader(List<int> bytes);
+
+  /// 更新单个分块的 IV（16 字节）
+  void updateChunkIv(List<int> iv);
+
+  /// 更新单个分块的密文长度字段（4 字节 uint32 LE）
+  void updateChunkLength(List<int> lengthBytes);
+
+  /// 更新单个分块的密文数据
+  void updateChunkCipher(List<int> cipher);
+
+  /// 完成计算，返回带前缀的哈希字符串
+  ///
+  /// 返回格式：
+  /// - HMAC-SHA256："hmac-sha256:{64 位十六进制字符}"
+  /// - SHA-256："sha256:{64 位十六进制字符}"
+  String finalize();
+}
+
+/// HMAC-SHA256 流式 sink（v2.1 容器认证）
+class _HmacSha256IntegritySink extends IntegritySink {
+  _HmacSha256IntegritySink(Uint8List hmacKey)
+      : _hmac = HMac.withDigest(SHA256Digest())..init(KeyParameter(hmacKey));
+
+  final HMac _hmac;
+
+  @override
+  void updateHeader(List<int> bytes) {
+    _hmac.update(Uint8List.fromList(bytes), 0, bytes.length);
+  }
+
+  @override
+  void updateChunkIv(List<int> iv) {
+    _hmac.update(Uint8List.fromList(iv), 0, iv.length);
+  }
+
+  @override
+  void updateChunkLength(List<int> lengthBytes) {
+    _hmac.update(Uint8List.fromList(lengthBytes), 0, lengthBytes.length);
+  }
+
+  @override
+  void updateChunkCipher(List<int> cipher) {
+    _hmac.update(Uint8List.fromList(cipher), 0, cipher.length);
+  }
+
+  @override
+  String finalize() {
+    final mac = Uint8List(_hmac.macSize);
+    _hmac.doFinal(mac, 0);
+    final hex = mac.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '$HMAC_SHA256_HASH_PREFIX$hex';
+  }
+}
+
+/// SHA-256 流式 sink（v2.0 无密钥完整性校验）
+class _Sha256IntegritySink extends IntegritySink {
+  _Sha256IntegritySink();
+
+  final List<Digest> _collector = <Digest>[];
+  late final ByteConversionSink _input =
+      sha256.startChunkedConversion(_SimpleSink<Digest>(_collector));
+
+  @override
+  void updateHeader(List<int> bytes) {
+    _input.add(bytes);
+  }
+
+  @override
+  void updateChunkIv(List<int> iv) {
+    _input.add(iv);
+  }
+
+  @override
+  void updateChunkLength(List<int> lengthBytes) {
+    _input.add(lengthBytes);
+  }
+
+  @override
+  void updateChunkCipher(List<int> cipher) {
+    _input.add(cipher);
+  }
+
+  @override
+  String finalize() {
+    _input.close();
+    return 'sha256:${_collector.single}';
   }
 }

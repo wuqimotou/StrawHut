@@ -242,8 +242,9 @@ class FormatValidator implements IFormatValidator {
         errors.add('integrity 必须是一个对象（键值对集合）');
       } else {
         // 验证 integrity.hash —— 文件哈希值
-        // 对整个 .straw 文件内容进行 SHA-256 哈希计算得到的摘要
-        // 格式必须为 "sha256:{64位十六进制字符}"
+        // 对整个 .straw 文件内容进行哈希计算得到的摘要
+        // v2.0: 无密钥 SHA-256，格式 "sha256:{64位十六进制字符}"
+        // v2.1: HMAC-SHA256，格式 "hmac-sha256:{64位十六进制字符}"
         // 用于检测文件是否被篡改，是完整性校验的核心
         if (!integrity.containsKey('hash')) {
           errors.add('缺少必填字段: integrity.hash（完整性哈希值）');
@@ -252,27 +253,31 @@ class FormatValidator implements IFormatValidator {
           if (hash == null || hash.isEmpty) {
             errors.add('integrity.hash 不能为空');
           } else {
-            // 验证哈希格式：sha256:后跟64位十六进制字符
-            final hashPattern = RegExp(r'^sha256:[a-f0-9]{64}$');
+            // 验证哈希格式：sha256: 或 hmac-sha256: 后跟 64 位十六进制字符
+            final hashPattern = RegExp(
+              r'^(sha256|hmac-sha256):[a-f0-9]{64}$',
+            );
             if (!hashPattern.hasMatch(hash)) {
               errors.add(
-                'integrity.hash 格式无效，应为 "sha256:" 后跟 64 位十六进制字符（如 sha256:a1b2c3...）',
+                'integrity.hash 格式无效，应为 "sha256:" 或 "hmac-sha256:" 后跟 64 位十六进制字符',
               );
             }
           }
         }
 
         // 验证 integrity.hash_algorithm —— 哈希算法
-        // 必须为 SHA-256，使用弱哈希算法（如 MD5、SHA-1）可能导致碰撞攻击
+        // v2.0: SHA-256（无密钥哈希）
+        // v2.1: HMAC-SHA256（带密钥 HMAC）
         if (!integrity.containsKey('hash_algorithm')) {
           errors.add(
             '缺少必填字段: integrity.hash_algorithm（哈希算法）',
           );
         } else {
           final hashAlgo = integrity['hash_algorithm'] as String?;
-          if (hashAlgo != HASH_ALGORITHM_SHA256) {
+          if (hashAlgo != HASH_ALGORITHM_SHA256 &&
+              hashAlgo != HASH_ALGORITHM_HMAC_SHA256) {
             errors.add(
-              '不支持的哈希算法: $hashAlgo，仅支持 $HASH_ALGORITHM_SHA256',
+              '不支持的哈希算法: $hashAlgo，仅支持 $HASH_ALGORITHM_SHA256 或 $HASH_ALGORITHM_HMAC_SHA256',
             );
           }
         }

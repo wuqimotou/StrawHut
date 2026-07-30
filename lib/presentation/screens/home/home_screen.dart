@@ -153,7 +153,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 16),
-                      // 应用 Logo：凸起圆形软质容器 + 水墨锁图标
+                      // 应用 Logo：凸起圆形软质容器 + 应用图标（PNG 资源）
                       _buildLogo(tokens),
                       SizedBox(height: tokens.spaceXl),
                       // 欢迎标题
@@ -273,7 +273,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  /// 构建应用 Logo（凸起圆形软质容器 + 应用图标）
+  /// 构建应用 Logo（凸起圆形软质容器 + 应用图标 PNG 资源）
   Widget _buildLogo(NeumorphicTokens tokens) {
     return Center(
       child: NeumorphicContainer(

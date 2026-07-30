@@ -48,6 +48,7 @@ void main() {
         sourcePath: sourceFile.path,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 验证加密结果
@@ -85,6 +86,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: 512 * 1024, // 512KB chunks
+        useV21Security: false,
       );
 
       // 验证产生了多个分块
@@ -113,6 +115,7 @@ void main() {
           sourcePath: '${tempDir.path}/nonexistent.txt',
           payloadMetadata: metadata,
           key: key.bytes,
+          useV21Security: false,
         ),
         throwsA(isA<CryptoException>().having(
           (e) => e.code,
@@ -143,6 +146,7 @@ void main() {
         onProgress: (current, total) {
           progressCalls.add((current, total));
         },
+        useV21Security: false,
       );
 
       // 验证进度回调被调用
@@ -168,6 +172,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 流式加密
@@ -178,6 +183,7 @@ void main() {
         sourcePath: sourceFile.path,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 验证结果结构相同
@@ -208,6 +214,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 构建 .straw 二进制文件
@@ -263,6 +270,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: 512 * 1024,
+        useV21Security: false,
       );
 
       // 构建 .straw 二进制文件
@@ -330,6 +338,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       final strawFile = File('${tempDir.path}/progress.straw');
@@ -385,6 +394,7 @@ void main() {
         sourcePath: sourceFile.path,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 构建 .straw 二进制文件

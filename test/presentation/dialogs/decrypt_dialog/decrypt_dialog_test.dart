@@ -455,6 +455,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       );
     });
@@ -491,6 +492,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenThrow(
         const CryptoException('解密失败：密钥错误或密文损坏', code: 'DECRYPTION_FAILED'),
@@ -594,6 +596,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
@@ -779,6 +782,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
@@ -952,6 +956,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -1024,6 +1029,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -1095,6 +1101,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       ).thenAnswer((_) => completer.future);
 
@@ -1168,6 +1175,7 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
         ),
       );
 

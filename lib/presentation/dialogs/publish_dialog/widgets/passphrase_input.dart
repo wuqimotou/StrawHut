@@ -314,9 +314,9 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
                     children: entries
                         .map(
                           (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: NeumorphicContainer(
-                              shape: NeumorphicShape.flat,
+                              shape: NeumorphicShape.convex,
                               borderRadius: tokens.radiusSmall,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -413,24 +413,56 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
           Flexible(
             child: ListView.builder(
               shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                return ListTile(
-                  leading: NeumorphicIcon(
-                    StrawIcons.lock,
-                    size: 22,
-                    color: tokens.inkSecondary,
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: NeumorphicContainer(
+                    shape: NeumorphicShape.convex,
+                    borderRadius: tokens.radiusSmall,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, entry),
+                      borderRadius:
+                          BorderRadius.circular(tokens.radiusSmall),
+                      child: Row(
+                        children: [
+                          NeumorphicIcon(
+                            StrawIcons.lock,
+                            size: 20,
+                            color: tokens.inkSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.label,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: tokens.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  l10n.usedCount(entry.useCount),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: tokens.textHint,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  title: Text(
-                    entry.label,
-                    style: TextStyle(color: tokens.textPrimary),
-                  ),
-                  subtitle: Text(
-                    l10n.usedCount(entry.useCount),
-                    style: TextStyle(color: tokens.textHint),
-                  ),
-                  onTap: () => Navigator.pop(context, entry),
                 );
               },
             ),
@@ -449,7 +481,8 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
 
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
-      borderSide: BorderSide(color: tokens.surfaceAlt, width: 1),
+      // 透明边框：由外层凹陷软质容器的阴影定义边界
+      borderSide: BorderSide(color: Colors.transparent, width: 1),
     );
     final inputBorderFocused = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
@@ -496,45 +529,94 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
           ),
         ),
 
-        // 暗号输入框
-        TextField(
-          controller: _passphraseController,
-          focusNode: _passphraseFocus,
-          obscureText: _obscurePassphrase,
-          decoration: InputDecoration(
-            labelText: l10n.passphraseLabel,
-            labelStyle: TextStyle(color: tokens.textSecondary),
-            hintText: l10n.passphraseHint,
-            hintStyle: TextStyle(color: tokens.textHint),
-            prefixIcon: NeumorphicIcon(
-              StrawIcons.lock,
-              size: 20,
-              color: tokens.textSecondary,
-            ),
-            border: inputBorder,
-            enabledBorder: inputBorder,
-            focusedBorder: inputBorderFocused,
-            filled: true,
-            fillColor: tokens.surface,
-            suffixIcon: IconButton(
-              icon: NeumorphicIcon(
-                _obscurePassphrase ? StrawIcons.eyeOff : StrawIcons.eye,
+        // 暗号输入框（凹陷软槽，视觉焦点）
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
+          padding: EdgeInsets.zero,
+          child: TextField(
+            controller: _passphraseController,
+            focusNode: _passphraseFocus,
+            obscureText: _obscurePassphrase,
+            decoration: InputDecoration(
+              labelText: l10n.passphraseLabel,
+              labelStyle: TextStyle(color: tokens.textSecondary),
+              hintText: l10n.passphraseHint,
+              hintStyle: TextStyle(color: tokens.textHint),
+              prefixIcon: NeumorphicIcon(
+                StrawIcons.lock,
                 size: 20,
                 color: tokens.textSecondary,
               ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassphrase = !_obscurePassphrase;
-                });
-              },
+              border: inputBorder,
+              enabledBorder: inputBorder,
+              focusedBorder: inputBorderFocused,
+              filled: true,
+              fillColor: tokens.surface,
+              suffixIcon: IconButton(
+                icon: NeumorphicIcon(
+                  _obscurePassphrase ? StrawIcons.eyeOff : StrawIcons.eye,
+                  size: 20,
+                  color: tokens.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassphrase = !_obscurePassphrase;
+                  });
+                },
+              ),
             ),
+            style: TextStyle(color: tokens.textPrimary),
           ),
-          style: TextStyle(color: tokens.textPrimary),
         ),
         SizedBox(height: tokens.spaceSm),
 
-        // 暗号强度指示器
+        // 确认暗号输入框（凹陷软槽，视觉焦点）
+        NeumorphicContainer(
+          shape: NeumorphicShape.concave,
+          borderRadius: tokens.radiusSmall,
+          padding: EdgeInsets.zero,
+          child: TextField(
+            controller: _confirmController,
+            focusNode: _confirmFocus,
+            obscureText: _obscureConfirm,
+            decoration: InputDecoration(
+              labelText: l10n.passphraseConfirmLabel,
+              labelStyle: TextStyle(color: tokens.textSecondary),
+              hintText: l10n.passphraseConfirmHint,
+              hintStyle: TextStyle(color: tokens.textHint),
+              prefixIcon: NeumorphicIcon(
+                StrawIcons.lock,
+                size: 20,
+                color: tokens.textSecondary,
+              ),
+              border: inputBorder,
+              enabledBorder: inputBorder,
+              focusedBorder: inputBorderFocused,
+              filled: true,
+              fillColor: tokens.surface,
+              errorText: _mismatch ? l10n.passphraseMismatch : null,
+              errorStyle: TextStyle(fontSize: 12, color: tokens.error),
+              suffixIcon: IconButton(
+                icon: NeumorphicIcon(
+                  _obscureConfirm ? StrawIcons.eyeOff : StrawIcons.eye,
+                  size: 20,
+                  color: tokens.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscureConfirm = !_obscureConfirm;
+                  });
+                },
+              ),
+            ),
+            style: TextStyle(color: tokens.textPrimary),
+          ),
+        ),
+
+        // 暗号强度指示器（移到确认暗号框下方，spaceMd 间距确保不遮挡阴影）
         if (_passphraseController.text.isNotEmpty) ...[
+          SizedBox(height: tokens.spaceMd),
           Row(
             children: [
               Text(
@@ -574,11 +656,12 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
               style: TextStyle(fontSize: 12, color: tokens.error),
             ),
           ],
-          // 弱强度警告
+          // 弱强度警告（扁平背景，退居次要）
           if (_strength == PassphraseStrength.weak) ...[
             const SizedBox(height: 4),
             NeumorphicContainer(
-              shape: NeumorphicShape.concave,
+              shape: NeumorphicShape.flat,
+              color: tokens.surfaceAlt,
               borderRadius: tokens.radiusSmall,
               padding: const EdgeInsets.all(8),
               child: Row(
@@ -603,51 +686,14 @@ class PassphraseInputState extends ConsumerState<PassphraseInput> {
               ),
             ),
           ],
-          SizedBox(height: tokens.spaceSm),
         ],
 
-        // 确认暗号输入框
-        TextField(
-          controller: _confirmController,
-          focusNode: _confirmFocus,
-          obscureText: _obscureConfirm,
-          decoration: InputDecoration(
-            labelText: l10n.passphraseConfirmLabel,
-            labelStyle: TextStyle(color: tokens.textSecondary),
-            hintText: l10n.passphraseConfirmHint,
-            hintStyle: TextStyle(color: tokens.textHint),
-            prefixIcon: NeumorphicIcon(
-              StrawIcons.lock,
-              size: 20,
-              color: tokens.textSecondary,
-            ),
-            border: inputBorder,
-            enabledBorder: inputBorder,
-            focusedBorder: inputBorderFocused,
-            filled: true,
-            fillColor: tokens.surface,
-            errorText: _mismatch ? l10n.passphraseMismatch : null,
-            errorStyle: TextStyle(fontSize: 12, color: tokens.error),
-            suffixIcon: IconButton(
-              icon: NeumorphicIcon(
-                _obscureConfirm ? StrawIcons.eyeOff : StrawIcons.eye,
-                size: 20,
-                color: tokens.textSecondary,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscureConfirm = !_obscureConfirm;
-                });
-              },
-            ),
-          ),
-          style: TextStyle(color: tokens.textPrimary),
-        ),
         SizedBox(height: tokens.spaceMd),
 
-        // 安全提示（凹陷软槽 + 信息色）
+        // 安全提示（扁平背景，退居次要，避免与输入框争夺视觉焦点）
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
+          color: tokens.surfaceAlt,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
           child: Column(

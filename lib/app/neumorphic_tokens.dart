@@ -216,7 +216,8 @@ enum NeumorphicIntensity {
 /// 平整：无阴影
 ///
 /// 注意：Flutter 的 BoxShadow 不支持真正的 inset，
-/// 凹陷态采用"反向双向外阴影 + 背景色加深"的成熟模拟方案，
+/// 凹陷态采用"四向外阴影 + 背景色加深"的成熟模拟方案，
+/// 四向偏移确保四边均有阴影定义，避免两侧与背景相融，
 /// 视觉效果接近 inset 且稳定无渲染问题。
 List<BoxShadow> buildNeumorphicShadows({
   required NeumorphicTokens tokens,
@@ -245,35 +246,97 @@ List<BoxShadow> buildNeumorphicShadows({
   final darkOffset = Offset(offset, offset);
 
   if (shape == NeumorphicShape.convex) {
-    // 凸起：亮在左上，暗在右下
+    // 凸起：四向阴影，亮在左上，暗在右下
+    // 对角线阴影提供立体感，轴向阴影补强四边边界
     return [
+      // 对角线：亮（左上）
       BoxShadow(
         color: tokens.lightShadow,
         offset: lightOffset,
         blurRadius: blur,
         spreadRadius: tokens.shadowSpread,
       ),
+      // 对角线：暗（右下）
       BoxShadow(
         color: tokens.darkShadow,
         offset: darkOffset,
         blurRadius: blur,
         spreadRadius: tokens.shadowSpread,
       ),
+      // 轴向补强：上边亮影
+      BoxShadow(
+        color: tokens.lightShadow,
+        offset: Offset(0, -offset * 0.5),
+        blurRadius: blur * 0.7,
+        spreadRadius: tokens.shadowSpread,
+      ),
+      // 轴向补强：左边亮影
+      BoxShadow(
+        color: tokens.lightShadow,
+        offset: Offset(-offset * 0.5, 0),
+        blurRadius: blur * 0.7,
+        spreadRadius: tokens.shadowSpread,
+      ),
+      // 轴向补强：下边暗影
+      BoxShadow(
+        color: tokens.darkShadow,
+        offset: Offset(0, offset * 0.5),
+        blurRadius: blur * 0.7,
+        spreadRadius: tokens.shadowSpread,
+      ),
+      // 轴向补强：右边暗影
+      BoxShadow(
+        color: tokens.darkShadow,
+        offset: Offset(offset * 0.5, 0),
+        blurRadius: blur * 0.7,
+        spreadRadius: tokens.shadowSpread,
+      ),
     ];
   }
 
-  // 凹陷：暗在左上，亮在右下（模拟内壁）
+  // 凹陷：四向阴影模拟内壁，暗在左上，亮在右下
+  // 对角线阴影提供凹陷立体感，轴向阴影补强确保两侧边界清晰
   return [
+    // 对角线：暗（左上）
     BoxShadow(
       color: tokens.darkShadow,
       offset: lightOffset,
       blurRadius: blur * 0.8,
       spreadRadius: tokens.shadowSpread,
     ),
+    // 对角线：亮（右下）
     BoxShadow(
       color: tokens.lightShadow,
       offset: darkOffset,
       blurRadius: blur * 0.8,
+      spreadRadius: tokens.shadowSpread,
+    ),
+    // 轴向补强：上边暗影（背光面）
+    BoxShadow(
+      color: tokens.darkShadow,
+      offset: Offset(0, -offset * 0.5),
+      blurRadius: blur * 0.6,
+      spreadRadius: tokens.shadowSpread,
+    ),
+    // 轴向补强：左边暗影（背光面）
+    BoxShadow(
+      color: tokens.darkShadow,
+      offset: Offset(-offset * 0.5, 0),
+      blurRadius: blur * 0.6,
+      spreadRadius: tokens.shadowSpread,
+    ),
+    // 轴向补强：下边亮影（受光面）
+    BoxShadow(
+      color: tokens.lightShadow,
+      offset: Offset(0, offset * 0.5),
+      blurRadius: blur * 0.6,
+      spreadRadius: tokens.shadowSpread,
+    ),
+    // 轴向补强：右边亮影（受光面）
+    BoxShadow(
+      color: tokens.lightShadow,
+      offset: Offset(offset * 0.5, 0),
+      blurRadius: blur * 0.6,
       spreadRadius: tokens.shadowSpread,
     ),
   ];

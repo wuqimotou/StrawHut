@@ -5,10 +5,13 @@ import 'dart:typed_data';
 
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
+import 'package:pointycastle/api.dart';
+import 'package:pointycastle/block/aes.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
+import 'package:pointycastle/block/modes/gcm.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
@@ -90,12 +93,16 @@ abstract class ICryptoService {
   /// - [key]: 32 字节加密密钥
   /// - [chunkSize]: 分块大小（字节），默认 [DEFAULT_CHUNK_SIZE]（1MB）
   /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  /// - [useV21Security]: 是否启用 v2.1 容器认证（GCM 绑定 AAD），默认 true
+  /// - [cancellationToken]: 取消令牌，触发后停止处理后续分块
   Future<EncryptResult> encrypt({
     required Uint8List payloadBytes,
     required PayloadMetadata payloadMetadata,
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   });
 
   /// 解密载荷（统一接口）
@@ -109,6 +116,8 @@ abstract class ICryptoService {
   /// - [chunkSize]: 分块大小（字节）
   /// - [originalPayloadSize]: 原始载荷大小（字节），用于精确截取
   /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  /// - [useV21Security]: 是否启用 v2.1 容器认证（GCM 绑定 AAD）。
+  ///   旧文件（v2.0）应传 false，新文件（v2.1）应传 true。
   Future<DecryptResult> decrypt({
     required List<ChunkInfo> chunks,
     required Uint8List key,
@@ -116,6 +125,7 @@ abstract class ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
   });
 
   /// 流式加密（大文件场景）
@@ -129,12 +139,16 @@ abstract class ICryptoService {
   /// - [key]: 32 字节加密密钥
   /// - [chunkSize]: 分块大小（字节），默认 [DEFAULT_CHUNK_SIZE]（1MB）
   /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  /// - [useV21Security]: 是否启用 v2.1 容器认证（GCM 绑定 AAD），默认 true
+  /// - [cancellationToken]: 取消令牌，触发后停止处理后续分块
   Future<EncryptResult> encryptStream({
     required String sourcePath,
     required PayloadMetadata payloadMetadata,
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   });
 
   /// 流式解密（大文件场景）
@@ -156,6 +170,8 @@ abstract class ICryptoService {
   /// - [chunkSize]: 分块大小（字节）
   /// - [originalPayloadSize]: 原始载荷大小（字节）
   /// - [onProgress]: 进度回调，参数为 (当前分块, 总分块数)
+  /// - [useV21Security]: 是否启用 v2.1 容器认证（GCM 绑定 AAD）。
+  ///   旧文件（v2.0）应传 false，新文件（v2.1）应传 true。
   Future<DecryptStreamResult> decryptStream({
     required String strawFilePath,
     required Uint8List key,
@@ -164,6 +180,8 @@ abstract class ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
+    IntegritySink? integritySink,
   });
 
   /// 解密旧版单块加密内容
@@ -182,6 +200,19 @@ abstract class ICryptoService {
     required String ivBase64,
     required Uint8List key,
   });
+
+  /// 从加密密钥派生 HMAC 密钥（v2.1 容器认证）
+  ///
+  /// `hmacKey = HMAC-SHA256(encryptionKey, UTF8(STRAWHUT_V21_HMAC_KEY_LABEL))`
+  ///
+  /// v2.1 文件使用派生的 HMAC 密钥计算外层完整性哈希，防止攻击者重算
+  /// 哈希绕过完整性校验。调用方应在持有加密密钥时调用此方法，得到 HMAC
+  /// 密钥后用于 [IIntegrityService.computeHmacFromBytes] 等方法，
+  /// 使用完毕后应通过 [MemoryUtils.wipeBytes] 清理。
+  ///
+  /// 参数：[encryptionKey] - 32 字节加密密钥
+  /// 返回：32 字节 HMAC 密钥
+  Uint8List deriveHmacKey(Uint8List encryptionKey);
 }
 
 /// 加密服务实现
@@ -312,7 +343,10 @@ class CryptoService implements ICryptoService {
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   }) async {
+    cancellationToken?.throwIfCancelled();
     _validateKeyLength(key);
 
     final metadataBytes = payloadMetadata.toBytes();
@@ -367,8 +401,15 @@ class CryptoService implements ICryptoService {
     // 使用 compute 在后台 Isolate 中加密第一个分块
     final firstResult = await compute(
       _encryptChunkInIsolate,
-      _ChunkEncryptParams(plaintext: firstChunkPlaintext, key: key),
+      _ChunkEncryptParams(
+        plaintext: firstChunkPlaintext,
+        key: key,
+        chunkIndex: 0,
+        totalChunks: totalChunks,
+        useV21Security: useV21Security,
+      ),
     );
+    cancellationToken?.throwIfCancelled();
     chunks.add(
       ChunkInfo(iv: firstResult.iv, encryptedData: firstResult.encryptedData),
     );
@@ -376,6 +417,7 @@ class CryptoService implements ICryptoService {
 
     // ---- 后续分块 ----
     while (payloadOffset < payloadBytes.length) {
+      cancellationToken?.throwIfCancelled();
       final chunkPayloadSize = min(
         chunkSize,
         payloadBytes.length - payloadOffset,
@@ -387,8 +429,15 @@ class CryptoService implements ICryptoService {
       // 使用 compute 在后台 Isolate 中加密每个分块
       final chunkResult = await compute(
         _encryptChunkInIsolate,
-        _ChunkEncryptParams(plaintext: chunkPlaintext, key: key),
+        _ChunkEncryptParams(
+          plaintext: chunkPlaintext,
+          key: key,
+          chunkIndex: chunks.length,
+          totalChunks: totalChunks,
+          useV21Security: useV21Security,
+        ),
       );
+      cancellationToken?.throwIfCancelled();
       chunks.add(
         ChunkInfo(iv: chunkResult.iv, encryptedData: chunkResult.encryptedData),
       );
@@ -420,6 +469,7 @@ class CryptoService implements ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
   }) async {
     cancellationToken?.throwIfCancelled();
     _validateKeyLength(key);
@@ -428,6 +478,8 @@ class CryptoService implements ICryptoService {
       throw CryptoException('分块列表为空，无法解密', code: 'EMPTY_CHUNKS');
     }
 
+    final totalChunks = chunks.length;
+
     // ---- 解密第一个分块（在 Isolate 中） ----
     final firstPlaintext = await compute(
       _decryptChunkInIsolate,
@@ -435,6 +487,9 @@ class CryptoService implements ICryptoService {
         ciphertext: chunks[0].encryptedData,
         key: key,
         iv: chunks[0].iv,
+        chunkIndex: 0,
+        totalChunks: totalChunks,
+        useV21Security: useV21Security,
       ),
     );
     cancellationToken?.throwIfCancelled();
@@ -469,6 +524,9 @@ class CryptoService implements ICryptoService {
           ciphertext: chunks[i].encryptedData,
           key: key,
           iv: chunks[i].iv,
+          chunkIndex: i,
+          totalChunks: totalChunks,
+          useV21Security: useV21Security,
         ),
       );
       cancellationToken?.throwIfCancelled();
@@ -518,7 +576,10 @@ class CryptoService implements ICryptoService {
     required Uint8List key,
     int chunkSize = DEFAULT_CHUNK_SIZE,
     void Function(int current, int total)? onProgress,
+    bool useV21Security = true,
+    CancellationToken? cancellationToken,
   }) async {
+    cancellationToken?.throwIfCancelled();
     _validateKeyLength(key);
 
     final file = File(sourcePath);
@@ -572,8 +633,15 @@ class CryptoService implements ICryptoService {
       // 使用 compute 在后台 Isolate 中加密第一个分块
       final firstResult = await compute(
         _encryptChunkInIsolate,
-        _ChunkEncryptParams(plaintext: firstChunkPlaintext, key: key),
+        _ChunkEncryptParams(
+          plaintext: firstChunkPlaintext,
+          key: key,
+          chunkIndex: 0,
+          totalChunks: totalChunks,
+          useV21Security: useV21Security,
+        ),
       );
+      cancellationToken?.throwIfCancelled();
       chunks.add(
         ChunkInfo(iv: firstResult.iv, encryptedData: firstResult.encryptedData),
       );
@@ -582,6 +650,7 @@ class CryptoService implements ICryptoService {
       // ---- 后续分块 ----
       int chunkIndex = 1;
       while (await raf.position() < fileSize) {
+        cancellationToken?.throwIfCancelled();
         final remaining = fileSize - await raf.position();
         final readSize = min(chunkSize, remaining);
         final chunkData = await raf.read(readSize);
@@ -592,8 +661,12 @@ class CryptoService implements ICryptoService {
           _ChunkEncryptParams(
             plaintext: Uint8List.fromList(chunkData),
             key: key,
+            chunkIndex: chunkIndex,
+            totalChunks: totalChunks,
+            useV21Security: useV21Security,
           ),
         );
+        cancellationToken?.throwIfCancelled();
         chunks.add(
           ChunkInfo(
             iv: chunkResult.iv,
@@ -641,6 +714,8 @@ class CryptoService implements ICryptoService {
     required int originalPayloadSize,
     void Function(int current, int total)? onProgress,
     CancellationToken? cancellationToken,
+    bool useV21Security = false,
+    IntegritySink? integritySink,
   }) async {
     cancellationToken?.throwIfCancelled();
     _validateKeyLength(key);
@@ -667,6 +742,15 @@ class CryptoService implements ICryptoService {
           (headerLenBytes[2] << 16) |
           (headerLenBytes[3] << 24);
 
+      // 长度上限校验：防止恶意文件触发超大内存分配
+      if (headerLength > MAX_HEADER_SIZE_BYTES) {
+        throw CryptoException(
+          'Header Size 超过上限: $headerLength 字节，'
+          '最大允许 $MAX_HEADER_SIZE_BYTES 字节',
+          code: 'INVALID_FILE_FORMAT',
+        );
+      }
+
       // ---- 读取 JSON 头部 ----
       final headerBytes = await raf.read(headerLength);
       if (headerBytes.length < headerLength) {
@@ -687,6 +771,15 @@ class CryptoService implements ICryptoService {
 
       final contentJson = headerJson['content'] as Map<String, dynamic>;
       final totalChunks = contentJson['total_chunks'] as int;
+
+      // 长度上限校验：防止恶意文件触发超长循环
+      if (totalChunks <= 0 || totalChunks > MAX_TOTAL_CHUNKS_LIMIT) {
+        throw CryptoException(
+          'totalChunks 异常: $totalChunks，'
+          '允许范围为 1..$MAX_TOTAL_CHUNKS_LIMIT',
+          code: 'INVALID_FILE_FORMAT',
+        );
+      }
 
       // ---- 创建目标文件 ----
       final targetFile = File(targetPath);
@@ -721,6 +814,15 @@ class CryptoService implements ICryptoService {
               (encDataLenBytes[2] << 16) |
               (encDataLenBytes[3] << 24);
 
+          // 长度上限校验：防止恶意文件触发超大内存分配
+          if (encDataLen > MAX_CHUNK_CIPHERTEXT_BYTES) {
+            throw CryptoException(
+              '分块 $i 密文长度超过上限: $encDataLen 字节，'
+              '最大允许 $MAX_CHUNK_CIPHERTEXT_BYTES 字节',
+              code: 'INVALID_FILE_FORMAT',
+            );
+          }
+
           // 读取加密数据
           final encDataBytes = await raf.read(encDataLen);
           if (encDataBytes.length < encDataLen) {
@@ -731,6 +833,13 @@ class CryptoService implements ICryptoService {
             );
           }
 
+          // 边读边算：将 IV + len + ciphertext 更新到 IntegritySink
+          if (integritySink != null) {
+            integritySink.updateChunkIv(ivBytes);
+            integritySink.updateChunkLength(encDataLenBytes);
+            integritySink.updateChunkCipher(encDataBytes);
+          }
+
           // 使用 compute 在后台 Isolate 中解密分块
           final plaintext = await compute(
             _decryptChunkInIsolate,
@@ -738,6 +847,9 @@ class CryptoService implements ICryptoService {
               ciphertext: Uint8List.fromList(encDataBytes),
               key: key,
               iv: Uint8List.fromList(ivBytes),
+              chunkIndex: i,
+              totalChunks: totalChunks,
+              useV21Security: useV21Security,
             ),
           );
           cancellationToken?.throwIfCancelled();
@@ -828,6 +940,17 @@ class CryptoService implements ICryptoService {
         code: 'INVALID_KEY_LENGTH',
       );
     }
+  }
+
+  /// 从加密密钥派生 HMAC 密钥（v2.1 容器认证）
+  ///
+  /// `hmacKey = HMAC-SHA256(encryptionKey, UTF8(STRAWHUT_V21_HMAC_KEY_LABEL))`
+  ///
+  /// 调用方应在持有加密密钥时调用此方法，得到 HMAC 密钥后用于
+  /// [IntegrityService.computeHmacFromBytes] 等方法。
+  Uint8List deriveHmacKey(Uint8List encryptionKey) {
+    _validateKeyLength(encryptionKey);
+    return _deriveHmacKeyStatic(encryptionKey);
   }
 
   /// 计算总分块数
@@ -933,10 +1056,19 @@ Uint8List _deriveKeyFromPassphraseIsolate(_DeriveKeyParams params) {
 
 /// Isolate 参数：单个分块加密所需的数据
 class _ChunkEncryptParams {
-  const _ChunkEncryptParams({required this.plaintext, required this.key});
+  const _ChunkEncryptParams({
+    required this.plaintext,
+    required this.key,
+    required this.chunkIndex,
+    required this.totalChunks,
+    required this.useV21Security,
+  });
 
   final Uint8List plaintext;
   final Uint8List key;
+  final int chunkIndex;
+  final int totalChunks;
+  final bool useV21Security;
 }
 
 /// Isolate 返回值：单个分块加密结果
@@ -953,11 +1085,17 @@ class _ChunkDecryptParams {
     required this.ciphertext,
     required this.key,
     required this.iv,
+    required this.chunkIndex,
+    required this.totalChunks,
+    required this.useV21Security,
   });
 
   final Uint8List ciphertext;
   final Uint8List key;
   final Uint8List iv;
+  final int chunkIndex;
+  final int totalChunks;
+  final bool useV21Security;
 }
 
 /// 生成密码学安全随机字节（顶层函数，供 Isolate 调用）
@@ -970,40 +1108,117 @@ Uint8List _generateSecureRandomBytesStatic(int length) {
   return bytes;
 }
 
+/// 构建 v2.1 容器认证的 AAD
+///
+/// AAD = UTF8(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR) + u32LE(chunkIndex) + u32LE(totalChunks)
+///
+/// 绑定分块序号和总数，防止分块重排或截断攻击。
+/// 必须为顶层函数以便在 Isolate 中调用。
+Uint8List _buildAadV21Static(int chunkIndex, int totalChunks) {
+  final domainBytes = utf8.encode(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR);
+  final aad = Uint8List(domainBytes.length + 8);
+  aad.setRange(0, domainBytes.length, domainBytes);
+  // chunkIndex u32 LE
+  aad[domainBytes.length] = chunkIndex & 0xFF;
+  aad[domainBytes.length + 1] = (chunkIndex >> 8) & 0xFF;
+  aad[domainBytes.length + 2] = (chunkIndex >> 16) & 0xFF;
+  aad[domainBytes.length + 3] = (chunkIndex >> 24) & 0xFF;
+  // totalChunks u32 LE
+  aad[domainBytes.length + 4] = totalChunks & 0xFF;
+  aad[domainBytes.length + 5] = (totalChunks >> 8) & 0xFF;
+  aad[domainBytes.length + 6] = (totalChunks >> 16) & 0xFF;
+  aad[domainBytes.length + 7] = (totalChunks >> 24) & 0xFF;
+  return aad;
+}
+
+/// 从加密密钥派生 HMAC 密钥（v2.1 容器认证）
+///
+/// `hmacKey = HMAC-SHA256(encryptionKey, UTF8(STRAWHUT_V21_HMAC_KEY_LABEL))`
+Uint8List _deriveHmacKeyStatic(Uint8List encryptionKey) {
+  final hmac = HMac.withDigest(SHA256Digest())
+    ..init(KeyParameter(encryptionKey));
+  final labelBytes = utf8.encode(STRAWHUT_V21_HMAC_KEY_LABEL);
+  return hmac.process(Uint8List.fromList(labelBytes));
+}
+
 /// AES-256-GCM 加密（顶层函数，供 Isolate 调用）
+///
+/// v2.0 模式：不使用 AAD（[aad] 为 null）
+/// v2.1 模式：使用 AAD 绑定分块上下文（[aad] 非空）
 Uint8List _encryptAesGcmStatic(
   Uint8List plaintext,
   Uint8List key,
-  Uint8List iv,
-) {
-  final encrypter = enc.Encrypter(enc.AES(enc.Key(key), mode: enc.AESMode.gcm));
-  final encrypted = encrypter.encryptBytes(plaintext, iv: enc.IV(iv));
-  return encrypted.bytes;
+  Uint8List iv, {
+  Uint8List? aad,
+}) {
+  if (aad == null) {
+    // v2.0 兼容路径：使用 encrypt 包的 GCM（不暴露 AAD）
+    final encrypter =
+        enc.Encrypter(enc.AES(enc.Key(key), mode: enc.AESMode.gcm));
+    final encrypted = encrypter.encryptBytes(plaintext, iv: enc.IV(iv));
+    return encrypted.bytes;
+  }
+
+  // v2.1 路径：直接使用 pointycastle 的 GCMBlockCipher 以支持 AAD
+  final cipher = GCMBlockCipher(AESEngine());
+  cipher.init(
+    true,
+    AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
+  );
+  // GCM 加密输出 = 明文长度 + 认证标签长度
+  final output = Uint8List(plaintext.length + GCM_TAG_LENGTH_BYTES);
+  var offset = cipher.processBytes(plaintext, 0, plaintext.length, output, 0);
+  offset += cipher.doFinal(output, offset);
+  return Uint8List.fromList(output.sublist(0, offset));
 }
 
 /// 在 Isolate 中执行单个分块的 AES-256-GCM 加密
 ///
 /// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
 /// 每次调用生成新的随机 IV 并加密。
+/// 根据 [params.useV21Security] 决定是否绑定 AAD。
 _ChunkEncryptResult _encryptChunkInIsolate(_ChunkEncryptParams params) {
   final iv = _generateSecureRandomBytesStatic(16); // CHUNK_IV_LENGTH_BYTES = 16
-  final encrypted = _encryptAesGcmStatic(params.plaintext, params.key, iv);
+  final aad = params.useV21Security
+      ? _buildAadV21Static(params.chunkIndex, params.totalChunks)
+      : null;
+  final encrypted = _encryptAesGcmStatic(params.plaintext, params.key, iv, aad: aad);
   return _ChunkEncryptResult(iv: iv, encryptedData: encrypted);
 }
 
 /// AES-256-GCM 解密（顶层函数，供 Isolate 调用）
+///
+/// v2.0 模式：不使用 AAD（[aad] 为 null）
+/// v2.1 模式：使用 AAD 绑定分块上下文（[aad] 非空）
 Uint8List _decryptAesGcmStatic(
   Uint8List ciphertext,
   Uint8List key,
-  Uint8List iv,
-) {
+  Uint8List iv, {
+  Uint8List? aad,
+}) {
   try {
-    final encrypter = enc.Encrypter(
-      enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+    if (aad == null) {
+      // v2.0 兼容路径：使用 encrypt 包的 GCM
+      final encrypter = enc.Encrypter(
+        enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
+      );
+      return Uint8List.fromList(
+        encrypter.decryptBytes(enc.Encrypted(ciphertext), iv: enc.IV(iv)),
+      );
+    }
+
+    // v2.1 路径：直接使用 pointycastle 的 GCMBlockCipher
+    final cipher = GCMBlockCipher(AESEngine());
+    cipher.init(
+      false,
+      AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
     );
-    return Uint8List.fromList(
-      encrypter.decryptBytes(enc.Encrypted(ciphertext), iv: enc.IV(iv)),
-    );
+    // GCM 解密输出 = 密文长度 - 认证标签长度（分配密文长度足够安全）
+    final output = Uint8List(ciphertext.length);
+    var offset =
+        cipher.processBytes(ciphertext, 0, ciphertext.length, output, 0);
+    offset += cipher.doFinal(output, offset);
+    return Uint8List.fromList(output.sublist(0, offset));
   } catch (e) {
     throw CryptoException(
       '分块解密失败：可能是密钥错误或数据已损坏。详情：$e',
@@ -1015,6 +1230,10 @@ Uint8List _decryptAesGcmStatic(
 /// 在 Isolate 中执行单个分块的 AES-256-GCM 解密
 ///
 /// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
+/// 根据 [params.useV21Security] 决定是否绑定 AAD。
 Uint8List _decryptChunkInIsolate(_ChunkDecryptParams params) {
-  return _decryptAesGcmStatic(params.ciphertext, params.key, params.iv);
+  final aad = params.useV21Security
+      ? _buildAadV21Static(params.chunkIndex, params.totalChunks)
+      : null;
+  return _decryptAesGcmStatic(params.ciphertext, params.key, params.iv, aad: aad);
 }

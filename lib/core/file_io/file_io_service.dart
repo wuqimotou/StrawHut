@@ -6,9 +6,11 @@ import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/errors/file_exception.dart';
 import 'package:strawhut/core/file_io/file_extensions.dart';
+import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/validation/format_validator.dart';
 import 'package:strawhut/data/models/key_file.dart';
+import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
@@ -169,6 +171,27 @@ abstract class IFileIOService {
   Uint8List buildBinaryFileBytes({
     required StrawFile strawFile,
     required List<ChunkInfo> chunks,
+  });
+
+  /// 构建二进制 .straw 文件字节数据并同步计算完整性哈希
+  ///
+  /// 一次调用同时完成：
+  /// 1. 构造 hash='' 版本的完整 bytes
+  /// 2. 通过 [integritySink] 边构造边算哈希（避免单独的哈希计算 pass）
+  /// 3. 用真实哈希重建 header，复用 chunks 部分
+  ///
+  /// 相比分别调用 [buildBinaryFileBytes] + `computeHmacFromBytes` + [buildBinaryFileBytes]，
+  /// 本方法消除了一次完整 bytes 遍历和一次外部 buildBinaryFileBytes 调用。
+  ///
+  /// 参数：
+  /// - [strawFileForHash]: StrawFile 对象（integrity.hash 应为空字符串）
+  /// - [chunks]: 加密分块列表
+  /// - [integritySink]: 已创建的 IntegritySink（创建时已更新 header）
+  /// 返回：record (bytes: 完整二进制数据含真实哈希, hash: 计算出的哈希字符串)
+  ({Uint8List bytes, String hash}) buildBinaryFileBytesWithIntegrity({
+    required StrawFile strawFileForHash,
+    required List<ChunkInfo> chunks,
+    required IntegritySink integritySink,
   });
 }
 
@@ -338,10 +361,30 @@ class FileIOService implements IFileIOService {
           code: 'INCOMPATIBLE_VERSION',
         );
       }
+      // minor 版本允许 0（v2.0 旧文件）或 1（v2.1 新文件）
+      if (minorVersion != BINARY_FORMAT_MINOR_V20 &&
+          minorVersion != BINARY_FORMAT_MINOR_V21) {
+        throw FileException(
+          '不兼容的二进制格式次版本: v$majorVersion.$minorVersion，'
+          '仅支持 v$majorVersion.$BINARY_FORMAT_MINOR_V20 或 '
+          'v$majorVersion.$BINARY_FORMAT_MINOR_V21',
+          code: 'INCOMPATIBLE_VERSION',
+        );
+      }
 
       // 读取 Header Size (4 bytes)
       final headerSizeData = await raf.read(4);
       final headerSize = _readUint32LEFromBytes(headerSizeData, 0);
+
+      // 长度上限校验：防止恶意文件触发超大内存分配
+      if (headerSize > MAX_HEADER_SIZE_BYTES) {
+        throw FileException(
+          'Header Size 超过上限: $headerSize 字节，'
+          '最大允许 $MAX_HEADER_SIZE_BYTES 字节。\n'
+          '可能原因：文件已损坏或被恶意构造。',
+          code: 'INVALID_FORMAT',
+        );
+      }
 
       // 读取 JSON Header
       final headerJsonData = await raf.read(headerSize);
@@ -429,6 +472,16 @@ class FileIOService implements IFileIOService {
         code: 'INCOMPATIBLE_VERSION',
       );
     }
+    // minor 版本允许 0（v2.0 旧文件）或 1（v2.1 新文件）
+    if (minorVersion != BINARY_FORMAT_MINOR_V20 &&
+        minorVersion != BINARY_FORMAT_MINOR_V21) {
+      throw FileException(
+        '不兼容的二进制格式次版本: v$majorVersion.$minorVersion，'
+        '仅支持 v$majorVersion.$BINARY_FORMAT_MINOR_V20 或 '
+        'v$majorVersion.$BINARY_FORMAT_MINOR_V21',
+        code: 'INCOMPATIBLE_VERSION',
+      );
+    }
 
     // ========== 步骤 3：读取 Header Size 和 JSON Header ==========
     if (bytes.length < MAGIC_BYTES_LENGTH + 4 + 4) {
@@ -439,6 +492,16 @@ class FileIOService implements IFileIOService {
       );
     }
     final headerSize = _readUint32LE(bytes, MAGIC_BYTES_LENGTH + 4);
+
+    // 长度上限校验：防止恶意文件触发超大内存分配
+    if (headerSize > MAX_HEADER_SIZE_BYTES) {
+      throw FileException(
+        'Header Size 超过上限: $headerSize 字节，'
+        '最大允许 $MAX_HEADER_SIZE_BYTES 字节。\n'
+        '可能原因：文件已损坏或被恶意构造。',
+        code: 'INVALID_FORMAT',
+      );
+    }
 
     const headerOffset = MAGIC_BYTES_LENGTH + 4 + 4; // 16
     if (bytes.length < headerOffset + headerSize) {
@@ -565,6 +628,74 @@ class FileIOService implements IFileIOService {
     required List<ChunkInfo> chunks,
   }) {
     return _buildBinaryFile(strawFile, chunks);
+  }
+
+  @override
+  ({Uint8List bytes, String hash}) buildBinaryFileBytesWithIntegrity({
+    required StrawFile strawFileForHash,
+    required List<ChunkInfo> chunks,
+    required IntegritySink integritySink,
+  }) {
+    // IntegritySink 已在创建时更新了 header（hash='' 版本）
+    // 这里构造 bytes 时同步更新 chunks 部分
+
+    final builder = BytesBuilder();
+
+    // 1. Magic + Version + HeaderSize + HeaderJson（hash='' 版本）
+    builder.add(STRAW_MAGIC_BYTES);
+    _writeUint16LE(builder, BINARY_FORMAT_MAJOR);
+    _writeUint16LE(builder, BINARY_FORMAT_MINOR);
+    final headerJson = strawFileForHash.assembleHeaderToJson();
+    final headerBytes = Uint8List.fromList(utf8.encode(headerJson));
+    _writeUint32LE(builder, headerBytes.length);
+    builder.add(headerBytes);
+
+    // 2. Chunks（同时更新 integritySink）
+    for (final chunk in chunks) {
+      builder.add(chunk.iv);
+      integritySink.updateChunkIv(chunk.iv);
+
+      final lenBytes = [
+        chunk.encryptedData.length & 0xFF,
+        (chunk.encryptedData.length >> 8) & 0xFF,
+        (chunk.encryptedData.length >> 16) & 0xFF,
+        (chunk.encryptedData.length >> 24) & 0xFF,
+      ];
+      builder.add(lenBytes);
+      integritySink.updateChunkLength(lenBytes);
+
+      builder.add(chunk.encryptedData);
+      integritySink.updateChunkCipher(chunk.encryptedData);
+    }
+
+    final bytesWithoutHash = builder.toBytes();
+
+    // 3. Finalize 得到 hash
+    final hash = integritySink.finalize();
+
+    // 4. 用真实 hash 重建 header，复用 chunks 部分（避免重新遍历所有 chunks）
+    final strawFileWithHash = StrawFile(
+      formatVersion: strawFileForHash.formatVersion,
+      meta: strawFileForHash.meta,
+      content: strawFileForHash.content,
+      integrity: IntegrityInfo(
+        hash: hash,
+        hashAlgorithm: strawFileForHash.integrity.hashAlgorithm,
+      ),
+    );
+    final headerJsonReal = strawFileWithHash.assembleHeaderToJson();
+    final headerBytesReal = Uint8List.fromList(utf8.encode(headerJsonReal));
+
+    final chunksOffset = STRAW_MAGIC_BYTES.length + 4 + 4 + headerBytes.length;
+    final finalBuilder = BytesBuilder();
+    finalBuilder.add(STRAW_MAGIC_BYTES);
+    _writeUint16LE(finalBuilder, BINARY_FORMAT_MAJOR);
+    _writeUint16LE(finalBuilder, BINARY_FORMAT_MINOR);
+    _writeUint32LE(finalBuilder, headerBytesReal.length);
+    finalBuilder.add(headerBytesReal);
+    finalBuilder.add(bytesWithoutHash.sublist(chunksOffset));
+
+    return (bytes: finalBuilder.toBytes(), hash: hash);
   }
 
   @override
@@ -742,6 +873,7 @@ class FileIOService implements IFileIOService {
     _writeUint16LE(builder, BINARY_FORMAT_MAJOR);
 
     // 3. Format Version Minor (2 bytes uint16 LE)
+    // 新文件写入 v2.1（minor=1），启用 AAD + HMAC-SHA256 容器认证
     _writeUint16LE(builder, BINARY_FORMAT_MINOR);
 
     // 4. JSON Header
@@ -790,6 +922,16 @@ class FileIOService implements IFileIOService {
       // 读取 Chunk Data Size (4 bytes uint32 LE)
       final dataSize = _readUint32LE(bytes, offset);
       offset += 4;
+
+      // 长度上限校验：防止恶意文件触发超大内存分配
+      if (dataSize > MAX_CHUNK_CIPHERTEXT_BYTES) {
+        throw FileException(
+          '分块密文长度超过上限: $dataSize 字节，'
+          '最大允许 $MAX_CHUNK_CIPHERTEXT_BYTES 字节。\n'
+          '可能原因：文件已损坏或被恶意构造。',
+          code: 'INVALID_FORMAT',
+        );
+      }
 
       // 读取 Encrypted Data (dataSize bytes)
       if (offset + dataSize > bytes.length) {

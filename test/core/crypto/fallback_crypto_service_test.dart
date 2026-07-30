@@ -70,6 +70,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await service.decrypt(
@@ -91,6 +92,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key1.bytes,
+        useV21Security: false,
       );
 
       expect(
@@ -140,6 +142,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key,
+        useV21Security: false,
       );
       final decryptResult = await service.decrypt(
         chunks: encryptResult.chunks,

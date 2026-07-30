@@ -1,6 +1,6 @@
 # StrawHut Code Wiki
 
-> **文档版本**: v1.2.0 | **最后更新**: 2026-07-30
+> **文档版本**: v1.2.1 | **最后更新**: 2026-07-30
 
 ---
 
@@ -46,8 +46,8 @@
 
 ### 版本号
 
-- 当前版本: `1.2.0+4`
-- 文件格式版本: `.straw v2.0.0`（二进制容器格式）
+- 当前版本: `1.2.1+5`
+- 文件格式版本: `.straw v2.1.0`（二进制容器格式，v2.1 增强容器认证）
 
 ---
 
@@ -126,6 +126,7 @@ lib/
 │   │       ├── ffi_crypto_channel.dart
 │   │       ├── method_channel_crypto_channel.dart
 │   │       ├── native_crypto_service.dart
+│   │       ├── parallel_chunk_processor.dart  # 多核并行分块处理器
 │   │       ├── platform_crypto_channel.dart
 │   │       └── windows_crypto_ffi.dart
 │   ├── draft/
@@ -142,7 +143,7 @@ lib/
 │   │   └── file_selection_service.dart  # 文件选择服务
 │   ├── integrity/
 │   │   ├── integrity_constants.dart
-│   │   └── integrity_service.dart   # SHA-256 完整性校验
+│   │   └── integrity_service.dart   # SHA-256 / HMAC-SHA256 完整性校验
 │   ├── migration/
 │   │   └── migration_service.dart   # 旧版格式迁移
 │   ├── passphrase_vault/
@@ -275,11 +276,12 @@ lib/
 |------|------|
 | `generateKey()` | 使用 CSPRNG 生成 32 字节 AES-256 密钥 |
 | `deriveKeyFromPassphrase()` | PBKDF2-HMAC-SHA256 从口令派生密钥，通过 `Flutter.compute()` 在后台 Isolate 执行 |
-| `encrypt()` | 统一加密接口：分块加密，第一块含 PayloadMetadata 前缀 |
-| `decrypt()` | 统一解密接口：还原 PayloadMetadata + PayloadBytes |
-| `encryptStream()` | 流式加密（大文件）：从文件逐块读取加密 |
-| `decryptStream()` | 流式解密（大文件）：从 .straw 文件逐块解密写入目标文件 |
+| `encrypt()` | 统一加密接口：分块加密，第一块含 PayloadMetadata 前缀；`useV21Security` 控制是否绑定 AAD；支持 `cancellationToken` 取消 |
+| `decrypt()` | 统一解密接口：还原 PayloadMetadata + PayloadBytes；`useV21Security` 控制是否验证 AAD；支持 `cancellationToken` 取消 |
+| `encryptStream()` | 流式加密（大文件）：从文件逐块读取加密；支持 `useV21Security`；支持 `cancellationToken` 取消 |
+| `decryptStream()` | 流式解密（大文件）：从 .straw 文件逐块解密写入目标文件；支持 `useV21Security`；支持 `cancellationToken` 取消 |
 | `decryptLegacyContent()` | 解密旧版单块加密内容 |
+| `deriveHmacKey()` | v2.1 容器认证：从加密密钥派生 HMAC 密钥（`HMAC-SHA256(encKey, LABEL)`） |
 | `clearSensitiveData()` | 清理敏感数据引用 |
 
 **实现类：`CryptoService`**
@@ -301,11 +303,17 @@ lib/
 | `CHUNK_IV_LENGTH_BYTES` | 16 | 分块 IV 长度 |
 | `GCM_TAG_LENGTH_BYTES` | 16 | GCM 认证标签长度 |
 | `SALT_LENGTH_BYTES` | 16 | PBKDF2 盐值长度 |
-| `KDF_ITERATIONS` | 100000 | PBKDF2 迭代次数 |
+| `KDF_ITERATIONS` | 600000 | PBKDF2 迭代次数（OWASP 2023 推荐） |
 | `DEFAULT_CHUNK_SIZE` | 1048576 (1MB) | 默认分块大小 |
 | `STRAW_MAGIC_BYTES` | `"STRAWHUT"` | 二进制文件 Magic Bytes |
 | `BINARY_FORMAT_MAJOR` | 2 | 二进制格式主版本 |
-| `BINARY_FORMAT_MINOR` | 0 | 二进制格式次版本 |
+| `BINARY_FORMAT_MINOR` | 1 | 二进制格式次版本（v2.1 增强容器认证） |
+| `BINARY_FORMAT_MINOR_V20` | 0 | v2.0 旧版次版本号（兼容读取） |
+| `BINARY_FORMAT_MINOR_V21` | 1 | v2.1 新版次版本号（AAD + HMAC） |
+| `HASH_ALGORITHM_HMAC_SHA256` | `'HMAC-SHA256'` | v2.1 HMAC-SHA256 算法标识 |
+| `MAX_HEADER_SIZE_BYTES` | 1048576 (1MiB) | JSON Header 最大字节数（DoS 防护） |
+| `MAX_CHUNK_CIPHERTEXT_BYTES` | 2097152 (2MiB) | 单块密文最大字节数（DoS 防护） |
+| `MAX_TOTAL_CHUNKS_LIMIT` | 1048576 | 最大分块数上限（DoS 防护） |
 | `PASSPHRASE_MIN_LENGTH` | 8 | 口令最小长度 |
 | `MAX_TAGS_COUNT` | 10 | 标签最大数量 |
 | `MAX_TAG_LENGTH` | 20 | 标签最大长度 |
@@ -353,14 +361,19 @@ lib/
 | `readKeyFileFromBytes()` | 从字节数据读取 .key 文件 |
 | `writeKeyFile()` | 写入 .key 密钥文件 |
 
-**二进制 .straw v2.0 解析流程：**
+**二进制 .straw v2.0/v2.1 解析流程：**
 
 1. 验证 Magic Bytes `"STRAWHUT"`（8字节）
 2. 读取版本号：Major(2B uint16 LE) + Minor(2B uint16 LE)
-3. 读取 Header Size (4B uint32 LE)
+3. 读取 Header Size (4B uint32 LE)，校验 `≤ MAX_HEADER_SIZE_BYTES`（DoS 防护）
 4. 读取 JSON Header（UTF-8 编码）
 5. 调用 `FormatValidator.validateStrawFormat()` 验证格式
 6. 解析分块数据：每个分块 = IV(16B) + DataSize(4B uint32 LE) + EncryptedData
+   - 校验 `DataSize ≤ MAX_CHUNK_CIPHERTEXT_BYTES`
+   - 校验 `totalChunks ≤ MAX_TOTAL_CHUNKS_LIMIT`
+7. 根据 Minor 版本号选择解密路径：
+   - minor=0（v2.0）：GCM 无 AAD，SHA-256 完整性校验
+   - minor=1（v2.1）：GCM 绑定 AAD，HMAC-SHA256 完整性校验
 
 ##### file_selection_service.dart — 文件选择服务
 
@@ -384,9 +397,13 @@ lib/
 | `computeHashFromBytes()` | 对字节数据计算 SHA-256 哈希 |
 | `computeHashFromStrawFile()` | 从 .straw 文件流式计算 SHA-256（逐块更新哈希，内存友好） |
 | `computeHashFromChunks()` | 从内存中的分块数据计算 SHA-256 |
+| `computeHmacFromBytes()` | v2.1：对字节数据计算 HMAC-SHA256（需传入 HMAC 密钥） |
+| `computeHmacFromStrawFile()` | v2.1：从 .straw 文件流式计算 HMAC-SHA256 |
 | `verifyIntegrity()` | 验证完整性：重新计算哈希并比对 |
 
-哈希格式：`"sha256:{64位十六进制字符}"`
+哈希格式：
+- v2.0：`"sha256:{64位十六进制字符}"`（无密钥 SHA-256）
+- v2.1：`"hmac-sha256:{64位十六进制字符}"`（HMAC-SHA256，防止攻击者重算哈希绕过校验）
 
 #### 3.2.4 暗号保险库 (passphrase_vault/)
 
@@ -424,7 +441,7 @@ lib/
 
 [migration_service.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/migration/migration_service.dart)
 
-将旧版 JSON 格式的 .straw 文件迁移到新版 v2.0 二进制容器格式。
+将旧版 JSON 格式的 .straw 文件迁移到新版 v2.1 二进制容器格式。
 
 | 方法 | 说明 |
 |------|------|
@@ -481,7 +498,7 @@ lib/
 | [base64_utils.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/base64_utils.dart) | Base64 编解码工具 |
 | [cancellation_token.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/cancellation_token.dart) | 可取消操作令牌：支持解密过程的取消 |
 | [cover_image_service.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/cover_image_service.dart) | PNG 封面生成与 .straw 数据嵌入/提取 |
-| [temp_file_manager.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/temp_file_manager.dart) | 临时文件管理：创建、清理、自动注册 |
+| [temp_file_manager.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/temp_file_manager.dart) | 临时文件管理：创建（CSPRNG 随机文件名）、清理、自动注册 |
 | [date_utils.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/date_utils.dart) | 日期格式化工具 |
 | [image_service.dart](file:///c:/GitHub Repositories/StrawHut/lib/core/utils/image_service.dart) | 图片处理服务 |
 
@@ -629,11 +646,12 @@ lib/
   │   ├── 随机密钥: CryptoService.generateKey()
   │   └── 暗号模式: CryptoService.deriveKeyFromPassphrase()
   │
-  ├── 加密内容
-  │   ├── 小文件: CryptoService.encrypt()
-  │   └── 大文件: CryptoService.encryptStream()
+  ├── 加密内容（v2.1 默认启用 AAD 绑定）
+  │   ├── 小文件: CryptoService.encrypt(useV21Security: true)
+  │   └── 大文件: CryptoService.encryptStream(useV21Security: true)
   │
   ├── 构建 StrawFile → IntegrityService 计算哈希
+  │   └── v2.1: deriveHmacKey() → computeHmacFromBytes()
   │
   ├── 输出格式
   │   ├── .straw: FileIOService.writeStrawFile()
@@ -659,10 +677,12 @@ lib/
   │   └── 保险库选择: 从保险库中选择暗号
   │
   ├── 解密
-  │   ├── 小文件: CryptoService.decrypt()
-  │   └── 大文件: CryptoService.decryptStream()
+  │   ├── 小文件: CryptoService.decrypt()（根据版本选择 useV21Security）
+  │   └── 大文件: CryptoService.decryptStream()（根据版本选择 useV21Security）
   │
-  ├── 完整性校验: IntegrityService.computeHashFromStrawFile()
+  ├── 完整性校验
+  │   ├── v2.0: IntegrityService.computeHashFromStrawFile()
+  │   └── v2.1: IntegrityService.computeHmacFromStrawFile() + deriveHmacKey()
   │
   └── 内容展示
       ├── richText → QuillViewer
@@ -679,7 +699,7 @@ PassphraseVaultService.tryAutoDecrypt()
   ├── 智能排序（useCount 降序 → 时间降序）
   ├── 按 CPU 核心数分批并行
   │   ├── PBKDF2 密钥派生
-  │   ├── 尝试解密第一块
+  │   ├── 尝试解密第一块（根据文件版本选择 useV21Security）
   │   └── 失败: MemoryUtils.wipeBytes() 清除密钥
   ├── 成功: 更新 useCount + lastUsedAt
   └── 全部失败: 返回 null
@@ -783,18 +803,24 @@ flutter gen-l10n
 
 ## 7. 文件格式规范
 
-### 7.1 .straw v2.0 二进制容器格式
+### 7.1 .straw v2.1 二进制容器格式
 
 ```
 Offset       Size       Content
 ────────────────────────────────────────────
 0x00000000   8 bytes    Magic Bytes "STRAWHUT" (ASCII)
 0x00000008   2 bytes    Format Version Major (uint16 LE) = 2
-0x0000000A   2 bytes    Format Version Minor (uint16 LE) = 0
+0x0000000A   2 bytes    Format Version Minor (uint16 LE) = 1 (v2.1)
 0x0000000C   4 bytes    Header Size (uint32 LE), JSON Header 字节数
 0x00000010   variable   JSON Header (UTF-8)
 0x00000010+H variable   Encrypted Chunks
 ```
+
+**版本演进：**
+- v2.0 (minor=0)：GCM 无 AAD，外层无密钥 SHA-256
+- v2.1 (minor=1)：GCM 绑定 AAD（chunk 序号+总数），外层 HMAC-SHA256
+
+**兼容性：** 读取时同时支持 minor=0 和 minor=1，写入时使用 v2.1。
 
 ### 7.2 分块格式
 
@@ -810,7 +836,7 @@ Offset    Size       Content
 
 ```json
 {
-  "format_version": "2.0.0",
+  "format_version": "2.1.0",
   "meta": {
     "publisher_alias": "Anonymous",
     "publish_date": "2026-05-01T12:00:00Z",
@@ -827,14 +853,20 @@ Offset    Size       Content
     "original_payload_size": 1234,
     "salt": "base64_encoded_salt",
     "kdf_algorithm": "PBKDF2-HMAC-SHA256",
-    "kdf_iterations": 100000
+    "kdf_iterations": 600000
   },
   "integrity": {
-    "hash": "sha256:abcdef1234567890...",
-    "hash_algorithm": "SHA-256"
+    "hash": "hmac-sha256:abcdef1234567890...",
+    "hash_algorithm": "HMAC-SHA256"
   }
 }
 ```
+
+**v2.0 vs v2.1 差异：**
+- `format_version`：`2.0.0` → `2.1.0`
+- `kdf_iterations`：旧文件保留原值（100000），新文件默认 600000
+- `integrity.hash`：`sha256:` 前缀 → `hmac-sha256:` 前缀
+- `integrity.hash_algorithm`：`SHA-256` → `HMAC-SHA256`
 
 ### 7.4 第一分块明文格式
 
@@ -859,10 +891,13 @@ Offset       Size       Content
 | IV 长度 | 12 字节 (NIST SP 800-38D 推荐) |
 | 分块 IV 长度 | 16 字节 |
 | GCM 认证标签 | 16 字节 |
-| 密钥派生 | PBKDF2-HMAC-SHA256, 100,000 次迭代 |
+| GCM AAD (v2.1) | `UTF8("STRAWHUT-V2.1-CHUNK") + u32LE(chunkIndex) + u32LE(totalChunks)` |
+| 密钥派生 | PBKDF2-HMAC-SHA256, 600,000 次迭代（OWASP 2023 推荐） |
 | 盐值长度 | 16 字节 |
 | 随机数生成 | CSPRNG (Random.secure / Android SecureRandom / BCryptGenRandom) |
-| 哈希算法 | SHA-256 |
+| 完整性哈希 (v2.0) | SHA-256（无密钥） |
+| 完整性哈希 (v2.1) | HMAC-SHA256（密钥派生：`HMAC-SHA256(encKey, "STRAWHUT-V2.1-HMAC-KEY")`） |
+| 临时文件名 | CSPRNG 生成 16 字节随机十六进制前缀，原子写入 |
 
 ### 8.2 原生加密架构
 
@@ -885,14 +920,85 @@ FallbackCryptoService (代理层)
 - 每个分块通过 `Flutter.compute()` 在独立 Isolate 中加密/解密
 - 大文件使用流式接口（`encryptStream`/`decryptStream`），避免将整个文件加载到内存
 
-### 8.4 安全性保证
+### 8.4 性能优化
+
+#### 8.4.1 进度回调节流（throttle）
+
+- **位置**：`decrypt_dialog.dart`、`publish_dialog.dart`（桌面端与移动端 State 类）
+- **实现**：通过 `_lastProgressUpdateTime` 字段 + `_throttledSetProgress()` 方法
+- **策略**：进度回调每 100ms 或进度到达 1.0（阶段边界）时才触发 `setState`，避免每个分块都触发 UI 重绘
+- **取消响应**：节流不影响 `cancellationToken` 同步检查，取消仍能在 ~1 块内响应
+
+#### 8.4.2 完整性校验循环让出策略
+
+- **位置**：`integrity_service.dart`（4 处循环：`computeHashFromStrawFile`/`computeHashFromChunks`/`computeHmacFromStrawFile`/`computeHmacFromChunks`）
+- **实现**：`await Future.delayed(Duration.zero)` 改为「每 16 块让出一次」（`if (i & 0xF == 0xF)`）
+- **效果**：减少事件循环切换开销，同步 `cancellationToken` 检查保证取消仍可在 ~1 块内响应
+
+#### 8.4.3 RandomAccessFile 合并读取
+
+- **位置**：`native_crypto_service.dart` 的 `decryptStream()`
+- **实现**：将每块的 3 次 `await raf.read(...)`（IV 16B + len 4B + encData 1MB）合并为 2 次（header 20B 一次 + encData 一次）
+- **效果**：100 块文件减少 100 次 await 开销，对应减少事件循环切换
+
+#### 8.4.4 死代码清理
+
+- **位置**：`native_crypto_service.dart`
+- **清理**：移除未使用的 `_IsolateParams`、`_encryptInIsolate`、`_decryptInIsolate`、`_ffiEncryptSync`、`_ffiDecryptSync` 及对应 `windows_crypto_ffi.dart` import
+- **原因**：分块加解密路径走的是 `_nativeEncryptChunkInIsolate`/`_nativeDecryptChunkInIsolate`（pointycastle），单块 FFI 路径已废弃
+
+#### 8.4.5 解密边读边算 IntegritySink
+
+- **位置**：`integrity_service.dart`（新增 `IntegritySink` 抽象类 + `_HmacSha256IntegritySink` / `_Sha256IntegritySink` 实现）、`crypto_service.dart` / `native_crypto_service.dart` 的 `decryptStream()`、`fallback_crypto_service.dart`、`decrypt_dialog.dart`
+- **实现**：
+  - `IIntegrityService.createIntegritySink()` 工厂方法创建 sink，创建时立即用 `strawFileForHash`（hash='' 版本）更新头部
+  - `decryptStream()` 新增 `integritySink` 可选参数，每读一个 chunk 的 IV + len + ciphertext 后立即 `updateChunkIv` / `updateChunkLength` / `updateChunkCipher`
+  - 解密完成后 `integritySink.finalize()` 瞬间返回哈希，无需重新读取文件
+- **效果**：流式解密时哈希计算与解密合并为单遍 IO，消除哈希阶段的完整文件重读，大文件解密耗时下降 30-50%
+- **兼容性**：内存解密（useStream=false）仍走 `computeHmacFromChunks` / `computeHashFromChunks` 旧路径
+
+#### 8.4.6 发布流式构造 buildBinaryFileBytesWithIntegrity
+
+- **位置**：`file_io_service.dart`（新增 `buildBinaryFileBytesWithIntegrity` 方法）、`publish_dialog.dart`
+- **实现**：
+  - 一次调用同时完成：构造 hash='' 版本 bytes + 通过 IntegritySink 边构造边算哈希 + 用真实哈希重建 header
+  - 第二次构造复用第一次的 chunks 部分（sublist view），避免重新遍历所有 chunks
+- **效果**：发布路径消除一次外部 `buildBinaryFileBytes` 调用和一次完整 bytes 遍历（HMAC 计算与 bytes 构造合并）
+
+#### 8.4.7 多核并行分块加解密 ParallelChunkProcessor
+
+- **位置**：`parallel_chunk_processor.dart`（新增 `ParallelChunkProcessor` 类）、`native_crypto_service.dart`（`encrypt` / `decrypt` / `encryptStream` / `decryptStream` 四个方法）
+- **实现**：
+  - `ParallelChunkProcessor` 采用滑动窗口并发策略，维护 `concurrency` 个 in-flight `Flutter.compute` Future，每完成一个立即派发下一个
+  - 并发度按 `Platform.numberOfProcessors` 自适应：≤2 核取 2，3-8 核取核数 -1，>8 核取 8
+  - 结果按原始 chunkIndex 顺序填入预分配数组，保证分块顺序正确
+  - `CancellationToken` 触发时停止派发新任务，等待在途任务完成后抛出 `OperationCancelledException`
+  - `encryptStream` / `decryptStream` 采用分批预读策略：每批预读 `concurrency` 个分块到内存，并行处理后再读下一批，避免大文件 OOM
+- **效果**：多分块文件加解密利用多核 CPU 并行处理，N 核机器理论加速接近 N-1 倍（留 1 核给 UI），大文件加解密耗时显著下降
+- **内存控制**：在途任务数固定为 `concurrency`，每块 1MB → 最多 `concurrency` MB 内存增量
+
+#### 8.4.8 加密过程取消支持
+
+- **位置**：`crypto_service.dart`（`ICryptoService.encrypt` / `encryptStream` 接口 + `CryptoService` 实现）、`native_crypto_service.dart`（`NativeCryptoService` 实现）、`fallback_crypto_service.dart`（转发）、`publish_dialog.dart`（UI）
+- **实现**：
+  - `encrypt` / `encryptStream` 新增 `CancellationToken? cancellationToken` 参数，与解密接口对称
+  - 在方法入口、第一块加密前后、循环中每块前检查 `cancellationToken?.throwIfCancelled()`
+  - `NativeCryptoService` 将 `cancellationToken` 透传给 `ParallelChunkProcessor.encryptChunks`，与并行解密共用同一取消路径
+  - `publish_dialog.dart` 桌面版 + 移动版均新增 `_cancellationToken` / `_isCancelling` 字段、`dispose()` 取消、`_handleCancel()` 方法
+  - 加密开始前创建 `CancellationToken`，3 处 `encrypt` / `encryptStream` 调用传入
+  - catch 单独处理 `OperationCancelledException`：静默恢复初始状态，不显示错误
+  - 桌面版取消按钮：加载时变为"取消加密"并调用 `_handleCancel`
+  - 移动版底部操作栏：加载时切换为「进度文本（Expanded）+ 取消按钮」并排布局，取消按钮紧邻进度，更直观
+- **效果**：大文件加密过程中可随时取消，停止后续分块处理，与解密取消体验一致
+
+### 8.5 安全性保证
 
 - 零网络请求：所有加密操作在本地完成
 - 零持久化存储：除暗号保险库外，不保存任何数据
 - 内存安全：`MemoryUtils.wipeBytes()` 逐字节清零敏感数据
 - 完整性校验：SHA-256 哈希防止文件篡改
 - 格式验证：多层验证防止恶意文件注入
-- 取消支持：解密和完整性校验可在任意时刻取消
+- 取消支持：加密、解密和完整性校验均可在任意时刻取消
 
 ---
 
@@ -917,6 +1023,7 @@ FallbackCryptoService (代理层)
 | `crypto_service_test.dart` | 基础加密/解密：密钥生成、AES-256-GCM 加解密、PBKDF2 密钥派生 |
 | `crypto_service_chunked_test.dart` | 分块加密/解密：多块数据加解密、分块边界处理 |
 | `crypto_service_stream_test.dart` | 流式加密/解密：大文件流式处理、内存效率验证 |
+| `crypto_v21_security_test.dart` | v2.1 容器认证：AAD 加解密往返、HMAC 密钥派生、HMAC-SHA256 完整性校验、版本不兼容验证、长度字段上限、流式 v2.1 往返 |
 | `decrypt_stream_cancellation_test.dart` | 解密取消：取消令牌机制、中途取消后的资源释放 |
 | `fallback_crypto_service_test.dart` | 回退加密服务：原生→Dart 回退逻辑 |
 | `crypto_compatibility_test.dart` | 跨平台兼容性：原生加密与 Dart 加密互操作 |
@@ -929,7 +1036,7 @@ FallbackCryptoService (代理层)
 | 测试文件 | 覆盖范围 |
 |----------|----------|
 | `file_io_service_test.dart` | .straw 文件读写、.key 文件读写、PNG 嵌入提取、二进制格式解析 |
-| `integrity_service_test.dart` | SHA-256 哈希计算、完整性校验 |
+| `integrity_service_test.dart` | SHA-256 哈希计算、HMAC-SHA256 哈希计算、完整性校验 |
 | `incremental_integrity_test.dart` | 流式/增量哈希计算 |
 
 #### 9.3 暗号保险库测试 (`test/core/passphrase_vault/`)
@@ -946,7 +1053,7 @@ FallbackCryptoService (代理层)
 |----------|----------|
 | `memory_utils_test.dart` | 敏感数据内存清零 |
 | `base64_utils_test.dart` | Base64 编解码 |
-| `temp_file_manager_test.dart` | 临时文件创建/清理 |
+| `temp_file_manager_test.dart` | 临时文件创建/清理、安全随机文件名 |
 | `date_utils_test.dart` | 日期格式化 |
 | `file_size_warning_test.dart` | 大文件警告逻辑 |
 
@@ -1155,7 +1262,7 @@ Dart 层 (Flutter)
 ### 11.3 依赖关系图
 
 ```
-strawhut (v1.2.0+4)
+strawhut (v1.2.1+5)
 ├── 加密 (Cryptography)
 │   ├── encrypt ^5.0.3
 │   ├── pointycastle ^3.9.1

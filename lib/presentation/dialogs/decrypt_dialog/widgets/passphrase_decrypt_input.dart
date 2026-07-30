@@ -388,9 +388,10 @@ class PassphraseDecryptInputState
           SizedBox(height: tokens.spaceSm),
         ],
 
-        // 提示信息：此卡片通过暗号加密
+        // 提示信息：此卡片通过暗号加密（扁平背景，退居次要，避免与输入框争夺视觉焦点）
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
+          color: tokens.surfaceAlt,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
           child: Row(

@@ -72,6 +72,28 @@ class FakePathProviderPlatform extends PathProviderPlatform {
   Future<String?> getTemporaryPath() async => Directory.systemTemp.path;
 }
 
+/// Fake IntegritySink，用于测试（finalize 返回预设哈希）
+class FakeIntegritySink extends IntegritySink {
+  FakeIntegritySink(this._hash);
+
+  final String _hash;
+
+  @override
+  void updateHeader(List<int> bytes) {}
+
+  @override
+  void updateChunkIv(List<int> iv) {}
+
+  @override
+  void updateChunkLength(List<int> lengthBytes) {}
+
+  @override
+  void updateChunkCipher(List<int> cipher) {}
+
+  @override
+  String finalize() => _hash;
+}
+
 // ============================================================================
 // 测试辅助方法
 // ============================================================================
@@ -736,6 +758,8 @@ void main() {
           originalPayloadSize: any(named: 'originalPayloadSize'),
           onProgress: any(named: 'onProgress'),
           cancellationToken: any(named: 'cancellationToken'),
+          useV21Security: any(named: 'useV21Security'),
+          integritySink: any(named: 'integritySink'),
         ),
       ).thenAnswer((invocation) async {
         outputPath = invocation.namedArguments[#targetPath] as String;
@@ -749,13 +773,11 @@ void main() {
         );
       });
       when(
-        () => mockIntegrityService.computeHashFromStrawFile(
-          strawFile: any(named: 'strawFile'),
-          filePath: any(named: 'filePath'),
-          cancellationToken: any(named: 'cancellationToken'),
-          onProgress: any(named: 'onProgress'),
+        () => mockIntegrityService.createIntegritySink(
+          strawFileForHash: any(named: 'strawFileForHash'),
+          hmacKey: any(named: 'hmacKey'),
         ),
-      ).thenAnswer((_) async => 'sha256:testhash');
+      ).thenReturn(FakeIntegritySink('sha256:testhash'));
       when(() => mockCryptoService.clearSensitiveData()).thenReturn(null);
 
       await tester.pumpWidget(createRouterTestableApp(container: container));

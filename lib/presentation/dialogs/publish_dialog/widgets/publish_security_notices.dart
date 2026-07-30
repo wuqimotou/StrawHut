@@ -31,7 +31,8 @@ class PublishSecurityNotices extends StatelessWidget {
       children: [
         if (exportFormat == 'png') ...[
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
+            color: tokens.surfaceAlt,
             borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -59,7 +60,8 @@ class PublishSecurityNotices extends StatelessWidget {
         ],
         if (isNegotiated)
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
+            color: tokens.surfaceAlt,
             borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.all(12),
             child: Column(

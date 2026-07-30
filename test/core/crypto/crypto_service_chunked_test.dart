@@ -30,6 +30,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -59,6 +60,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       expect(result.totalChunks, 1);
@@ -89,6 +91,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: testChunkSize,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -123,6 +126,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: testChunkSize,
+        useV21Security: false,
       );
 
       // 验证产生了多个分块
@@ -161,6 +165,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: testChunkSize,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -194,6 +199,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -226,6 +232,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -259,6 +266,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: 512,
+        useV21Security: false,
       );
 
       // 验证至少产生了多个分块
@@ -301,6 +309,7 @@ void main() {
         onProgress: (current, total) {
           progressCalls.add((current, total));
         },
+        useV21Security: false,
       );
 
       // 验证回调被调用
@@ -337,6 +346,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: 512,
+        useV21Security: false,
       );
 
       final progressCalls = <(int, int)>[];
@@ -372,6 +382,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       expect(encrypted.originalPayloadSize, 0);
@@ -404,6 +415,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: correctKey.bytes,
+        useV21Security: false,
       );
 
       final wrongKey = await cryptoService.generateKey();
@@ -435,6 +447,7 @@ void main() {
           payloadBytes: payloadBytes,
           payloadMetadata: metadata,
           key: Uint8List(16),
+          useV21Security: false,
         ),
         throwsA(isA<CryptoException>().having(
           (e) => e.code,
@@ -506,11 +519,13 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
       final encrypted2 = await cryptoService.encrypt(
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 密文应不同（因为 IV 不同）
@@ -541,6 +556,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -573,6 +589,7 @@ void main() {
         payloadMetadata: metadata,
         key: key.bytes,
         chunkSize: 512,
+        useV21Security: false,
       );
 
       for (final chunk in encrypted.chunks) {
@@ -594,6 +611,7 @@ void main() {
         payloadBytes: payloadBytes,
         payloadMetadata: metadata,
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 第一个分块的密文应包含：元数据前缀 + 载荷数据 + GCM Tag

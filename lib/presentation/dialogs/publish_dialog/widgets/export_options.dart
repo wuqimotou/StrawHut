@@ -50,7 +50,8 @@ class ExportOptions extends StatelessWidget {
     final tokens = NeumorphicTokens.ofContext(context);
 
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
+      color: tokens.surfaceAlt,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(

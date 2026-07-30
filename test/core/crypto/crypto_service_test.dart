@@ -63,6 +63,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await cryptoService.decrypt(
@@ -84,6 +85,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await cryptoService.decrypt(
@@ -104,6 +106,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode('')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await cryptoService.decrypt(
@@ -125,11 +128,13 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
       final encryptResult2 = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 每个分块的加密数据应不同（因为 IV 随机）
@@ -153,6 +158,7 @@ void main() {
             utf8.encode('{"ops": [{"insert": "secret\\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: correctKey.bytes,
+        useV21Security: false,
       );
 
       final wrongKey = await cryptoService.generateKey();
@@ -177,6 +183,7 @@ void main() {
             Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 篡改第一个分块的密文
@@ -209,6 +216,7 @@ void main() {
             Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       // 篡改第一个分块的 IV
@@ -251,6 +259,7 @@ void main() {
             Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       for (final chunk in encryptResult.chunks) {
@@ -355,6 +364,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),
         key: key,
+        useV21Security: false,
       );
       final decryptResult = await cryptoService.decrypt(
         chunks: encryptResult.chunks,
@@ -377,6 +387,7 @@ void main() {
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
         chunkSize: 128,
+        useV21Security: false,
       );
       final token = CancellationToken()..cancel();
 
@@ -402,6 +413,7 @@ void main() {
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
         chunkSize: 128,
+        useV21Security: false,
       );
       final token = CancellationToken();
       final progress = <int>[];

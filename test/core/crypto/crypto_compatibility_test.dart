@@ -108,6 +108,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await nativeService.decrypt(
@@ -138,6 +139,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await dartService.decrypt(
@@ -168,6 +170,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       final decryptResult = await nativeService.decrypt(
@@ -199,6 +202,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       // Verify each chunk has a 16-byte IV
@@ -238,6 +242,7 @@ void main() {
         payloadBytes: Uint8List.fromList(utf8.encode(content)),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
+        useV21Security: false,
       );
 
       // Verify each chunk has a 16-byte IV

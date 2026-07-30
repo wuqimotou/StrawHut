@@ -565,11 +565,17 @@ class PassphraseVaultService implements IPassphraseVaultService {
       );
 
       // 2. 使用分块解密
+      // 根据文件次版本号选择解密路径：
+      // - minor=0（v2.0）：GCM 无 AAD
+      // - minor=1（v2.1）：GCM 绑定 AAD
+      final useV21Security =
+          parsedFile.strawFile.formatVersion.minor == BINARY_FORMAT_MINOR_V21;
       final decryptResult = await cryptoService.decrypt(
         chunks: parsedFile.chunks,
         key: derivedKey,
         chunkSize: content.chunkSize,
         originalPayloadSize: content.originalPayloadSize,
+        useV21Security: useV21Security,
       );
 
       // 3. 解密成功

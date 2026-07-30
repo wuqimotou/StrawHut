@@ -146,9 +146,10 @@ class _KeyDisplayState extends State<KeyDisplay> {
         ),
         SizedBox(height: tokens.spaceLg),
 
-        // 安全警告提示（凹陷软槽 + 警告色）
+        // 安全警告提示（扁平背景，退居次要，避免与输入框争夺视觉焦点）
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
+          color: tokens.surfaceAlt,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(12),
           child: Row(

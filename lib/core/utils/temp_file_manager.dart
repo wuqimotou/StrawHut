@@ -37,6 +37,27 @@ class TempFileManager {
     return tempDir.path;
   }
 
+  /// 生成一个随机临时文件路径（不创建文件）
+  ///
+  /// 安全性：
+  /// - 使用 [Random.secure] 生成不可预测的文件名，防止符号链接劫持攻击
+  /// - 文件名包含 16 字节随机数据的 hex 编码（32 字符），攻击者无法预测
+  ///
+  /// 参数：
+  /// - [extension]: 文件扩展名（不含点），如 'tmp'、'bin'
+  ///
+  /// 返回：临时目录下的完整随机文件路径
+  static Future<String> generateRandomTempPath({String extension = 'tmp'}) async {
+    final tempDir = await getTempDirectory();
+    final random = Random.secure();
+    final randomBytes = List.generate(16, (_) => random.nextInt(256));
+    final hex = randomBytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+    final fileName = 'decrypt_$hex.$extension';
+    return p.join(tempDir, fileName);
+  }
+
   /// 创建临时文件
   ///
   /// 在临时目录下创建一个随机命名的文件。

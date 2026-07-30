@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart'
@@ -11,6 +10,7 @@ import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
+import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
@@ -187,6 +187,24 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   /// 解密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
   double _decryptProgress = 0.0;
 
+  /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
+  DateTime? _lastProgressUpdateTime;
+
+  /// 节流式更新进度：每 100ms 或进度到达阶段边界时刷新 UI
+  void _throttledSetProgress(double progress) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final shouldUpdate = _lastProgressUpdateTime == null ||
+        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        progress >= 1.0;
+    if (shouldUpdate) {
+      _lastProgressUpdateTime = now;
+      setState(() {
+        _decryptProgress = progress;
+      });
+    }
+  }
+
   /// 错误消息
   String? _errorMessage;
 
@@ -250,6 +268,12 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     final cryptoService = ref.read(cryptoServiceProvider);
     final integrityService = ref.read(integrityServiceProvider);
 
+    // 根据文件次版本号选择解密路径：
+    // - minor=0（v2.0 旧文件）：GCM 无 AAD + 无密钥 SHA-256 完整性校验
+    // - minor=1（v2.1 新文件）：GCM 绑定 AAD + HMAC-SHA256 完整性校验
+    final useV21Security =
+        widget.strawFile.formatVersion.minor == BINARY_FORMAT_MINOR_V21;
+
     // 判断是否使用流式解密
     // 条件1：有文件路径（可以流式读取）
     // 条件2：分块数据为空（流式加载的头部）或文件较大（>10MB）
@@ -262,11 +286,30 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
     DecryptResult decryptResult;
 
+    // 流式解密时创建 IntegritySink，边读边算哈希，避免 hash 阶段重读文件
+    // 内存解密（useStream=false）不使用 sink，仍走 chunks 路径
+    IntegritySink? integritySink;
+    if (useStream) {
+      final strawFileForSink = StrawFile(
+        formatVersion: widget.strawFile.formatVersion,
+        meta: widget.strawFile.meta,
+        content: widget.strawFile.content,
+        integrity: IntegrityInfo(
+          hash: '',
+          hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
+        ),
+      );
+      final hmacKey = useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
+      integritySink = integrityService.createIntegritySink(
+        strawFileForHash: strawFileForSink,
+        hmacKey: hmacKey,
+      );
+    }
+
     if (useStream) {
       // ========== 流式解密：直接写入临时文件，避免 OOM ==========
-      final tempDir = await TempFileManager.getTempDirectory();
-      final tempPath =
-          '$tempDir${Platform.pathSeparator}decrypt_temp_${DateTime.now().millisecondsSinceEpoch}';
+      // 安全性：使用 Random.secure 生成的不可预测文件名，防止符号链接劫持
+      final tempPath = await TempFileManager.generateRandomTempPath();
 
       final streamResult = await cryptoService.decryptStream(
         strawFilePath: widget.strawFilePath!,
@@ -275,11 +318,11 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
+        integritySink: integritySink,
         onProgress: (current, total) {
-          if (mounted && total > 0) {
-            setState(() {
-              _decryptProgress = 0.05 + (current / total) * 0.85;
-            });
+          if (total > 0) {
+            _throttledSetProgress(0.05 + (current / total) * 0.85);
           }
         },
       );
@@ -297,17 +340,17 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
         onProgress: (current, total) {
-          if (mounted && total > 0) {
-            setState(() {
-              _decryptProgress = 0.05 + (current / total) * 0.85;
-            });
+          if (total > 0) {
+            _throttledSetProgress(0.05 + (current / total) * 0.85);
           }
         },
       );
     }
 
     // ========== 完整性校验 ==========
+    // v2.1 使用 HMAC-SHA256（带密钥），v2.0 使用无密钥 SHA-256
     final strawFileForHash = StrawFile(
       formatVersion: widget.strawFile.formatVersion,
       meta: widget.strawFile.meta,
@@ -320,29 +363,37 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
     String computedHash;
     try {
-      if (useStream) {
-        computedHash = await integrityService.computeHashFromStrawFile(
-          strawFile: strawFileForHash,
-          filePath: widget.strawFilePath!,
-          cancellationToken: cancellationToken,
-          onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _decryptProgress = 0.9 + (current / total) * 0.09;
-              });
-            }
-          },
-        );
+      if (useStream && integritySink != null) {
+        // 流式解密：边读边算已完成，直接 finalize（瞬间完成）
+        _throttledSetProgress(0.99);
+        computedHash = integritySink.finalize();
+      } else if (useV21Security) {
+        // 内存解密：v2.1 派生 HMAC 密钥并计算 HMAC-SHA256
+        final hmacKey = cryptoService.deriveHmacKey(keyBytes);
+        try {
+          computedHash = await integrityService.computeHmacFromChunks(
+            strawFile: strawFileForHash,
+            chunks: widget.parsedFile.chunks,
+            hmacKey: hmacKey,
+            cancellationToken: cancellationToken,
+            onProgress: (current, total) {
+              if (total > 0) {
+                _throttledSetProgress(0.9 + (current / total) * 0.09);
+              }
+            },
+          );
+        } finally {
+          MemoryUtils.wipeBytes(hmacKey);
+        }
       } else {
+        // 内存解密：v2.0 无密钥 SHA-256
         computedHash = await integrityService.computeHashFromChunks(
           strawFile: strawFileForHash,
           chunks: widget.parsedFile.chunks,
           cancellationToken: cancellationToken,
           onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _decryptProgress = 0.9 + (current / total) * 0.09;
-              });
+            if (total > 0) {
+              _throttledSetProgress(0.9 + (current / total) * 0.09);
             }
           },
         );
@@ -1015,6 +1066,24 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   bool _usingVaultPassphrase = false;
   CancellationToken? _cancellationToken;
 
+  /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
+  DateTime? _lastProgressUpdateTime;
+
+  /// 节流式更新进度：每 100ms 或进度到达阶段边界时刷新 UI
+  void _throttledSetProgress(double progress) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final shouldUpdate = _lastProgressUpdateTime == null ||
+        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        progress >= 1.0;
+    if (shouldUpdate) {
+      _lastProgressUpdateTime = now;
+      setState(() {
+        _decryptProgress = progress;
+      });
+    }
+  }
+
   bool get _isNegotiatedMode => widget.strawFile.content.kdfAlgorithm != null;
 
   @override
@@ -1052,12 +1121,20 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   ///
   /// 对于大文件（originalPayloadSize > 10MB）且有文件路径时，使用流式解密避免 OOM。
   /// 当 chunks 为空（流式头部加载）且文件路径可用时，必须使用流式解密。
+  ///
+  /// 根据文件次版本号选择解密+完整性校验路径：
+  /// - minor=0（v2.0 旧文件）：GCM 无 AAD + 无密钥 SHA-256
+  /// - minor=1（v2.1 新文件）：GCM 绑定 AAD + HMAC-SHA256
   Future<DecryptResult?> _performDecryptAndVerify(
     Uint8List keyBytes,
     CancellationToken cancellationToken,
   ) async {
     final cryptoService = ref.read(cryptoServiceProvider);
     final integrityService = ref.read(integrityServiceProvider);
+
+    // 根据文件次版本号选择解密路径
+    final useV21Security =
+        widget.strawFile.formatVersion.minor == BINARY_FORMAT_MINOR_V21;
 
     // 判断是否使用流式解密
     // 条件1：有文件路径（可以流式读取）
@@ -1071,11 +1148,30 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
     DecryptResult decryptResult;
 
+    // 流式解密时创建 IntegritySink，边读边算哈希，避免 hash 阶段重读文件
+    // 内存解密（useStream=false）不使用 sink，仍走 chunks 路径
+    IntegritySink? integritySink;
+    if (useStream) {
+      final strawFileForSink = StrawFile(
+        formatVersion: widget.strawFile.formatVersion,
+        meta: widget.strawFile.meta,
+        content: widget.strawFile.content,
+        integrity: IntegrityInfo(
+          hash: '',
+          hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
+        ),
+      );
+      final hmacKey = useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
+      integritySink = integrityService.createIntegritySink(
+        strawFileForHash: strawFileForSink,
+        hmacKey: hmacKey,
+      );
+    }
+
     if (useStream) {
       // ========== 流式解密：直接写入临时文件，避免 OOM ==========
-      final tempDir = await TempFileManager.getTempDirectory();
-      final tempPath =
-          '$tempDir${Platform.pathSeparator}decrypt_temp_${DateTime.now().millisecondsSinceEpoch}';
+      // 安全性：使用 Random.secure 生成的不可预测文件名，防止符号链接劫持
+      final tempPath = await TempFileManager.generateRandomTempPath();
 
       final streamResult = await cryptoService.decryptStream(
         strawFilePath: widget.strawFilePath!,
@@ -1084,11 +1180,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
+        integritySink: integritySink,
         onProgress: (current, total) {
-          if (mounted && total > 0) {
-            setState(() {
-              _decryptProgress = 0.05 + (current / total) * 0.85;
-            });
+          if (total > 0) {
+            _throttledSetProgress(0.05 + (current / total) * 0.85);
           }
         },
       );
@@ -1106,17 +1202,17 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         chunkSize: widget.strawFile.content.chunkSize,
         originalPayloadSize: widget.strawFile.content.originalPayloadSize,
         cancellationToken: cancellationToken,
+        useV21Security: useV21Security,
         onProgress: (current, total) {
-          if (mounted && total > 0) {
-            setState(() {
-              _decryptProgress = 0.05 + (current / total) * 0.85;
-            });
+          if (total > 0) {
+            _throttledSetProgress(0.05 + (current / total) * 0.85);
           }
         },
       );
     }
 
     // ========== 完整性校验 ==========
+    // v2.1 使用 HMAC-SHA256（带密钥），v2.0 使用无密钥 SHA-256
     final strawFileForHash = StrawFile(
       formatVersion: widget.strawFile.formatVersion,
       meta: widget.strawFile.meta,
@@ -1129,29 +1225,37 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
     String computedHash;
     try {
-      if (useStream) {
-        computedHash = await integrityService.computeHashFromStrawFile(
-          strawFile: strawFileForHash,
-          filePath: widget.strawFilePath!,
-          cancellationToken: cancellationToken,
-          onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _decryptProgress = 0.9 + (current / total) * 0.09;
-              });
-            }
-          },
-        );
+      if (useStream && integritySink != null) {
+        // 流式解密：边读边算已完成，直接 finalize（瞬间完成）
+        _throttledSetProgress(0.99);
+        computedHash = integritySink.finalize();
+      } else if (useV21Security) {
+        // 内存解密：v2.1 派生 HMAC 密钥并计算 HMAC-SHA256
+        final hmacKey = cryptoService.deriveHmacKey(keyBytes);
+        try {
+          computedHash = await integrityService.computeHmacFromChunks(
+            strawFile: strawFileForHash,
+            chunks: widget.parsedFile.chunks,
+            hmacKey: hmacKey,
+            cancellationToken: cancellationToken,
+            onProgress: (current, total) {
+              if (total > 0) {
+                _throttledSetProgress(0.9 + (current / total) * 0.09);
+              }
+            },
+          );
+        } finally {
+          MemoryUtils.wipeBytes(hmacKey);
+        }
       } else {
+        // 内存解密：v2.0 无密钥 SHA-256
         computedHash = await integrityService.computeHashFromChunks(
           strawFile: strawFileForHash,
           chunks: widget.parsedFile.chunks,
           cancellationToken: cancellationToken,
           onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _decryptProgress = 0.9 + (current / total) * 0.09;
-              });
+            if (total > 0) {
+              _throttledSetProgress(0.9 + (current / total) * 0.09);
             }
           },
         );

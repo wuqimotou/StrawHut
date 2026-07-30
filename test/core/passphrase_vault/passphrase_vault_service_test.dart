@@ -541,6 +541,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenAnswer((_) async => DecryptResult(
             payloadMetadata: PayloadMetadata(
               sourceType: SourceType.richText,
@@ -593,6 +594,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenThrow(Exception('解密失败'));
 
       final result = await service.tryAutoDecrypt(
@@ -633,6 +635,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenThrow(Exception('解密失败'));
 
       final progressCalls = <(int, int)>[];
@@ -677,6 +680,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenAnswer((_) async => DecryptResult(
             payloadMetadata: PayloadMetadata(
               sourceType: SourceType.richText,
@@ -765,6 +769,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenThrow(Exception('解密失败'));
 
       await service.tryAutoDecrypt(
@@ -824,6 +829,7 @@ void main() {
             key: any(named: 'key'),
             chunkSize: any(named: 'chunkSize'),
             originalPayloadSize: any(named: 'originalPayloadSize'),
+            useV21Security: any(named: 'useV21Security'),
           )).thenThrow(Exception('解密失败'));
 
       await service.tryAutoDecrypt(

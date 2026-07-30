@@ -15,8 +15,10 @@ import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/utils/image_service.dart';
+import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
@@ -35,6 +37,7 @@ import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 
 /// 发布对话框
 ///
@@ -126,8 +129,54 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   /// 加载状态（加密进行中）
   bool _isLoading = false;
 
+  /// 取消中状态（用户点击取消后到加密实际停止期间）
+  bool _isCancelling = false;
+
+  /// 加密取消令牌
+  CancellationToken? _cancellationToken;
+
   /// 加密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
   double _encryptProgress = 0.0;
+
+  /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
+  DateTime? _lastProgressUpdateTime;
+
+  /// 节流式更新进度：每 100ms 或进度到达 1.0 时刷新 UI
+  void _throttledSetProgress(double progress) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final shouldUpdate = _lastProgressUpdateTime == null ||
+        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        progress >= 1.0;
+    if (shouldUpdate) {
+      _lastProgressUpdateTime = now;
+      setState(() {
+        _encryptProgress = progress;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancellationToken?.cancel();
+    super.dispose();
+  }
+
+  /// 处理取消操作
+  ///
+  /// 非加载状态：关闭对话框。
+  /// 加载状态：触发取消令牌，停止后续分块加密。
+  void _handleCancel() {
+    if (!_isLoading) {
+      Navigator.pop(context);
+      return;
+    }
+    if (_isCancelling) return;
+    setState(() {
+      _isCancelling = true;
+    });
+    _cancellationToken?.cancel();
+  }
 
   /// 是否显示密钥（加密完成后）
   bool _showKey = false;
@@ -553,8 +602,11 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     }
 
     // 切换到加载状态
+    final cancellationToken = CancellationToken();
+    _cancellationToken = cancellationToken;
     setState(() {
       _isLoading = true;
+      _isCancelling = false;
       _encryptProgress = 0.0;
     });
 
@@ -643,11 +695,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
             sourcePath: pickedFile.filePath!,
             payloadMetadata: payloadMetadata,
             key: keyBytes,
+            cancellationToken: cancellationToken,
             onProgress: (current, total) {
-              if (mounted && total > 0) {
-                setState(() {
-                  _encryptProgress = current / total;
-                });
+              if (total > 0) {
+                _throttledSetProgress(current / total);
               }
             },
           );
@@ -657,11 +708,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
             payloadBytes: payloadBytes!,
             payloadMetadata: payloadMetadata,
             key: keyBytes,
+            cancellationToken: cancellationToken,
             onProgress: (current, total) {
-              if (mounted && total > 0) {
-                setState(() {
-                  _encryptProgress = current / total;
-                });
+              if (total > 0) {
+                _throttledSetProgress(current / total);
               }
             },
           );
@@ -672,11 +722,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
           payloadBytes: payloadBytes!,
           payloadMetadata: payloadMetadata,
           key: keyBytes,
+          cancellationToken: cancellationToken,
           onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _encryptProgress = current / total;
-              });
+            if (total > 0) {
+              _throttledSetProgress(current / total);
             }
           },
         );
@@ -710,33 +759,39 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
             formState.description.isEmpty ? null : formState.description,
       );
 
-      // 步骤 7：组装 StrawFile（格式版本 2.0.0，先用空哈希占位）
+      // 步骤 7：组装 StrawFile（格式版本 2.1.0，先用空哈希占位）
+      // v2.1 启用容器认证：GCM 绑定 AAD + 外层 HMAC-SHA256
       final strawFileForHash = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
+        formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'SHA-256'),
+        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
       );
 
-      // 步骤 8：构建不含哈希的二进制字节，计算完整性哈希
-      final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
-        strawFile: strawFileForHash,
+      // 步骤 8：构建二进制 .straw 数据并同步计算 HMAC-SHA256 完整性哈希
+      // 通过 IntegritySink 边构造边算，消除一次完整 bytes 遍历和一次 buildBinaryFileBytes 调用
+      // HMAC 密钥从加密密钥派生，防止攻击者重算哈希绕过完整性校验
+      final hmacKey = cryptoService.deriveHmacKey(keyBytes);
+      final integritySink = integrityService.createIntegritySink(
+        strawFileForHash: strawFileForHash,
+        hmacKey: hmacKey,
+      );
+      MemoryUtils.wipeBytes(hmacKey);
+
+      final binaryResult = fileIOService.buildBinaryFileBytesWithIntegrity(
+        strawFileForHash: strawFileForHash,
         chunks: encryptResult.chunks,
+        integritySink: integritySink,
       );
-      final hash = integrityService.computeHashFromBytes(fileBytesWithoutHash);
+      final strawBinaryData = binaryResult.bytes;
+      final hash = binaryResult.hash;
 
-      // 步骤 9：用正确的哈希组装最终的 StrawFile
+      // 步骤 9：用正确的哈希组装最终的 StrawFile（用于后续元数据引用）
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
+        formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: hash, hashAlgorithm: 'SHA-256'),
-      );
-
-      // 步骤 10：构建二进制 .straw 数据
-      final strawBinaryData = fileIOService.buildBinaryFileBytes(
-        strawFile: strawFile,
-        chunks: encryptResult.chunks,
+        integrity: IntegrityInfo(hash: hash, hashAlgorithm: 'HMAC-SHA256'),
       );
 
       String savePath;
@@ -886,10 +941,24 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       } else {
         _showSuccess(l10n.publishSavedToPath(savePath));
       }
+    } on OperationCancelledException {
+      // 用户取消加密，不显示错误，静默恢复初始状态
+      if (identical(_cancellationToken, cancellationToken)) {
+        _cancellationToken = null;
+      }
+      setState(() {
+        _isLoading = false;
+        _isCancelling = false;
+        _encryptProgress = 0.0;
+      });
     } on Exception catch (e) {
+      if (identical(_cancellationToken, cancellationToken)) {
+        _cancellationToken = null;
+      }
       _showError(l10n.publishFailed(e.toString()));
       setState(() {
         _isLoading = false;
+        _isCancelling = false;
         _encryptProgress = 0.0;
       });
     }
@@ -1310,17 +1379,20 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   NeumorphicButton(
-                    label: l10n.cancel,
+                    label: _isLoading && _isCancelling
+                        ? '取消中...'
+                        : l10n.cancel,
                     style: NeumorphicButtonStyle.flat,
-                    onPressed:
-                        _isLoading ? null : () => Navigator.pop(context),
+                    onPressed: _isCancelling ? null : _handleCancel,
                   ),
                   const SizedBox(width: 8),
                   NeumorphicButton(
                     label: _isLoading
-                        ? (_encryptProgress > 0
-                            ? '${(_encryptProgress * 100).toInt()}%'
-                            : '加密中...')
+                        ? (_isCancelling
+                            ? '取消中...'
+                            : _encryptProgress > 0
+                                ? '${(_encryptProgress * 100).toInt()}%'
+                                : '加密中...')
                         : '生成并加密',
                     style: NeumorphicButtonStyle.primary,
                     icon: _isLoading ? null : StrawIcons.publish,
@@ -1341,6 +1413,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     final pickedFile = ref.watch(pickedFileProvider);
 
     return SingleChildScrollView(
+      // 水平 padding 为凹陷软槽的两侧外阴影留出完整渐变空间，
+      // 阴影作用范围 ≈ offset(4) + blur(8) ≈ 12px，需全部容纳以避免截断
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2012,7 +2087,50 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
   final _passphraseInputKey = GlobalKey<PassphraseInputState>();
 
   bool _isLoading = false;
+  bool _isCancelling = false;
+  CancellationToken? _cancellationToken;
   double _encryptProgress = 0.0;
+
+  /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
+  DateTime? _lastProgressUpdateTime;
+
+  /// 节流式更新进度：每 100ms 或进度到达 1.0 时刷新 UI
+  void _throttledSetProgress(double progress) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final shouldUpdate = _lastProgressUpdateTime == null ||
+        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        progress >= 1.0;
+    if (shouldUpdate) {
+      _lastProgressUpdateTime = now;
+      setState(() {
+        _encryptProgress = progress;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancellationToken?.cancel();
+    super.dispose();
+  }
+
+  /// 处理取消操作
+  ///
+  /// 非加载状态：关闭对话框。
+  /// 加载状态：触发取消令牌，停止后续分块加密。
+  void _handleCancel() {
+    if (!_isLoading) {
+      Navigator.pop(context);
+      return;
+    }
+    if (_isCancelling) return;
+    setState(() {
+      _isCancelling = true;
+    });
+    _cancellationToken?.cancel();
+  }
+
   bool _showKey = false;
   String? _generatedKeyBase64;
   String? _savedFilePath;
@@ -2073,7 +2191,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
           icon: StrawIcons.close,
           size: 40,
           iconSize: 20,
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          onPressed: _isCancelling ? null : _handleCancel,
           tooltip: '取消',
         ),
       ),
@@ -2106,17 +2224,36 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
               child: SizedBox(
                 width: double.infinity,
                 height: 48,
-                child: NeumorphicButton(
-                  label: _isLoading
-                      ? (_encryptProgress > 0
-                          ? '${(_encryptProgress * 100).toInt()}%'
-                          : '加密中...')
-                      : '生成并加密',
-                  style: NeumorphicButtonStyle.primary,
-                  icon: _isLoading ? null : StrawIcons.publish,
-                  expanded: true,
-                  onPressed: _isLoading ? null : _handleMobilePublish,
-                ),
+                child: _isLoading
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: NeumorphicButton(
+                              label: _isCancelling
+                                  ? '取消中...'
+                                  : _encryptProgress > 0
+                                      ? '${(_encryptProgress * 100).toInt()}%'
+                                      : '加密中...',
+                              style: NeumorphicButtonStyle.primary,
+                              expanded: true,
+                              onPressed: null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          NeumorphicButton(
+                            label: '取消',
+                            style: NeumorphicButtonStyle.flat,
+                            onPressed: _isCancelling ? null : _handleCancel,
+                          ),
+                        ],
+                      )
+                    : NeumorphicButton(
+                        label: '生成并加密',
+                        style: NeumorphicButtonStyle.primary,
+                        icon: StrawIcons.publish,
+                        expanded: true,
+                        onPressed: _handleMobilePublish,
+                      ),
               ),
             ),
           ),
@@ -2925,8 +3062,11 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       }
     }
 
+    final cancellationToken = CancellationToken();
+    _cancellationToken = cancellationToken;
     setState(() {
       _isLoading = true;
+      _isCancelling = false;
       _encryptProgress = 0.0;
     });
 
@@ -3008,11 +3148,10 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
             sourcePath: pickedFile.filePath!,
             payloadMetadata: payloadMetadata,
             key: keyBytes,
+            cancellationToken: cancellationToken,
             onProgress: (current, total) {
-              if (mounted && total > 0) {
-                setState(() {
-                  _encryptProgress = current / total;
-                });
+              if (total > 0) {
+                _throttledSetProgress(current / total);
               }
             },
           );
@@ -3022,11 +3161,10 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
             payloadBytes: payloadBytes!,
             payloadMetadata: payloadMetadata,
             key: keyBytes,
+            cancellationToken: cancellationToken,
             onProgress: (current, total) {
-              if (mounted && total > 0) {
-                setState(() {
-                  _encryptProgress = current / total;
-                });
+              if (total > 0) {
+                _throttledSetProgress(current / total);
               }
             },
           );
@@ -3037,11 +3175,10 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
           payloadBytes: payloadBytes!,
           payloadMetadata: payloadMetadata,
           key: keyBytes,
+          cancellationToken: cancellationToken,
           onProgress: (current, total) {
-            if (mounted && total > 0) {
-              setState(() {
-                _encryptProgress = current / total;
-              });
+            if (total > 0) {
+              _throttledSetProgress(current / total);
             }
           },
         );
@@ -3076,24 +3213,29 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       );
 
       final strawFileForHash = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
+        formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'SHA-256'),
+        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
       );
 
-      // 构建不含哈希的二进制字节，计算完整性哈希
+      // 构建不含哈希的二进制字节，计算 HMAC-SHA256 完整性哈希
       final fileBytesWithoutHash = fileIOService.buildBinaryFileBytes(
         strawFile: strawFileForHash,
         chunks: encryptResult.chunks,
       );
-      final hash = integrityService.computeHashFromBytes(fileBytesWithoutHash);
+      final hmacKey = cryptoService.deriveHmacKey(keyBytes);
+      final hash = integrityService.computeHmacFromBytes(
+        fileBytesWithoutHash,
+        hmacKey,
+      );
+      MemoryUtils.wipeBytes(hmacKey);
 
       final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
+        formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: hash, hashAlgorithm: 'SHA-256'),
+        integrity: IntegrityInfo(hash: hash, hashAlgorithm: 'HMAC-SHA256'),
       );
 
       // 构建二进制 .straw 数据
@@ -3239,10 +3381,24 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
         }
         _showMobileSuccess(saveMessage);
       }
+    } on OperationCancelledException {
+      // 用户取消加密，不显示错误，静默恢复初始状态
+      if (identical(_cancellationToken, cancellationToken)) {
+        _cancellationToken = null;
+      }
+      setState(() {
+        _isLoading = false;
+        _isCancelling = false;
+        _encryptProgress = 0.0;
+      });
     } on Exception catch (e) {
+      if (identical(_cancellationToken, cancellationToken)) {
+        _cancellationToken = null;
+      }
       _showMobileError(l10n.publishFailed(e.toString()));
       setState(() {
         _isLoading = false;
+        _isCancelling = false;
         _encryptProgress = 0.0;
       });
     }

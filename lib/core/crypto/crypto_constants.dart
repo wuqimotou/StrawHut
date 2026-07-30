@@ -59,11 +59,16 @@ const String HASH_ALGORITHM_SHA256 = 'SHA-256';
 /// - 次版本号（Minor）：向后兼容的功能新增
 /// - 修订号（Patch）：向后兼容的 Bug 修复
 ///
+/// 版本演进：
+/// - v2.0.0：原始格式，GCM 无 AAD，外层无密钥 SHA-256
+/// - v2.1.0：GCM 绑定 AAD（chunk 序号+总数），外层 HMAC-SHA256
+///
 /// 兼容性策略：
 /// - 主版本相同 → 正常读取
 /// - 文件主版本高于当前软件 → 拒绝读取，提示更新
 /// - 文件主版本低于当前软件 → 兼容模式读取
-const String STRAW_FORMAT_VERSION = '2.0.0';
+/// - 同主版本下，minor=0 走 v2.0 路径，minor=1 走 v2.1 路径
+const String STRAW_FORMAT_VERSION = '2.1.0';
 
 /// .key 密钥文件格式版本号
 ///
@@ -116,11 +121,22 @@ const String KDF_ALGORITHM_PBKDF2 = 'PBKDF2-HMAC-SHA256';
 
 /// KDF 迭代次数
 ///
-/// PBKDF2 的迭代次数，100000 次是当前 OWASP 推荐的最小值。
-/// 更高的迭代次数增加暴力破解的成本，但也会增加密钥派生的耗时。
+/// PBKDF2 的迭代次数，600000 次为 OWASP Password Storage Cheat Sheet (2023)
+/// 对 PBKDF2-HMAC-SHA256 的当前推荐值。更高的迭代次数增加暴力破解成本，
+/// 同时保持可接受的派生耗时。
 ///
-/// 性能参考：100000 次迭代在现代设备上约需 100-300ms
-const int KDF_ITERATIONS = 100000;
+/// 兼容性说明：
+/// - 旧版本文件使用 100000 次迭代，文件头中存储实际的 kdf_iterations
+/// - 解密旧文件时按头部记录的迭代次数派生密钥，本常量仅用于新文件默认值
+/// - 旧文件无需迁移，仅在重新加密时使用新默认值
+///
+/// 性能参考：600000 次迭代在现代设备上约需 600-1800ms（在 isolate 中执行，不卡 UI）
+const int KDF_ITERATIONS = 600000;
+
+/// 旧版 KDF 迭代次数（兼容性常量）
+///
+/// 用于测试和明确标识旧版默认值。生产代码应使用 [KDF_ITERATIONS]。
+const int KDF_ITERATIONS_LEGACY = 100000;
 
 /// 口令最小长度
 ///
@@ -193,5 +209,72 @@ const int BINARY_FORMAT_MAJOR = 2;
 /// 二进制格式次版本号
 ///
 /// 位于二进制文件偏移 0x0000000A，2 字节 uint16 LE。
-/// 当前值为 0，对应 .straw v2.0 格式。
-const int BINARY_FORMAT_MINOR = 0;
+/// 当前值为 1，对应 .straw v2.1 格式（增强容器认证）。
+///
+/// 版本演进：
+/// - v2.0 (minor=0)：原始格式，GCM 无 AAD，外层无密钥 SHA-256
+/// - v2.1 (minor=1)：GCM 绑定 AAD（chunk 序号+总数），外层 HMAC-SHA256
+///
+/// 兼容性：读取时同时支持 minor=0 和 minor=1，写入时使用 [BINARY_FORMAT_MINOR]。
+const int BINARY_FORMAT_MINOR = 1;
+
+/// v2.0 旧版次版本号（兼容性常量）
+///
+/// 读取时用于识别旧格式文件，走 v2.0 解密/校验路径。
+const int BINARY_FORMAT_MINOR_V20 = 0;
+
+/// v2.1 新版次版本号（增强容器认证）
+///
+/// 读取时识别新格式文件，走 v2.1 解密/校验路径（AAD + HMAC）。
+const int BINARY_FORMAT_MINOR_V21 = 1;
+
+// ============================================================================
+// 容器认证 v2.1 常量
+// ============================================================================
+
+/// HMAC-SHA256 算法标识
+///
+/// 用于 v2.1 文件的 [IntegrityInfo.hashAlgorithm] 字段，
+/// 替代 v2.0 的无密钥 SHA-256。
+const String HASH_ALGORITHM_HMAC_SHA256 = 'HMAC-SHA256';
+
+/// AAD 域分隔符（v2.1 容器认证）
+///
+/// 作为 GCM AAD 的前缀，绑定分块加密上下文。
+/// 完整 AAD = UTF8(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR) +
+///            u32LE(chunkIndex) + u32LE(totalChunks)
+const String STRAWHUT_V21_AAD_DOMAIN_SEPARATOR = 'STRAWHUT-V2.1-CHUNK';
+
+/// HMAC 密钥派生标签（v2.1 容器认证）
+///
+/// 从加密密钥派生 HMAC 密钥的标签：
+/// `hmacKey = HMAC-SHA256(encryptionKey, UTF8(STRAWHUT_V21_HMAC_KEY_LABEL))`
+const String STRAWHUT_V21_HMAC_KEY_LABEL = 'STRAWHUT-V2.1-HMAC-KEY';
+
+/// HMAC-SHA256 哈希前缀
+///
+/// v2.1 文件 [IntegrityInfo.hash] 字段的前缀，格式为
+/// "hmac-sha256:{64 位十六进制字符}"。
+const String HMAC_SHA256_HASH_PREFIX = 'hmac-sha256:';
+
+// ============================================================================
+// 不可信输入长度上限（DoS 防护）
+// ============================================================================
+
+/// JSON Header 最大字节数
+///
+/// 不可信文件中 headerSize 字段的上限，防止恶意文件触发超大内存分配。
+/// 实际 JSON Header 通常 < 4KB，1 MiB 上限留有充分余量。
+const int MAX_HEADER_SIZE_BYTES = 1 << 20; // 1 MiB
+
+/// 单个分块密文最大字节数
+///
+/// 不可信文件中 encDataLen 字段的上限。理论值为 chunkSize + GCM_TAG(16)，
+/// 设为 2 MiB 兼容未来 chunkSize 调整，同时防止恶意分配。
+const int MAX_CHUNK_CIPHERTEXT_BYTES = 2 << 20; // 2 MiB
+
+/// 最大分块数上限
+///
+/// 不可信文件中 totalChunks 字段的合理上限，防止恶意文件触发超长循环。
+/// 单文件 1 MiB 分块 × 1M 块 = 1 TB，远超实际使用场景。
+const int MAX_TOTAL_CHUNKS_LIMIT = 1 << 20; // 1,048,576
