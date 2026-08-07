@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
+import 'package:strawhut/presentation/screens/editor/widgets/quill_editor.dart';
 
 /// Quill 内容查看器组件
 ///
@@ -179,8 +180,11 @@ class _QuillViewerState extends State<QuillViewer> {
           child: quill.QuillEditor.basic(
             controller: _controller!,
             config: quill.QuillEditorConfig(
-              // 嵌入内容构建器（图片、视频等）
-              embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+              // 嵌入内容构建器（图片、视频、分隔线等）
+              embedBuilders: [
+                ...FlutterQuillEmbeds.editorBuilders(),
+                const HorizontalRuleEmbedBuilder(),
+              ],
               // 禁用交互选择，确保用户无法选中/复制文本
               enableInteractiveSelection: false,
               // 隐藏光标
@@ -275,6 +279,19 @@ class _QuillViewerState extends State<QuillViewer> {
                 sizeSmall: const TextStyle(fontSize: 12),
                 sizeLarge: const TextStyle(fontSize: 18),
                 sizeHuge: const TextStyle(fontSize: 24),
+                // 斜体使用等宽字体，避免斜体字形向右倾斜超出边界侵入后续字符
+                italic: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Consolas',
+                  fontFamilyFallback: const [
+                    'Courier New',
+                    'Menlo',
+                    'Monaco',
+                    'Droid Sans Mono',
+                    'monospace',
+                  ],
+                  height: 1.2,
+                ),
               ),
             ),
           ),

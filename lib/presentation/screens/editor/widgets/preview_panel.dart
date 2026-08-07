@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
+import 'package:strawhut/presentation/screens/editor/widgets/quill_editor.dart';
 
 /// 预览面板组件
 ///
@@ -95,8 +97,12 @@ class _PreviewPanelState extends ConsumerState<PreviewPanel> {
           child: quill.QuillEditor.basic(
             controller: controller,
             config: quill.QuillEditorConfig(
+              // 嵌入内容构建器（图片、视频、分隔线等）
+              embedBuilders: [
+                ...FlutterQuillEmbeds.editorBuilders(),
+                const HorizontalRuleEmbedBuilder(),
+              ],
               enableInteractiveSelection: false,
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
               showCursor: false,
               maxContentWidth: 800,
               customStyles: quill.DefaultStyles(
@@ -113,7 +119,7 @@ class _PreviewPanelState extends ConsumerState<PreviewPanel> {
                         fontSize: 28,
                       ) ??
                       const TextStyle(
-                          fontSize: 28, fontWeight: FontWeight.bold),
+                          fontSize: 28, fontWeight: FontWeight.bold,),
                   const quill.HorizontalSpacing(0, 0),
                   const quill.VerticalSpacing(16, 8),
                   const quill.VerticalSpacing(0, 0),
@@ -125,7 +131,7 @@ class _PreviewPanelState extends ConsumerState<PreviewPanel> {
                         fontSize: 22,
                       ) ??
                       const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.bold),
+                          fontSize: 22, fontWeight: FontWeight.bold,),
                   const quill.HorizontalSpacing(0, 0),
                   const quill.VerticalSpacing(12, 6),
                   const quill.VerticalSpacing(0, 0),
@@ -137,7 +143,7 @@ class _PreviewPanelState extends ConsumerState<PreviewPanel> {
                         fontSize: 18,
                       ) ??
                       const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600),
+                          fontSize: 18, fontWeight: FontWeight.w600,),
                   const quill.HorizontalSpacing(0, 0),
                   const quill.VerticalSpacing(10, 4),
                   const quill.VerticalSpacing(0, 0),
@@ -179,6 +185,19 @@ class _PreviewPanelState extends ConsumerState<PreviewPanel> {
                 sizeSmall: const TextStyle(fontSize: 12),
                 sizeLarge: const TextStyle(fontSize: 18),
                 sizeHuge: const TextStyle(fontSize: 24),
+                // 斜体使用等宽字体，避免斜体字形向右倾斜超出边界侵入后续字符
+                italic: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Consolas',
+                  fontFamilyFallback: const [
+                    'Courier New',
+                    'Menlo',
+                    'Monaco',
+                    'Droid Sans Mono',
+                    'monospace',
+                  ],
+                  height: 1.2,
+                ),
               ),
             ),
           ),

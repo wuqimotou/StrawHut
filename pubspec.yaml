@@ -2,7 +2,7 @@ name: strawhut
 description: 去中心化加密知识分享平台
 publish_to: 'none'
 
-version: 1.2.1+5
+version: 1.2.3+7
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -67,6 +67,7 @@ dependencies:
   flutter_svg: ^2.0.9
 
 
+  intl: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -79,6 +80,8 @@ dev_dependencies:
   very_good_analysis: ^7.0.0
   mocktail: ^1.0.4
 
+  path_provider_platform_interface: any
+  riverpod: any
 flutter:
   uses-material-design: true
   generate: true

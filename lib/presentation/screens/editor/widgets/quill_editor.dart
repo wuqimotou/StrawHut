@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
 
 /// Quill 富文本编辑器组件
@@ -34,8 +35,7 @@ class QuillEditor extends ConsumerStatefulWidget {
   ///
   /// 参数 [controller] - 外部传入的 QuillController，与工具栏共享
   const QuillEditor({
-    super.key,
-    required this.controller,
+    required this.controller, super.key,
   });
 
   /// Quill 编辑器控制器，与工具栏共享同一个实例
@@ -82,14 +82,13 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
       child: quill.QuillEditor.basic(
         controller: widget.controller,
         config: quill.QuillEditorConfig(
-          // 嵌入内容构建器（图片、视频等）
-          embedBuilders: FlutterQuillEmbeds.editorBuilders(),
-          // 启用交互选择
-          enableInteractiveSelection: true,
+          // 嵌入内容构建器（图片、视频、分隔线等）
+          embedBuilders: [
+            ...FlutterQuillEmbeds.editorBuilders(),
+            const HorizontalRuleEmbedBuilder(),
+          ],
           // 启用键盘快捷键
           keyboardAppearance: theme.brightness,
-          // 滚动配置
-          scrollable: true,
           scrollPhysics: const BouncingScrollPhysics(),
           // 占位符提示文本
           placeholder: '开始编写你的知识卡片...',
@@ -178,6 +177,21 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
             sizeSmall: const TextStyle(fontSize: 12),
             sizeLarge: const TextStyle(fontSize: 18),
             sizeHuge: const TextStyle(fontSize: 24),
+            // 斜体使用等宽字体，避免斜体字形向右倾斜超出边界侵入后续字符
+            // 默认字体的斜体是算法倾斜，字形会向右超出原字符边界；
+            // 等宽字体（如 Consolas）有独立的斜体字形，倾斜后不超界。
+            italic: TextStyle(
+              fontStyle: FontStyle.italic,
+              fontFamily: 'Consolas',
+              fontFamilyFallback: const [
+                'Courier New',
+                'Menlo',
+                'Monaco',
+                'Droid Sans Mono',
+                'monospace',
+              ],
+              height: 1.2,
+            ),
           ),
         ),
       ),
@@ -239,5 +253,32 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
   void _onContentChanged() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), _saveToProvider);
+  }
+}
+
+/// 水平分隔线 embed 构建器
+///
+/// 为 flutter_quill 编辑器注册 'hr' 类型的 embed 渲染器，
+/// 将 BlockEmbed('hr', '') 渲染为水墨风格的水平分隔线。
+/// 若不注册，插入分隔线后编辑器找不到对应 builder 会导致渲染异常。
+class HorizontalRuleEmbedBuilder extends quill.EmbedBuilder {
+  const HorizontalRuleEmbedBuilder();
+
+  @override
+  String get key => 'hr';
+
+  @override
+  bool get expanded => false;
+
+  @override
+  Widget build(BuildContext context, quill.EmbedContext embedContext) {
+    final tokens = NeumorphicTokens.ofContext(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Divider(
+        thickness: 1,
+        color: tokens.divider,
+      ),
+    );
   }
 }
