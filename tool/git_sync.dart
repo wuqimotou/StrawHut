@@ -26,7 +26,14 @@ Future<void> main(List<String> args) async {
   // 如果没有变化，commit 会返回非零，继续尝试 push
   // 但如果 commit 成功则继续
 
-  // 4. git push
+  // 4. git pull --rebase (先同步远程更改)
+  code = await _run('git', ['pull', '--rebase']);
+  if (code != 0) {
+    stderr.writeln('[错误] git pull --rebase 失败');
+    exit(1);
+  }
+
+  // 5. git push
   code = await _run('git', ['push']);
   if (code != 0) {
     stderr.writeln('[提示] push 失败，可能需要先 git pull');
