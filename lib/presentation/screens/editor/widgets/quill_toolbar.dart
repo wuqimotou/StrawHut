@@ -569,8 +569,7 @@ class _QuillToolbarState extends State<QuillToolbar> {
 
   /// 调用 file_picker 选择文件
   Future<file_picker.FilePickerResult?> _pickFile() async {
-    final picker = file_picker.FilePicker.platform;
-    return picker.pickFiles(
+    return file_picker.FilePicker.pickFiles(
       type: file_picker.FileType.image,
     );
   }
