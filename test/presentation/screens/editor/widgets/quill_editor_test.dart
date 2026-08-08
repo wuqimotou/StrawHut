@@ -12,8 +12,9 @@
 ///
 /// 使用 flutter_test 框架进行 Widget 测试，
 /// 结合 flutter_quill 的 QuillController 进行编辑器交互测试。
+library;
 
-// ignore_for_file: lines_longer_than_80_chars
+// ignore_for_file: lines_longer_than_80_chars, 测试含中文注释与长断言
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -154,7 +155,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      const draftContent = '{"ops":[{"insert":"草稿内容\\n"}]}';
+      const draftContent = r'{"ops":[{"insert":"草稿内容\n"}]}';
       container.read(editorContentProvider.notifier).updateContent(draftContent);
 
       final controller = quill.QuillController(
@@ -300,12 +301,12 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.pumpWidget(
-        ProviderScope(
+        const ProviderScope(
           child: MaterialApp(
-            localizationsDelegates: const [
+            localizationsDelegates: [
               quill.FlutterQuillLocalizations.delegate,
             ],
-            home: const Scaffold(
+            home: Scaffold(
               body: Text('其他内容'),
             ),
           ),
@@ -324,12 +325,12 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.pumpWidget(
-        ProviderScope(
+        const ProviderScope(
           child: MaterialApp(
-            localizationsDelegates: const [
+            localizationsDelegates: [
               quill.FlutterQuillLocalizations.delegate,
             ],
-            home: const Scaffold(
+            home: Scaffold(
               body: Text('其他内容'),
             ),
           ),

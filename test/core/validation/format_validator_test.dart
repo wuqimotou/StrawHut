@@ -132,13 +132,13 @@ void main() {
     test('v2.0 content 不应包含 encrypted_data 和 iv 字段（逻辑验证）', () {
       final validStrawJson = buildValidStrawJson();
 
+      final content = validStrawJson['content'] as Map<String, dynamic>;
       // v2.0 格式中 content 不再使用 encrypted_data 和 iv
-      expect(validStrawJson['content'].containsKey('encrypted_data'), isFalse);
-      expect(validStrawJson['content'].containsKey('iv'), isFalse);
-      expect(validStrawJson['content'].containsKey('chunk_size'), isTrue);
-      expect(validStrawJson['content'].containsKey('total_chunks'), isTrue);
-      expect(validStrawJson['content'].containsKey('original_payload_size'),
-          isTrue);
+      expect(content.containsKey('encrypted_data'), isFalse);
+      expect(content.containsKey('iv'), isFalse);
+      expect(content.containsKey('chunk_size'), isTrue);
+      expect(content.containsKey('total_chunks'), isTrue);
+      expect(content.containsKey('original_payload_size'), isTrue,);
     });
   });
 
@@ -437,7 +437,7 @@ void main() {
       expect(result.isValid, false);
       expect(
         result.errors.any(
-            (e) => e.contains('original_payload_size') && e.contains('非负整数')),
+            (e) => e.contains('original_payload_size') && e.contains('非负整数'),),
         true,
       );
     });
@@ -452,7 +452,7 @@ void main() {
       expect(result.isValid, false);
       expect(
         result.errors.any(
-            (e) => e.contains('original_payload_size') && e.contains('非负整数')),
+            (e) => e.contains('original_payload_size') && e.contains('非负整数'),),
         true,
       );
     });

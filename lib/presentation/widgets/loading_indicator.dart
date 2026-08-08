@@ -24,20 +24,21 @@ import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 /// LoadingIndicator() // 仅进度指示器
 /// ```
 class LoadingIndicator extends StatelessWidget {
-  /// 可选的加载提示文字
-  ///
-  /// 为 null 时不显示文字，仅展示圆形进度指示器。
-  final String? message;
 
   /// 创建加载指示器实例
   ///
   /// 参数：[message] - 可选的加载提示文字
   const LoadingIndicator({super.key, this.message});
+  /// 可选的加载提示文字
+  ///
+  /// 为 null 时不显示文字，仅展示圆形进度指示器。
+  final String? message;
 
   /// 构建加载指示器 UI
   ///
   /// 布局结构：
-  /// - Center → Column → NeumorphicInset(concave) 内 CircularProgressIndicator + Text（可选）
+  /// - Center → Column → NeumorphicInset(concave) 内
+  ///   CircularProgressIndicator + Text（可选）
   @override
   Widget build(BuildContext context) {
     final tokens = NeumorphicTokens.ofContext(context);
@@ -47,7 +48,7 @@ class LoadingIndicator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
             borderRadius: tokens.radiusXLarge,
             padding: const EdgeInsets.all(20),
             child: CircularProgressIndicator(

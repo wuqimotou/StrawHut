@@ -1,10 +1,11 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/crypto/native/fallback_crypto_service.dart';
+import 'package:strawhut/core/draft/draft_manager.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/file_io/file_selection_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
-import 'package:strawhut/core/draft/draft_manager.dart';
+
 part 'crypto_provider.g.dart';
 
 /// 加密服务 Provider
@@ -20,11 +21,9 @@ part 'crypto_provider.g.dart';
 @riverpod
 ICryptoService cryptoService(CryptoServiceRef ref) {
   final integrityService = ref.watch(integrityServiceProvider);
-  final service = FallbackCryptoService(integrityService);
   // Provider 创建时主动初始化，避免首次加密操作时的冷启动延迟
   // initialize() 是幂等的，重复调用无副作用
-  service.initialize();
-  return service;
+  return FallbackCryptoService(integrityService)..initialize();
 }
 
 /// 完整性校验服务 Provider

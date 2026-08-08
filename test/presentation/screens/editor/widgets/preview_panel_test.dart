@@ -12,13 +12,14 @@
 ///
 /// 使用 flutter_test 框架进行 Widget 测试，
 /// 结合 flutter_riverpod 的 ProviderContainer 进行状态管理测试。
+library;
 
-// ignore_for_file: lines_longer_than_80_chars
+// ignore_for_file: lines_longer_than_80_chars, 测试含中文注释与长断言
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/preview_panel.dart';
 
@@ -26,11 +27,11 @@ import 'package:strawhut/presentation/screens/editor/widgets/preview_panel.dart'
 Widget createPreviewPanelWithContainer(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
-      localizationsDelegates: const [
+    child: const MaterialApp(
+      localizationsDelegates: [
         quill.FlutterQuillLocalizations.delegate,
       ],
-      home: const Scaffold(
+      home: Scaffold(
         body: PreviewPanel(),
       ),
     ),
@@ -141,7 +142,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      const testContent = '{"ops":[{"insert":"只读内容\\n"}]}';
+      const testContent = r'{"ops":[{"insert":"只读内容\n"}]}';
       container
           .read(editorContentProvider.notifier)
           .updateContent(testContent);
@@ -157,7 +158,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      const testContent = '{"ops":[{"insert":"测试内容\\n"}]}';
+      const testContent = r'{"ops":[{"insert":"测试内容\n"}]}';
       container
           .read(editorContentProvider.notifier)
           .updateContent(testContent);
@@ -177,7 +178,7 @@ void main() {
       await tester.pumpWidget(createPreviewPanelWithContainer(container));
       await tester.pumpAndSettle();
 
-      const newContent = '{"ops":[{"insert":"新内容\\n"}]}';
+      const newContent = r'{"ops":[{"insert":"新内容\n"}]}';
       container
           .read(editorContentProvider.notifier)
           .updateContent(newContent);
@@ -194,7 +195,7 @@ void main() {
       await tester.pumpWidget(createPreviewPanelWithContainer(container));
       await tester.pumpAndSettle();
 
-      const newContent = '{"ops":[{"insert":"更新后的内容\\n"}]}';
+      const newContent = r'{"ops":[{"insert":"更新后的内容\n"}]}';
       container
           .read(editorContentProvider.notifier)
           .updateContent(newContent);
@@ -208,7 +209,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      const initialContent = '{"ops":[{"insert":"原始内容\\n"}]}';
+      const initialContent = r'{"ops":[{"insert":"原始内容\n"}]}';
       container
           .read(editorContentProvider.notifier)
           .updateContent(initialContent);

@@ -56,6 +56,7 @@ class _KeyDisplayState extends State<KeyDisplay> {
       _isCopied = true;
     });
 
+    if (!mounted) return;
     final tokens = NeumorphicTokens.ofContext(context);
     // 显示 SnackBar 提示（AC-COPY-02）
     if (mounted) {
@@ -118,7 +119,7 @@ class _KeyDisplayState extends State<KeyDisplay> {
 
         // 密钥字符串显示区域（凹陷软槽）
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(12),
           child: SelectableText(

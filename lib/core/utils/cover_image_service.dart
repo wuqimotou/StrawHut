@@ -112,17 +112,18 @@ class CoverImageService {
       const Rect.fromLTWH(40, 40, 720, 1120),
       const Radius.circular(24),
     );
-    canvas.drawRRect(
-      cardRect,
-      Paint()..color = const Color(0x18FFFFFF),
-    );
-    canvas.drawRRect(
-      cardRect,
-      Paint()
-        ..color = const Color(0x33FFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    canvas
+      ..drawRRect(
+        cardRect,
+        Paint()..color = const Color(0x18FFFFFF),
+      )
+      ..drawRRect(
+        cardRect,
+        Paint()
+          ..color = const Color(0x33FFFFFF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
 
     _drawTextOnCanvas(
       canvas,
@@ -212,21 +213,22 @@ class CoverImageService {
   }
 
   static void _drawDecoCircles(Canvas canvas, int width, int height) {
-    canvas.drawCircle(
-      Offset(width * 0.85, height * 0.12),
-      120,
-      Paint()..color = const Color(0x0D7C4DFF),
-    );
-    canvas.drawCircle(
-      Offset(width * 0.15, height * 0.85),
-      160,
-      Paint()..color = const Color(0x0D7C4DFF),
-    );
-    canvas.drawCircle(
-      Offset(width * 0.9, height * 0.75),
-      80,
-      Paint()..color = const Color(0x08FFFFFF),
-    );
+    canvas
+      ..drawCircle(
+        Offset(width * 0.85, height * 0.12),
+        120,
+        Paint()..color = const Color(0x0D7C4DFF),
+      )
+      ..drawCircle(
+        Offset(width * 0.15, height * 0.85),
+        160,
+        Paint()..color = const Color(0x0D7C4DFF),
+      )
+      ..drawCircle(
+        Offset(width * 0.9, height * 0.75),
+        80,
+        Paint()..color = const Color(0x08FFFFFF),
+      );
   }
 
   static void _drawEncryptedBadge(Canvas canvas, int width, int height) {
@@ -239,10 +241,11 @@ class CoverImageService {
         fontSize: 13,
         fontWeight: ui.FontWeight.w600,
       ),
-    )..pushStyle(ui.TextStyle(color: const Color(0xFF69F0AE)));
-    badgeBuilder.addText('\u{1F512} \u5DF2\u52A0\u5BC6');
-    final badgeParagraph = badgeBuilder.build();
-    badgeParagraph.layout(const ui.ParagraphConstraints(width: 200));
+    )
+      ..pushStyle(ui.TextStyle(color: const Color(0xFF69F0AE)))
+      ..addText('\u{1F512} \u5DF2\u52A0\u5BC6');
+    final badgeParagraph = badgeBuilder.build()
+      ..layout(const ui.ParagraphConstraints(width: 200));
 
     final badgeWidth = badgeParagraph.maxIntrinsicWidth + badgePadding * 2;
     final badgeX = (width - badgeWidth) / 2;
@@ -251,27 +254,30 @@ class CoverImageService {
       Rect.fromLTWH(badgeX, badgeY, badgeWidth, badgeHeight),
       const Radius.circular(18),
     );
-    canvas.drawRRect(
-      badgeRRect,
-      Paint()..color = const Color(0x1A69F0AE),
-    );
-    canvas.drawRRect(
-      badgeRRect,
-      Paint()
-        ..color = const Color(0x4469F0AE)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    canvas
+      ..drawRRect(
+        badgeRRect,
+        Paint()..color = const Color(0x1A69F0AE),
+      )
+      ..drawRRect(
+        badgeRRect,
+        Paint()
+          ..color = const Color(0x4469F0AE)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
 
     final textX = badgeX + badgePadding;
-    final textY = badgeY + (badgeHeight - 13) / 2;
+    const textY = badgeY + (badgeHeight - 13) / 2;
     canvas.drawParagraph(badgeParagraph, Offset(textX, textY));
   }
 
   static String _formatPublishDate(String isoDate) {
     try {
       final dateTime = DateTime.parse(isoDate).toLocal();
-      return '${dateTime.year}.${dateTime.month.toString().padLeft(2, '0')}.${dateTime.day.toString().padLeft(2, '0')}';
+      final month = dateTime.month.toString().padLeft(2, '0');
+      final day = dateTime.day.toString().padLeft(2, '0');
+      return '${dateTime.year}.$month.$day';
     } on Exception {
       return isoDate;
     }
@@ -298,14 +304,15 @@ class CoverImageService {
         ellipsis: '...',
         height: lineHeight,
       ),
-    )..pushStyle(ui.TextStyle(
-        color: color,
-        letterSpacing: letterSpacing,
-      ));
-    builder.addText(text);
+    )
+      ..pushStyle(ui.TextStyle(
+          color: color,
+          letterSpacing: letterSpacing,
+        ),)
+      ..addText(text);
 
-    final paragraph = builder.build();
-    paragraph.layout(ui.ParagraphConstraints(width: maxWidth ?? 800));
+    final paragraph = builder.build()
+      ..layout(ui.ParagraphConstraints(width: maxWidth ?? 800));
     canvas.drawParagraph(paragraph, Offset(x, y));
   }
 
@@ -329,41 +336,13 @@ class CoverImageService {
         ellipsis: '...',
         textAlign: ui.TextAlign.center,
       ),
-    )..pushStyle(ui.TextStyle(color: color));
-    builder.addText(text);
+    )
+      ..pushStyle(ui.TextStyle(color: color))
+      ..addText(text);
 
-    final paragraph = builder.build();
-    paragraph.layout(ui.ParagraphConstraints(width: constrainedWidth));
+    final paragraph = builder.build()
+      ..layout(ui.ParagraphConstraints(width: constrainedWidth));
     final x = (canvasWidth - constrainedWidth) / 2;
-    canvas.drawParagraph(paragraph, Offset(x, y));
-  }
-
-  static void _drawRightAlignedTextOnCanvas(
-    Canvas canvas,
-    String text,
-    double rightX,
-    double y,
-    double fontSize,
-    Color color,
-    ui.FontWeight fontWeight, {
-    double? maxWidth,
-    int maxLines = 1,
-  }) {
-    final constrainedWidth = maxWidth ?? 200.0;
-    final builder = ui.ParagraphBuilder(
-      ui.ParagraphStyle(
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-        maxLines: maxLines,
-        ellipsis: '...',
-        textAlign: ui.TextAlign.right,
-      ),
-    )..pushStyle(ui.TextStyle(color: color));
-    builder.addText(text);
-
-    final paragraph = builder.build();
-    paragraph.layout(ui.ParagraphConstraints(width: constrainedWidth));
-    final x = rightX - paragraph.maxIntrinsicWidth;
     canvas.drawParagraph(paragraph, Offset(x, y));
   }
 
@@ -380,14 +359,15 @@ class CoverImageService {
       Rect.fromLTWH(x, y, width, height),
       const Radius.circular(16),
     );
-    canvas.drawRRect(rrect, Paint()..color = const Color(0x1A7C4DFF));
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..color = const Color(0x447C4DFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    canvas
+      ..drawRRect(rrect, Paint()..color = const Color(0x1A7C4DFF))
+      ..drawRRect(
+        rrect,
+        Paint()
+          ..color = const Color(0x447C4DFF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
     _drawTextOnCanvas(
       canvas,
       tag,
@@ -496,7 +476,7 @@ class CoverImageService {
 
   static Future<bool> isStrawHutPng(String filePath) async {
     final file = File(filePath);
-    if (!await file.exists()) return false;
+    if (!file.existsSync()) return false;
 
     final extension = filePath.split('.').last.toLowerCase();
     if (extension != 'png') return false;

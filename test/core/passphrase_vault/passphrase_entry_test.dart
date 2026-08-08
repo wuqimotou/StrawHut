@@ -188,7 +188,6 @@ void main() {
         passphrase: 'MySecretPass',
         label: '暗号 #1',
         createdAt: '2024-01-15T08:30:00.000Z',
-        useCount: 0,
       );
 
       original.copyWithUsage(
@@ -258,7 +257,8 @@ void main() {
         createdAt: '2024-01-15T08:30:00.000Z',
       );
 
-      expect(entry == 'not an entry', isFalse);
+      const Object nonEntry = 'not an entry';
+      expect(entry == nonEntry, isFalse);
     });
   });
 

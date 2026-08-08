@@ -10,7 +10,6 @@ import 'package:strawhut/core/errors/strawhut_exception.dart';
 /// - 暗号强度不足（veryWeak）
 /// - 指定的暗号条目不存在
 /// - 存储读写操作失败
-/// - 自动匹配解密全部失败
 ///
 /// 错误代码规范：
 /// - `VAULT_FULL`: 保险库已满，达到最大条目数量限制
@@ -18,7 +17,6 @@ import 'package:strawhut/core/errors/strawhut_exception.dart';
 /// - `INVALID_PASSPHRASE`: 暗号强度不足（veryWeak）
 /// - `NOT_FOUND`: 指定的暗号条目不存在
 /// - `STORAGE_ERROR`: 存储读写操作失败
-/// - `AUTO_DECRYPT_FAILED`: 所有暗号均无法解密
 ///
 /// 使用示例：
 /// ```dart

@@ -40,8 +40,7 @@ class KeyFileUpload extends ConsumerStatefulWidget {
   /// - [onKeyFileLoaded] - 成功解析 .key 文件后的回调，
   ///   参数为提取到的 Base64 密钥字符串
   const KeyFileUpload({
-    super.key,
-    required this.onKeyFileLoaded,
+    required this.onKeyFileLoaded, super.key,
   });
 
   /// 密钥文件加载成功回调
@@ -186,7 +185,6 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
         NeumorphicButton(
           label: _isLoading ? '正在读取...' : '选择 .key 文件',
           icon: StrawIcons.uploadFile,
-          style: NeumorphicButtonStyle.secondary,
           expanded: true,
           onPressed: _isLoading ? null : _handleFileUpload,
         ),
@@ -195,7 +193,7 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
         if (_loadedFileName != null && _errorMessage == null) ...[
           SizedBox(height: tokens.spaceSm),
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
             borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -224,7 +222,7 @@ class _KeyFileUploadState extends ConsumerState<KeyFileUpload> {
         if (_errorMessage != null) ...[
           SizedBox(height: tokens.spaceSm),
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
             borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(

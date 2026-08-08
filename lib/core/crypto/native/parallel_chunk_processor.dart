@@ -7,7 +7,7 @@ import 'package:strawhut/core/utils/cancellation_token.dart';
 
 /// 并发分块处理器
 ///
-/// 通过滑动窗口并发派发 [Flutter.compute] 调用，利用多核 CPU 同时加密/解密多个分块。
+/// 通过滑动窗口并发派发 [compute] 调用，利用多核 CPU 同时加密/解密多个分块。
 /// 并发度根据 [Platform.numberOfProcessors] 自适应，避免过度并发导致内存压力。
 ///
 /// 设计要点：

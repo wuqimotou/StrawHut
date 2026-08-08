@@ -68,7 +68,6 @@ class MetaPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = NeumorphicTokens.ofContext(context);
     return NeumorphicContainer(
-      shape: NeumorphicShape.convex,
       intensity: NeumorphicIntensity.subtle,
       borderRadius: tokens.radiusLarge,
       margin: const EdgeInsets.all(16),
@@ -191,7 +190,7 @@ class MetaPreview extends StatelessWidget {
   /// 使用凹陷态容器 + 水墨警告色，避免 Material 3 默认的橙色高饱和。
   Widget _buildAnonymousTag(NeumorphicTokens tokens) {
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       intensity: NeumorphicIntensity.subtle,
       borderRadius: 6,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -222,7 +221,6 @@ class MetaPreview extends StatelessWidget {
   /// 凸起小胶囊，表面同背景色，靠双向阴影定义体积。
   Widget _buildTag(NeumorphicTokens tokens, String tag) {
     return NeumorphicContainer(
-      shape: NeumorphicShape.convex,
       intensity: NeumorphicIntensity.subtle,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -243,7 +241,9 @@ class MetaPreview extends StatelessWidget {
   String _formatDate(String isoDate) {
     try {
       final dateTime = DateTime.parse(isoDate).toLocal();
-      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+      return '${dateTime.year}-'
+          '${dateTime.month.toString().padLeft(2, '0')}-'
+          '${dateTime.day.toString().padLeft(2, '0')}';
     } on Exception {
       return isoDate;
     }

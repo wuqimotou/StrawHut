@@ -1,0 +1,32 @@
+name: CI Checks
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter analyze lib
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter test --coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/

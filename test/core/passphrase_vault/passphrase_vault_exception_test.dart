@@ -109,16 +109,6 @@ void main() {
       expect(exception.code, 'STORAGE_ERROR');
       expect(exception.message, contains('失败'));
     });
-
-    test('AUTO_DECRYPT_FAILED - 自动解密失败', () {
-      const exception = PassphraseVaultException(
-        '所有暗号均无法解密',
-        code: 'AUTO_DECRYPT_FAILED',
-      );
-
-      expect(exception.code, 'AUTO_DECRYPT_FAILED');
-      expect(exception.message, contains('无法解密'));
-    });
   });
 
   group('PassphraseVaultException 异常捕获', () {

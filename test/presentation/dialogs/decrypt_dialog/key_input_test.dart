@@ -146,7 +146,7 @@ void main() {
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.decoration?.errorText, isNotNull);
       expect(
-        textField.decoration!.errorText!,
+        textField.decoration!.errorText,
         contains('密钥格式不正确'),
       );
     });
@@ -196,11 +196,11 @@ void main() {
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.decoration?.errorText, isNotNull);
       expect(
-        textField.decoration!.errorText!,
+        textField.decoration!.errorText,
         contains('密钥长度不正确'),
       );
       expect(
-        textField.decoration!.errorText!,
+        textField.decoration!.errorText,
         contains('43~44'),
       );
     });
@@ -217,7 +217,7 @@ void main() {
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.decoration?.errorText, isNotNull);
       expect(
-        textField.decoration!.errorText!,
+        textField.decoration!.errorText,
         contains('密钥长度不正确'),
       );
     });

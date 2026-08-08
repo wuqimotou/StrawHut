@@ -15,7 +15,7 @@ import 'package:strawhut/core/utils/cancellation_token.dart';
 CryptoService _createCryptoService() => CryptoService(IntegrityService());
 
 /// 辅助函数：构造富文本 PayloadMetadata
-PayloadMetadata _richTextMetadata() => PayloadMetadata(
+PayloadMetadata _richTextMetadata() => const PayloadMetadata(
       sourceType: SourceType.richText,
       originalExtension: 'delta',
     );
@@ -57,7 +57,7 @@ void main() {
     test('加密解密可逆测试', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
-      const originalText = '{"ops": [{"insert": "Hello, World!\\n"}]}';
+      const originalText = r'{"ops": [{"insert": "Hello, World!\n"}]}';
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
@@ -79,7 +79,7 @@ void main() {
     test('加密中文内容可逆', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
-      const originalText = '{"ops": [{"insert": "你好，世界！\\n"}]}';
+      const originalText = r'{"ops": [{"insert": "你好，世界！\n"}]}';
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
@@ -122,7 +122,7 @@ void main() {
     test('相同明文每次加密产生不同密文', () async {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
-      const originalText = '{"ops": [{"insert": "test\\n"}]}';
+      const originalText = r'{"ops": [{"insert": "test\n"}]}';
 
       final encryptResult1 = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
@@ -155,7 +155,7 @@ void main() {
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(
-            utf8.encode('{"ops": [{"insert": "secret\\n"}]}')),
+            utf8.encode(r'{"ops": [{"insert": "secret\n"}]}'),),
         payloadMetadata: _richTextMetadata(),
         key: correctKey.bytes,
         useV21Security: false,
@@ -180,7 +180,7 @@ void main() {
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes:
-            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+            Uint8List.fromList(utf8.encode(r'{"ops": [{"insert": "test\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
         useV21Security: false,
@@ -213,7 +213,7 @@ void main() {
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes:
-            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+            Uint8List.fromList(utf8.encode(r'{"ops": [{"insert": "test\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
         useV21Security: false,
@@ -256,7 +256,7 @@ void main() {
 
       final encryptResult = await cryptoService.encrypt(
         payloadBytes:
-            Uint8List.fromList(utf8.encode('{"ops": [{"insert": "test\\n"}]}')),
+            Uint8List.fromList(utf8.encode(r'{"ops": [{"insert": "test\n"}]}')),
         payloadMetadata: _richTextMetadata(),
         key: key.bytes,
         useV21Security: false,
@@ -286,7 +286,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_KEY_LENGTH',
-        )),
+        ),),
       );
     });
   });
@@ -295,7 +295,7 @@ void main() {
     test('调用 clearSensitiveData 不应抛出异常', () {
       final cryptoService = _createCryptoService();
 
-      expect(() => cryptoService.clearSensitiveData(), returnsNormally);
+      expect(cryptoService.clearSensitiveData, returnsNormally);
     });
   });
 
@@ -314,9 +314,9 @@ void main() {
       final cryptoService = CryptoService(IntegrityService());
       final salt = Uint8List.fromList(List.generate(16, (i) => i));
       final key1 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'samePassphrase', salt: salt);
+          passphrase: 'samePassphrase', salt: salt,);
       final key2 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'samePassphrase', salt: salt);
+          passphrase: 'samePassphrase', salt: salt,);
       expect(key1, equals(key2));
     });
 
@@ -326,9 +326,9 @@ void main() {
       final salt1 = Uint8List.fromList(List.generate(16, (i) => i));
       final salt2 = Uint8List.fromList(List.generate(16, (i) => i + 16));
       final key1 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'samePassphrase', salt: salt1);
+          passphrase: 'samePassphrase', salt: salt1,);
       final key2 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'samePassphrase', salt: salt2);
+          passphrase: 'samePassphrase', salt: salt2,);
       expect(key1, isNot(equals(key2)));
     });
 
@@ -337,9 +337,9 @@ void main() {
       final cryptoService = CryptoService(IntegrityService());
       final salt = Uint8List.fromList(List.generate(16, (i) => i));
       final key1 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'passphrase1', salt: salt);
+          passphrase: 'passphrase1', salt: salt,);
       final key2 = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'passphrase2', salt: salt);
+          passphrase: 'passphrase2', salt: salt,);
       expect(key1, isNot(equals(key2)));
     });
 
@@ -348,18 +348,18 @@ void main() {
       final invalidSalt = Uint8List(8);
       expect(
         () => cryptoService.deriveKeyFromPassphrase(
-            passphrase: 'test', salt: invalidSalt),
+            passphrase: 'test', salt: invalidSalt,),
         throwsA(isA<CryptoException>()
-            .having((e) => e.code, 'code', 'INVALID_SALT_LENGTH')),
+            .having((e) => e.code, 'code', 'INVALID_SALT_LENGTH'),),
       );
     });
 
     test('derived key can encrypt and decrypt', () async {
       final cryptoService = CryptoService(IntegrityService());
       final salt = Uint8List.fromList(List.generate(16, (i) => i));
-      const originalText = '{"ops": [{"insert": "PBKDF2 test\\n"}]}';
+      const originalText = r'{"ops": [{"insert": "PBKDF2 test\n"}]}';
       final key = await cryptoService.deriveKeyFromPassphrase(
-          passphrase: 'testPassphrase123', salt: salt);
+          passphrase: 'testPassphrase123', salt: salt,);
       final encryptResult = await cryptoService.encrypt(
         payloadBytes: Uint8List.fromList(utf8.encode(originalText)),
         payloadMetadata: _richTextMetadata(),

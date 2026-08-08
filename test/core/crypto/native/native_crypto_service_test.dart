@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
@@ -13,7 +13,7 @@ import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 
 /// 辅助函数：构造富文本 PayloadMetadata
-PayloadMetadata _richTextMetadata() => PayloadMetadata(
+PayloadMetadata _richTextMetadata() => const PayloadMetadata(
       sourceType: SourceType.richText,
       originalExtension: 'delta',
     );
@@ -21,7 +21,7 @@ PayloadMetadata _richTextMetadata() => PayloadMetadata(
 void main() {
   // Only run on supported platforms
   if (!NativeCryptoService.isNativeSupported) {
-    print('Skipping NativeCryptoService tests: platform not supported');
+    debugPrint('Skipping NativeCryptoService tests: platform not supported');
     return;
   }
 
@@ -31,8 +31,8 @@ void main() {
   if (Platform.isWindows) {
     try {
       WindowsCryptoFfi.generateRandom(1);
-    } catch (e) {
-      print(
+    } on Object catch (e) {
+      debugPrint(
         'Skipping NativeCryptoService tests: '
         'BCrypt API not available in test environment ($e)',
       );
@@ -143,7 +143,7 @@ void main() {
 
       // IV should be different (random)
       expect(encryptResult1.chunks[0].iv,
-          isNot(equals(encryptResult2.chunks[0].iv)));
+          isNot(equals(encryptResult2.chunks[0].iv)),);
       // Ciphertext should be different
       expect(
         encryptResult1.chunks[0].encryptedData,

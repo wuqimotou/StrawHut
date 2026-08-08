@@ -86,7 +86,7 @@ void main() {
       final encryptedData = Uint8List.fromList(List.generate(32, (i) => i));
       final chunk = ChunkInfo(iv: iv, encryptedData: encryptedData);
 
-      // ignore: unrelated_type_equality_checks
+      // ignore: unrelated_type_equality_checks, 跨类型比较测试
       expect(chunk == 'not a ChunkInfo', isFalse);
     });
   });

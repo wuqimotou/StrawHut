@@ -1,3 +1,5 @@
+import 'package:strawhut/data/models/integrity_info.dart' show IntegrityInfo;
+
 /// 加密算法标识
 ///
 /// 定义 StrawHut 使用的对称加密算法标准。

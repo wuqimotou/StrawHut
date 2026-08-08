@@ -2,14 +2,15 @@
 ///
 /// 本文件定义用于 Provider 单元测试的 Mock 类和 Fake 类，
 /// 使用 mocktail 库实现。
+library;
 
 import 'package:mocktail/mocktail.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
-import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/data/models/straw_content.dart';
+import 'package:strawhut/data/models/straw_file.dart';
 
 /// FileIOService 的 Mock 类（扩展 Mock 并实现 FileIOService）
 class MockFileIOService extends Mock implements FileIOService {}
@@ -26,7 +27,7 @@ StrawFile createTestStrawFile({String title = 'Test Card'}) {
       publishDate: '2026-05-01T12:00:00Z',
       title: title,
       isAnonymous: false,
-      tags: ['test'],
+      tags: const ['test'],
       description: 'Test Description',
     ),
     content: const StrawContent(

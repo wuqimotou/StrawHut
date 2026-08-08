@@ -83,7 +83,7 @@ void main() {
     });
 
     test('should roundtrip UTF-8 encoded Chinese text', () {
-      final text = '你好，世界！';
+      const text = '你好，世界！';
       final original = utf8.encode(text);
       final encoded = Base64Utils.encodeToBase64(Uint8List.fromList(original));
       final decoded = Base64Utils.decodeFromBase64(encoded);

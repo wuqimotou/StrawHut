@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'platform_crypto_channel.dart';
-import 'windows_crypto_ffi.dart';
+import 'package:strawhut/core/crypto/native/platform_crypto_channel.dart';
+import 'package:strawhut/core/crypto/native/windows_crypto_ffi.dart';
 
 /// Windows 平台加密通道实现
 ///
@@ -61,7 +61,7 @@ class FfiCryptoChannel implements PlatformCryptoChannel {
     if (!_supportsNativePbkdf2) {
       throw UnsupportedError(
         'BCryptDeriveKeyPBKDF2 要求 Windows 10 19041+。'
-        '当前系统不满足此要求。',
+        ' 当前系统不满足此要求。',
       );
     }
     // FFI 同步调用，PBKDF2 耗时较长但仍在可接受范围内

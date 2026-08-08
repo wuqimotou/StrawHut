@@ -37,7 +37,6 @@ class PassphraseVaultConstants {
   /// 限制保险库中最多保存的暗号条目数量。
   /// 此限制基于以下考虑：
   /// - 避免用户保存过多暗号导致管理困难
-  /// - 限制自动匹配解密时的遍历范围，保证性能
   /// - flutter_secure_storage 存储空间有限
   static const int maxPassphraseEntries = 10;
 
@@ -45,13 +44,4 @@ class PassphraseVaultConstants {
   ///
   /// 限制暗号备注名称的最大字符数，防止过长的标签影响 UI 展示。
   static const int passphraseLabelMaxLength = 50;
-
-  /// 超过此数量时显示进度提示
-  ///
-  /// 当 `tryAutoDecrypt` 需要尝试的暗号数量超过此阈值时，
-  /// 应向用户显示进度提示，避免长时间无反馈。
-  ///
-  /// 每个暗号的 PBKDF2 密钥派生约需 100-300ms，
-  /// 超过 3 个暗号时总耗时可能超过 1 秒，需要进度反馈。
-  static const int autoMatchProgressThreshold = 3;
 }

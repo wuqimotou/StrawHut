@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/l10n/l10n.dart';
-import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
@@ -63,7 +63,6 @@ class _PassphraseEntryTileState extends State<PassphraseEntryTile> {
     final tokens = NeumorphicTokens.ofContext(context);
 
     return NeumorphicContainer(
-      shape: NeumorphicShape.convex,
       borderRadius: tokens.radiusMedium,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       margin: const EdgeInsets.symmetric(vertical: 4),

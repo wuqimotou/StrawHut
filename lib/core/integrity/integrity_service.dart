@@ -8,6 +8,7 @@ import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
+import 'package:strawhut/core/file_io/file_io_service.dart' show FileIOService;
 import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
@@ -220,23 +221,21 @@ class IntegrityService implements IIntegrityService {
   }) async {
     cancellationToken?.throwIfCancelled();
     // 完整性校验需要计算 hash='' 版本的二进制文件哈希，
-    // 与加密时 computeHashFromBytes(buildBinaryFileBytes(strawFileForHash, chunks)) 一致。
+    // 与加密时 computeHashFromBytes(buildBinaryFileBytes(strawFileForHash, chunks))
+    // 一致。
     //
     // 最安全的做法：直接用 StrawFile 对象的 assembleHeaderToJson() 生成 JSON 头部
     // （与 buildBinaryFileBytes 中使用的完全相同），然后从文件流式读取分块数据。
     final digestCollector = <Digest>[];
     final outputSink = _SimpleSink<Digest>(digestCollector);
-    final input = sha256.startChunkedConversion(outputSink);
-
     // ========== 1. 构造头部字节（与 buildBinaryFileBytes 逻辑一致） ==========
     // Magic Bytes: "STRAWHUT" (8 bytes)
-    input.add(STRAW_MAGIC_BYTES);
-
-    // Format Version Major (2 bytes uint16 LE)
-    input.add([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF]);
-
-    // Format Version Minor (2 bytes uint16 LE)
-    input.add([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
+    final input = sha256.startChunkedConversion(outputSink)
+      ..add(STRAW_MAGIC_BYTES)
+      // Format Version Major (2 bytes uint16 LE)
+      ..add([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF])
+      // Format Version Minor (2 bytes uint16 LE)
+      ..add([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
 
     // JSON Header（strawFile 中的 integrity.hash 应为空字符串）
     final headerJson = strawFile.assembleHeaderToJson();
@@ -244,15 +243,15 @@ class IntegrityService implements IIntegrityService {
 
     // Header Size (4 bytes uint32 LE)
     final headerSize = headerBytes.length;
-    input.add([
-      headerSize & 0xFF,
-      (headerSize >> 8) & 0xFF,
-      (headerSize >> 16) & 0xFF,
-      (headerSize >> 24) & 0xFF,
-    ]);
-
-    // JSON Header bytes
-    input.add(headerBytes);
+    input
+      ..add([
+        headerSize & 0xFF,
+        (headerSize >> 8) & 0xFF,
+        (headerSize >> 16) & 0xFF,
+        (headerSize >> 24) & 0xFF,
+      ])
+      // JSON Header bytes
+      ..add(headerBytes);
 
     // ========== 2. 从文件中流式读取分块数据 ==========
     final file = File(filePath);
@@ -278,7 +277,7 @@ class IntegrityService implements IIntegrityService {
       // 逐块读取分块数据
       final totalChunks = strawFile.content.totalChunks;
 
-      for (int i = 0; i < totalChunks; i++) {
+      for (var i = 0; i < totalChunks; i++) {
         cancellationToken?.throwIfCancelled();
         // 读取 IV (16 bytes)
         final ivData = await raf.read(CHUNK_IV_LENGTH_BYTES);
@@ -329,11 +328,10 @@ class IntegrityService implements IIntegrityService {
 
     final digestCollector = <Digest>[];
     final outputSink = _SimpleSink<Digest>(digestCollector);
-    final input = sha256.startChunkedConversion(outputSink);
-
-    input.add(STRAW_MAGIC_BYTES);
-    input.add([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF]);
-    input.add([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
+    final input = sha256.startChunkedConversion(outputSink)
+      ..add(STRAW_MAGIC_BYTES)
+      ..add([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF])
+      ..add([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
 
     final headerBytes = utf8.encode(strawFile.assembleHeaderToJson());
     final headerSize = headerBytes.length;
@@ -431,10 +429,10 @@ class IntegrityService implements IIntegrityService {
       (headerSize >> 16) & 0xFF,
       (headerSize >> 24) & 0xFF,
     ]);
-    hmac.update(headerSizeBytes, 0, 4);
-
-    // JSON Header bytes
-    hmac.update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
+    hmac
+      ..update(headerSizeBytes, 0, 4)
+      // JSON Header bytes
+      ..update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
 
     // ========== 2. 从文件中流式读取分块数据 ==========
     final file = File(filePath);
@@ -456,7 +454,7 @@ class IntegrityService implements IIntegrityService {
 
       final totalChunks = strawFile.content.totalChunks;
 
-      for (int i = 0; i < totalChunks; i++) {
+      for (var i = 0; i < totalChunks; i++) {
         cancellationToken?.throwIfCancelled();
         // 读取 IV (16 bytes)
         final ivData = await raf.read(CHUNK_IV_LENGTH_BYTES);
@@ -507,54 +505,57 @@ class IntegrityService implements IIntegrityService {
     final hmac = HMac.withDigest(SHA256Digest())..init(KeyParameter(hmacKey));
 
     final magicBytesUint = Uint8List.fromList(STRAW_MAGIC_BYTES);
-    hmac.update(magicBytesUint, 0, magicBytesUint.length);
-    hmac.update(
-      Uint8List.fromList([
-        BINARY_FORMAT_MAJOR & 0xFF,
-        (BINARY_FORMAT_MAJOR >> 8) & 0xFF,
-      ]),
-      0,
-      2,
-    );
-    hmac.update(
-      Uint8List.fromList([
-        BINARY_FORMAT_MINOR & 0xFF,
-        (BINARY_FORMAT_MINOR >> 8) & 0xFF,
-      ]),
-      0,
-      2,
-    );
+    hmac
+      ..update(magicBytesUint, 0, magicBytesUint.length)
+      ..update(
+        Uint8List.fromList([
+          BINARY_FORMAT_MAJOR & 0xFF,
+          (BINARY_FORMAT_MAJOR >> 8) & 0xFF,
+        ]),
+        0,
+        2,
+      )
+      ..update(
+        Uint8List.fromList([
+          BINARY_FORMAT_MINOR & 0xFF,
+          (BINARY_FORMAT_MINOR >> 8) & 0xFF,
+        ]),
+        0,
+        2,
+      );
 
     final headerBytes = utf8.encode(strawFile.assembleHeaderToJson());
     final headerSize = headerBytes.length;
-    hmac.update(
-      Uint8List.fromList([
-        headerSize & 0xFF,
-        (headerSize >> 8) & 0xFF,
-        (headerSize >> 16) & 0xFF,
-        (headerSize >> 24) & 0xFF,
-      ]),
-      0,
-      4,
-    );
-    hmac.update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
+    hmac
+      ..update(
+        Uint8List.fromList([
+          headerSize & 0xFF,
+          (headerSize >> 8) & 0xFF,
+          (headerSize >> 16) & 0xFF,
+          (headerSize >> 24) & 0xFF,
+        ]),
+        0,
+        4,
+      )
+      ..update(Uint8List.fromList(headerBytes), 0, headerBytes.length);
 
     for (var i = 0; i < chunks.length; i++) {
       cancellationToken?.throwIfCancelled();
       final chunk = chunks[i];
       final encryptedLength = chunk.encryptedData.length;
-      hmac.update(chunk.iv, 0, chunk.iv.length);
-      hmac.update(
-        Uint8List.fromList([
-          encryptedLength & 0xFF,
-          (encryptedLength >> 8) & 0xFF,
-          (encryptedLength >> 16) & 0xFF,
-          (encryptedLength >> 24) & 0xFF,
-        ]),
-        0,
-        4,
-      );
-      hmac.update(chunk.encryptedData, 0, chunk.encryptedData.length);
+      hmac
+        ..update(chunk.iv, 0, chunk.iv.length)
+        ..update(
+          Uint8List.fromList([
+            encryptedLength & 0xFF,
+            (encryptedLength >> 8) & 0xFF,
+            (encryptedLength >> 16) & 0xFF,
+            (encryptedLength >> 24) & 0xFF,
+          ]),
+          0,
+          4,
+        )
+        ..update(chunk.encryptedData, 0, chunk.encryptedData.length);
       onProgress?.call(i + 1, chunks.length);
       if (i & 0xF == 0xF) {
         await Future<void>.delayed(Duration.zero);
@@ -591,11 +592,11 @@ class IntegrityService implements IIntegrityService {
     required StrawFile strawFileForHash,
     Uint8List? hmacKey,
   }) {
-    final IntegritySink sink = hmacKey != null
-        ? _HmacSha256IntegritySink(hmacKey)
-        : _Sha256IntegritySink();
     // 立即用 hash='' 版本的头部更新 sink
-    sink._updateHeaderInternal(strawFileForHash);
+    final sink = (hmacKey != null
+        ? _HmacSha256IntegritySink(hmacKey)
+        : _Sha256IntegritySink())
+      .._updateHeaderInternal(strawFileForHash);
     return sink;
   }
 }
@@ -638,10 +639,16 @@ abstract class IntegritySink {
     updateHeader(STRAW_MAGIC_BYTES);
 
     // Format Version Major (2 bytes uint16 LE)
-    updateHeader([BINARY_FORMAT_MAJOR & 0xFF, (BINARY_FORMAT_MAJOR >> 8) & 0xFF]);
+    updateHeader([
+      BINARY_FORMAT_MAJOR & 0xFF,
+      (BINARY_FORMAT_MAJOR >> 8) & 0xFF,
+    ]);
 
     // Format Version Minor (2 bytes uint16 LE)
-    updateHeader([BINARY_FORMAT_MINOR & 0xFF, (BINARY_FORMAT_MINOR >> 8) & 0xFF]);
+    updateHeader([
+      BINARY_FORMAT_MINOR & 0xFF,
+      (BINARY_FORMAT_MINOR >> 8) & 0xFF,
+    ]);
 
     // JSON Header（hash='' 版本）
     final headerJson = strawFileForHash.assembleHeaderToJson();

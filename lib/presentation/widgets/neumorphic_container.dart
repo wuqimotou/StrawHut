@@ -27,12 +27,11 @@ import 'package:strawhut/app/neumorphic_tokens.dart';
 /// ```
 class NeumorphicContainer extends StatelessWidget {
   const NeumorphicContainer({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.shape = NeumorphicShape.convex,
     this.intensity = NeumorphicIntensity.normal,
     this.borderRadius,
-    this.radiusKey,
+    this.radiusKey, // ignore: library_private_types_in_public_api, 使用私有枚举 _RadiusKey 仅内部解析圆角，不对外暴露类型
     this.padding,
     this.margin,
     this.color,
@@ -46,6 +45,57 @@ class NeumorphicContainer extends StatelessWidget {
           radiusKey == null || borderRadius == null,
           '只能指定 borderRadius 或 radiusKey 之一',
         );
+
+  /// 使用 small 圆角（8）
+  const NeumorphicContainer.small({
+    required this.child, super.key,
+    this.shape = NeumorphicShape.convex,
+    this.intensity = NeumorphicIntensity.normal,
+    this.padding,
+    this.margin,
+    this.color,
+    this.alignment,
+    this.width,
+    this.height,
+    this.constraints,
+    this.duration = const Duration(milliseconds: 180),
+    this.curve = Curves.easeOutCubic,
+  })  : borderRadius = null,
+        radiusKey = _RadiusKey.small;
+
+  /// 使用 large 圆角（16）
+  const NeumorphicContainer.large({
+    required this.child, super.key,
+    this.shape = NeumorphicShape.convex,
+    this.intensity = NeumorphicIntensity.normal,
+    this.padding,
+    this.margin,
+    this.color,
+    this.alignment,
+    this.width,
+    this.height,
+    this.constraints,
+    this.duration = const Duration(milliseconds: 180),
+    this.curve = Curves.easeOutCubic,
+  })  : borderRadius = null,
+        radiusKey = _RadiusKey.large;
+
+  /// 使用 xLarge 圆角（24）
+  const NeumorphicContainer.xLarge({
+    required this.child, super.key,
+    this.shape = NeumorphicShape.convex,
+    this.intensity = NeumorphicIntensity.normal,
+    this.padding,
+    this.margin,
+    this.color,
+    this.alignment,
+    this.width,
+    this.height,
+    this.constraints,
+    this.duration = const Duration(milliseconds: 180),
+    this.curve = Curves.easeOutCubic,
+  })  : borderRadius = null,
+        radiusKey = _RadiusKey.xLarge;
 
   /// 子内容
   final Widget child;
@@ -62,7 +112,7 @@ class NeumorphicContainer extends StatelessWidget {
   /// 使用令牌中的圆角档位（small/medium/large/xLarge）
   ///
   /// 与 [borderRadius] 互斥。
-  final _RadiusKey? radiusKey;
+  final _RadiusKey? radiusKey; // ignore: library_private_types_in_public_api, 使用私有枚举 _RadiusKey 仅内部解析圆角，不对外暴露类型
 
   /// 内边距
   final EdgeInsetsGeometry? padding;
@@ -90,60 +140,6 @@ class NeumorphicContainer extends StatelessWidget {
 
   /// 形态切换动画曲线
   final Curve curve;
-
-  /// 使用 small 圆角（8）
-  const NeumorphicContainer.small({
-    super.key,
-    required this.child,
-    this.shape = NeumorphicShape.convex,
-    this.intensity = NeumorphicIntensity.normal,
-    this.padding,
-    this.margin,
-    this.color,
-    this.alignment,
-    this.width,
-    this.height,
-    this.constraints,
-    this.duration = const Duration(milliseconds: 180),
-    this.curve = Curves.easeOutCubic,
-  })  : borderRadius = null,
-        radiusKey = _RadiusKey.small;
-
-  /// 使用 large 圆角（16）
-  const NeumorphicContainer.large({
-    super.key,
-    required this.child,
-    this.shape = NeumorphicShape.convex,
-    this.intensity = NeumorphicIntensity.normal,
-    this.padding,
-    this.margin,
-    this.color,
-    this.alignment,
-    this.width,
-    this.height,
-    this.constraints,
-    this.duration = const Duration(milliseconds: 180),
-    this.curve = Curves.easeOutCubic,
-  })  : borderRadius = null,
-        radiusKey = _RadiusKey.large;
-
-  /// 使用 xLarge 圆角（24）
-  const NeumorphicContainer.xLarge({
-    super.key,
-    required this.child,
-    this.shape = NeumorphicShape.convex,
-    this.intensity = NeumorphicIntensity.normal,
-    this.padding,
-    this.margin,
-    this.color,
-    this.alignment,
-    this.width,
-    this.height,
-    this.constraints,
-    this.duration = const Duration(milliseconds: 180),
-    this.curve = Curves.easeOutCubic,
-  })  : borderRadius = null,
-        radiusKey = _RadiusKey.xLarge;
 
   @override
   Widget build(BuildContext context) {
@@ -207,10 +203,9 @@ enum _RadiusKey {
 /// 等价于 [NeumorphicContainer] 的 [NeumorphicShape.concave] 形态，
 /// 提供语义化构造器。
 class NeumorphicInset extends NeumorphicContainer {
-  NeumorphicInset({
-    super.key,
-    required super.child,
-    NeumorphicIntensity intensity = NeumorphicIntensity.normal,
+  const NeumorphicInset({
+    required super.child, super.key,
+    super.intensity,
     super.borderRadius,
     super.padding,
     super.margin,
@@ -221,6 +216,5 @@ class NeumorphicInset extends NeumorphicContainer {
     super.constraints,
   }) : super(
           shape: NeumorphicShape.concave,
-          intensity: intensity,
         );
 }

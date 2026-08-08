@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:path/path.dart' as p;
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
@@ -9,8 +10,8 @@ import 'package:strawhut/core/file_io/file_extensions.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/validation/format_validator.dart';
-import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
 
@@ -33,7 +34,7 @@ abstract class IFileIOService {
   /// 4. 读取二进制版本号
   /// 5. 读取 JSON Header 并验证格式
   /// 6. 解析二进制分块数据
-  /// 7. 返回 ParsedStrawFile（包含 StrawFile + List<ChunkInfo>）
+  /// 7. 返回 ParsedStrawFile（包含 StrawFile + `List<ChunkInfo>`）
   ///
   /// 参数：[filePath] - 文件的完整路径
   /// 返回：解析后的 ParsedStrawFile 对象
@@ -180,7 +181,8 @@ abstract class IFileIOService {
   /// 2. 通过 [integritySink] 边构造边算哈希（避免单独的哈希计算 pass）
   /// 3. 用真实哈希重建 header，复用 chunks 部分
   ///
-  /// 相比分别调用 [buildBinaryFileBytes] + `computeHmacFromBytes` + [buildBinaryFileBytes]，
+  /// 相比分别调用 [buildBinaryFileBytes] + `computeHmacFromBytes` +
+  /// [buildBinaryFileBytes]，
   /// 本方法消除了一次完整 bytes 遍历和一次外部 buildBinaryFileBytes 调用。
   ///
   /// 参数：
@@ -212,7 +214,7 @@ abstract class IFileIOService {
 /// - 所有写入操作信任调用方传入的内容（格式由调用方保证）
 ///
 /// 二进制 .straw v2.0 文件格式：
-/// ```
+/// ```text
 /// 0x00000000    Magic Bytes            8 bytes    "STRAWHUT" (ASCII)
 /// 0x00000008    Format Version Major   2 bytes    uint16 LE, value = 2
 /// 0x0000000A    Format Version Minor   2 bytes    uint16 LE, value = 0
@@ -222,7 +224,7 @@ abstract class IFileIOService {
 /// ```
 ///
 /// 每个分块格式：
-/// ```
+/// ```text
 /// 0x00    Chunk IV           16 bytes
 /// 0x10    Chunk Data Size    4 bytes    uint32 LE
 /// 0x14    Encrypted Data     variable   ciphertext + GCM Tag
@@ -276,8 +278,8 @@ class FileIOService implements IFileIOService {
     // ========== 步骤 1：验证文件扩展名 ==========
     if (!isValidStrawFile(filePath)) {
       throw FileException(
-        '无效的文件扩展名：期望 .straw，'
-        '实际为 "${p.extension(filePath)}"。'
+        '无效的文件扩展名：期望 .straw， '
+        '实际为 "${p.extension(filePath)}"。 '
         '请确保选择的是 StrawHut 知识卡片文件。',
         code: 'INVALID_EXTENSION',
       );
@@ -285,6 +287,7 @@ class FileIOService implements IFileIOService {
 
     // ========== 步骤 2：检查文件是否存在 ==========
     final file = File(filePath);
+    // ignore: avoid_slow_async_io, 文件操作在异步加密流程中调用
     if (!await file.exists()) {
       throw FileException(
         '文件不存在："$filePath"。\n'
@@ -319,8 +322,8 @@ class FileIOService implements IFileIOService {
     // ========== 步骤 1：验证文件扩展名 ==========
     if (!isValidStrawFile(filePath)) {
       throw FileException(
-        '无效的文件扩展名：期望 .straw，'
-        '实际为 "${p.extension(filePath)}"。'
+        '无效的文件扩展名：期望 .straw， '
+        '实际为 "${p.extension(filePath)}"。 '
         '请确保选择的是 StrawHut 知识卡片文件。',
         code: 'INVALID_EXTENSION',
       );
@@ -328,6 +331,7 @@ class FileIOService implements IFileIOService {
 
     // ========== 步骤 2：检查文件是否存在 ==========
     final file = File(filePath);
+    // ignore: avoid_slow_async_io, 文件操作在异步加密流程中调用
     if (!await file.exists()) {
       throw FileException(
         '文件不存在："$filePath"。\n'
@@ -356,7 +360,7 @@ class FileIOService implements IFileIOService {
       final minorVersion = _readUint16LEFromBytes(versionData, 2);
       if (majorVersion != BINARY_FORMAT_MAJOR) {
         throw FileException(
-          '不兼容的二进制格式版本: v$majorVersion.$minorVersion，'
+          '不兼容的二进制格式版本: v$majorVersion.$minorVersion， '
           '仅支持 v$BINARY_FORMAT_MAJOR.$BINARY_FORMAT_MINOR',
           code: 'INCOMPATIBLE_VERSION',
         );
@@ -365,7 +369,7 @@ class FileIOService implements IFileIOService {
       if (minorVersion != BINARY_FORMAT_MINOR_V20 &&
           minorVersion != BINARY_FORMAT_MINOR_V21) {
         throw FileException(
-          '不兼容的二进制格式次版本: v$majorVersion.$minorVersion，'
+          '不兼容的二进制格式次版本: v$majorVersion.$minorVersion， '
           '仅支持 v$majorVersion.$BINARY_FORMAT_MINOR_V20 或 '
           'v$majorVersion.$BINARY_FORMAT_MINOR_V21',
           code: 'INCOMPATIBLE_VERSION',
@@ -379,7 +383,7 @@ class FileIOService implements IFileIOService {
       // 长度上限校验：防止恶意文件触发超大内存分配
       if (headerSize > MAX_HEADER_SIZE_BYTES) {
         throw FileException(
-          'Header Size 超过上限: $headerSize 字节，'
+          'Header Size 超过上限: $headerSize 字节， '
           '最大允许 $MAX_HEADER_SIZE_BYTES 字节。\n'
           '可能原因：文件已损坏或被恶意构造。',
           code: 'INVALID_FORMAT',
@@ -426,7 +430,7 @@ class FileIOService implements IFileIOService {
 
       final strawFile = StrawFile.fromJson(jsonData);
       // 分块数据为空列表 - 解密时需使用 decryptStream()
-      return ParsedStrawFile(strawFile: strawFile, chunks: []);
+      return ParsedStrawFile(strawFile: strawFile, chunks: const []);
     } finally {
       await raf.close();
     }
@@ -456,7 +460,7 @@ class FileIOService implements IFileIOService {
 
     // ========== 步骤 2：读取二进制格式版本号 ==========
     if (bytes.length < MAGIC_BYTES_LENGTH + 4) {
-      throw FileException(
+      throw const FileException(
         '文件数据过短，无法读取格式版本号。\n'
         '至少需要 ${MAGIC_BYTES_LENGTH + 4} 字节。',
         code: 'INVALID_FORMAT',
@@ -467,7 +471,7 @@ class FileIOService implements IFileIOService {
 
     if (majorVersion != BINARY_FORMAT_MAJOR) {
       throw FileException(
-        '不兼容的二进制格式版本: v$majorVersion.$minorVersion，'
+        '不兼容的二进制格式版本: v$majorVersion.$minorVersion， '
         '仅支持 v$BINARY_FORMAT_MAJOR.$BINARY_FORMAT_MINOR',
         code: 'INCOMPATIBLE_VERSION',
       );
@@ -476,7 +480,7 @@ class FileIOService implements IFileIOService {
     if (minorVersion != BINARY_FORMAT_MINOR_V20 &&
         minorVersion != BINARY_FORMAT_MINOR_V21) {
       throw FileException(
-        '不兼容的二进制格式次版本: v$majorVersion.$minorVersion，'
+        '不兼容的二进制格式次版本: v$majorVersion.$minorVersion， '
         '仅支持 v$majorVersion.$BINARY_FORMAT_MINOR_V20 或 '
         'v$majorVersion.$BINARY_FORMAT_MINOR_V21',
         code: 'INCOMPATIBLE_VERSION',
@@ -485,7 +489,7 @@ class FileIOService implements IFileIOService {
 
     // ========== 步骤 3：读取 Header Size 和 JSON Header ==========
     if (bytes.length < MAGIC_BYTES_LENGTH + 4 + 4) {
-      throw FileException(
+      throw const FileException(
         '文件数据过短，无法读取 Header Size。\n'
         '至少需要 ${MAGIC_BYTES_LENGTH + 4 + 4} 字节。',
         code: 'INVALID_FORMAT',
@@ -496,7 +500,7 @@ class FileIOService implements IFileIOService {
     // 长度上限校验：防止恶意文件触发超大内存分配
     if (headerSize > MAX_HEADER_SIZE_BYTES) {
       throw FileException(
-        'Header Size 超过上限: $headerSize 字节，'
+        'Header Size 超过上限: $headerSize 字节， '
         '最大允许 $MAX_HEADER_SIZE_BYTES 字节。\n'
         '可能原因：文件已损坏或被恶意构造。',
         code: 'INVALID_FORMAT',
@@ -593,6 +597,7 @@ class FileIOService implements IFileIOService {
       } on FileSystemException catch (e) {
         // 清理临时文件
         try {
+          // ignore: avoid_slow_async_io, 文件操作在异步加密流程中调用
           if (await tempFile.exists()) {
             await tempFile.delete();
           }
@@ -639,10 +644,8 @@ class FileIOService implements IFileIOService {
     // IntegritySink 已在创建时更新了 header（hash='' 版本）
     // 这里构造 bytes 时同步更新 chunks 部分
 
-    final builder = BytesBuilder();
-
     // 1. Magic + Version + HeaderSize + HeaderJson（hash='' 版本）
-    builder.add(STRAW_MAGIC_BYTES);
+    final builder = BytesBuilder()..add(STRAW_MAGIC_BYTES);
     _writeUint16LE(builder, BINARY_FORMAT_MAJOR);
     _writeUint16LE(builder, BINARY_FORMAT_MINOR);
     final headerJson = strawFileForHash.assembleHeaderToJson();
@@ -687,13 +690,13 @@ class FileIOService implements IFileIOService {
     final headerBytesReal = Uint8List.fromList(utf8.encode(headerJsonReal));
 
     final chunksOffset = STRAW_MAGIC_BYTES.length + 4 + 4 + headerBytes.length;
-    final finalBuilder = BytesBuilder();
-    finalBuilder.add(STRAW_MAGIC_BYTES);
+    final finalBuilder = BytesBuilder()..add(STRAW_MAGIC_BYTES);
     _writeUint16LE(finalBuilder, BINARY_FORMAT_MAJOR);
     _writeUint16LE(finalBuilder, BINARY_FORMAT_MINOR);
     _writeUint32LE(finalBuilder, headerBytesReal.length);
-    finalBuilder.add(headerBytesReal);
-    finalBuilder.add(bytesWithoutHash.sublist(chunksOffset));
+    finalBuilder
+      ..add(headerBytesReal)
+      ..add(bytesWithoutHash.sublist(chunksOffset));
 
     return (bytes: finalBuilder.toBytes(), hash: hash);
   }
@@ -702,14 +705,15 @@ class FileIOService implements IFileIOService {
   Future<ParsedStrawFile> readStrawPng(String filePath) async {
     if (!isValidPngFile(filePath)) {
       throw FileException(
-        '无效的文件扩展名：期望 .png，'
-        '实际为 "${p.extension(filePath)}"。'
+        '无效的文件扩展名：期望 .png， '
+        '实际为 "${p.extension(filePath)}"。 '
         '请确保选择的是 StrawHut 知识卡片图片。',
         code: 'INVALID_EXTENSION',
       );
     }
 
     final file = File(filePath);
+    // ignore: avoid_slow_async_io, 文件操作在异步加密流程中调用
     if (!await file.exists()) {
       throw FileException(
         '文件不存在："$filePath"。\n'
@@ -737,7 +741,7 @@ class FileIOService implements IFileIOService {
   Future<ParsedStrawFile> readStrawPngFromBytes(Uint8List bytes) async {
     final strawBinaryData = await CoverImageService.extractStrawData(bytes);
     if (strawBinaryData == null) {
-      throw FileException(
+      throw const FileException(
         '该图片不是知识卡片或传输的不是原图，请确认文件来源后重试',
         code: 'NOT_STRAWHUT_PNG',
       );
@@ -760,14 +764,15 @@ class FileIOService implements IFileIOService {
   Future<KeyFile> readKeyFile(String filePath) async {
     if (!isValidKeyFile(filePath)) {
       throw FileException(
-        '无效的文件扩展名：期望 .key，'
-        '实际为 "${p.extension(filePath)}"。'
+        '无效的文件扩展名：期望 .key， '
+        '实际为 "${p.extension(filePath)}"。 '
         '请确保选择的是 StrawHut 密钥文件。',
         code: 'INVALID_EXTENSION',
       );
     }
 
     final file = File(filePath);
+    // ignore: avoid_slow_async_io, 文件操作在异步加密流程中调用
     if (!await file.exists()) {
       throw FileException(
         '文件不存在："$filePath"。\n'
@@ -859,15 +864,13 @@ class FileIOService implements IFileIOService {
   /// 将 StrawFile 和加密分块列表组装为完整的二进制 .straw 文件字节数据。
   ///
   /// 文件结构：
-  /// ```
+  /// ```text
   /// Magic Bytes (8B) + Version Major (2B) + Version Minor (2B) +
   /// Header Size (4B) + JSON Header (variable) + Chunks (variable)
   /// ```
   Uint8List _buildBinaryFile(StrawFile strawFile, List<ChunkInfo> chunks) {
-    final builder = BytesBuilder();
-
     // 1. Magic Bytes: "STRAWHUT" (8 bytes)
-    builder.add(STRAW_MAGIC_BYTES);
+    final builder = BytesBuilder()..add(STRAW_MAGIC_BYTES);
 
     // 2. Format Version Major (2 bytes uint16 LE)
     _writeUint16LE(builder, BINARY_FORMAT_MAJOR);
@@ -926,7 +929,7 @@ class FileIOService implements IFileIOService {
       // 长度上限校验：防止恶意文件触发超大内存分配
       if (dataSize > MAX_CHUNK_CIPHERTEXT_BYTES) {
         throw FileException(
-          '分块密文长度超过上限: $dataSize 字节，'
+          '分块密文长度超过上限: $dataSize 字节， '
           '最大允许 $MAX_CHUNK_CIPHERTEXT_BYTES 字节。\n'
           '可能原因：文件已损坏或被恶意构造。',
           code: 'INVALID_FORMAT',
@@ -936,7 +939,7 @@ class FileIOService implements IFileIOService {
       // 读取 Encrypted Data (dataSize bytes)
       if (offset + dataSize > bytes.length) {
         throw FileException(
-          '分块数据不完整：期望 $dataSize 字节加密数据，'
+          '分块数据不完整：期望 $dataSize 字节加密数据， '
           '但仅剩 ${bytes.length - offset} 字节。\n'
           '可能原因：文件已损坏或被截断。',
           code: 'INVALID_FORMAT',
@@ -963,8 +966,8 @@ class FileIOService implements IFileIOService {
 
   /// 从字节列表读取 2 字节小端序 uint16
   ///
-  /// 与 [_readUint16LE] 功能相同，但接受 List<int> 而非 Uint8List，
-  /// 用于 RandomAccessFile.read() 返回的 List<int> 数据。
+  /// 与 [_readUint16LE] 功能相同，但接受 `List<int>` 而非 Uint8List，
+  /// 用于 RandomAccessFile.read() 返回的 `List<int>` 数据。
   int _readUint16LEFromBytes(List<int> bytes, int offset) {
     return bytes[offset] | (bytes[offset + 1] << 8);
   }
@@ -981,8 +984,8 @@ class FileIOService implements IFileIOService {
 
   /// 从字节列表读取 4 字节小端序 uint32
   ///
-  /// 与 [_readUint32LE] 功能相同，但接受 List<int> 而非 Uint8List，
-  /// 用于 RandomAccessFile.read() 返回的 List<int> 数据。
+  /// 与 [_readUint32LE] 功能相同，但接受 `List<int>` 而非 Uint8List，
+  /// 用于 RandomAccessFile.read() 返回的 `List<int>` 数据。
   int _readUint32LEFromBytes(List<int> bytes, int offset) {
     return bytes[offset] |
         (bytes[offset + 1] << 8) |
@@ -994,17 +997,19 @@ class FileIOService implements IFileIOService {
   ///
   /// 将 [value] 以 4 字节小端序格式写入 [builder]。
   void _writeUint32LE(BytesBuilder builder, int value) {
-    builder.addByte(value & 0xFF);
-    builder.addByte((value >> 8) & 0xFF);
-    builder.addByte((value >> 16) & 0xFF);
-    builder.addByte((value >> 24) & 0xFF);
+    builder
+      ..addByte(value & 0xFF)
+      ..addByte((value >> 8) & 0xFF)
+      ..addByte((value >> 16) & 0xFF)
+      ..addByte((value >> 24) & 0xFF);
   }
 
   /// 写入 2 字节小端序 uint16
   ///
   /// 将 [value] 以 2 字节小端序格式写入 [builder]。
   void _writeUint16LE(BytesBuilder builder, int value) {
-    builder.addByte(value & 0xFF);
-    builder.addByte((value >> 8) & 0xFF);
+    builder
+      ..addByte(value & 0xFF)
+      ..addByte((value >> 8) & 0xFF);
   }
 }

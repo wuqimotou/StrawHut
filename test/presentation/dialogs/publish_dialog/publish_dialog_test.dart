@@ -27,7 +27,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
-import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
@@ -56,7 +55,7 @@ class FakeStrawContent extends Fake implements StrawContent {}
 /// Fake StrawFile（用于 mocktail registerFallbackValue）
 class FakeStrawFile extends Fake implements StrawFile {}
 
-/// Fake List<ChunkInfo>（用于 mocktail registerFallbackValue）
+/// Fake `List<ChunkInfo>`（用于 mocktail registerFallbackValue）
 class FakeChunkInfoList extends Fake implements List<ChunkInfo> {}
 
 void main() {
@@ -451,7 +450,7 @@ void main() {
 
       // 验证 mock 设置正确
       expect(mockIntegrityService.computeHashFromBytes(Uint8List(0)),
-          'sha256:mocked_hash');
+          'sha256:mocked_hash',);
       expect(
         mockFileIOService.buildBinaryFileBytes(
           strawFile: FakeStrawFile(),

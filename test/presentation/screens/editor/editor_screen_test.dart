@@ -13,8 +13,11 @@
 ///
 /// 使用 flutter_test 框架进行 Widget 测试，
 /// 结合 flutter_riverpod 的 ProviderScope 进行状态管理测试。
+library;
 
-// ignore_for_file: lines_longer_than_80_chars
+// ignore_for_file: lines_longer_than_80_chars, 测试含中文注释与长断言
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -28,16 +31,16 @@ import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 
 /// 用于 Widget 测试的辅助方法：构建被 ProviderScope 包裹的 EditorScreen
 Widget createEditorScreen() {
-  return ProviderScope(
+  return const ProviderScope(
     child: MaterialApp(
-      localizationsDelegates: const [
+      localizationsDelegates: [
         quill.FlutterQuillLocalizations.delegate,
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const EditorScreen(),
+      home: EditorScreen(),
     ),
   );
 }
@@ -82,8 +85,8 @@ void main() {
       await tester.pumpWidget(createEditorScreen());
       await tester.pumpAndSettle();
 
-      // 验证工具栏按钮存在
-      expect(find.byType(IconButton), findsWidgets);
+      // 验证工具栏按钮存在（浮空按钮用 Tooltip 包裹）
+      expect(find.byType(Tooltip), findsWidgets);
     });
 
     testWidgets('编辑模式下应该显示 QuillEditor', (tester) async {
@@ -234,7 +237,7 @@ void main() {
       expect(find.text('欢迎使用 StrawHut'), findsOneWidget);
 
       // 使用 push 导航到编辑器（保留返回栈）
-      appRouter.push('/editor');
+      unawaited(appRouter.push('/editor'));
       await tester.pumpAndSettle();
 
       // 验证编辑器页面显示

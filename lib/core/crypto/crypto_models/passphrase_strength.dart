@@ -1,3 +1,5 @@
+import 'package:strawhut/core/crypto/passphrase_strength_service.dart' show PassphraseStrengthService;
+
 /// 口令强度等级
 ///
 /// 用于评估用户输入口令的安全强度。

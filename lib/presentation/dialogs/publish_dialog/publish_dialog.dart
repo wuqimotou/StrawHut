@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, Flutter 3.32 弃用 RadioListTile.groupValue/onChanged，待 RadioGroup 祖先 API 普及后统一迁移
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -6,24 +7,24 @@ import 'dart:typed_data';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_scanner/media_scanner.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
-import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
-import 'package:strawhut/core/integrity/integrity_service.dart';
+import 'package:strawhut/core/utils/cancellation_token.dart';
 import 'package:strawhut/core/utils/cover_image_service.dart';
 import 'package:strawhut/core/utils/image_service.dart';
 import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
-import 'package:strawhut/data/models/straw_file.dart';
 import 'package:strawhut/data/models/straw_content.dart';
+import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/export_options.dart';
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/key_display.dart';
@@ -32,12 +33,11 @@ import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/passphrase_
 import 'package:strawhut/presentation/dialogs/publish_dialog/widgets/publish_security_notices.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
-import 'package:strawhut/presentation/providers/picked_file_provider.dart';
 import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
+import 'package:strawhut/presentation/providers/picked_file_provider.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
-import 'package:strawhut/core/utils/cancellation_token.dart';
 
 /// 发布对话框
 ///
@@ -74,11 +74,11 @@ import 'package:strawhut/core/utils/cancellation_token.dart';
 /// - [KeyDisplay]: 密钥展示（Base64 密钥、复制按钮、安全提示）
 /// - [ExportOptions]: 导出选项（是否导出 .key 文件）
 class PublishDialog extends ConsumerStatefulWidget {
-  /// 初始内容来源模式，用于从首页直接进入文件加密模式时锁定选项
-  final ContentSourceMode? initialMode;
 
   /// 创建发布对话框实例
   const PublishDialog({super.key, this.initialMode});
+  /// 初始内容来源模式，用于从首页直接进入文件加密模式时锁定选项
+  final ContentSourceMode? initialMode;
 
   /// 显示发布对话框的静态方法
   ///
@@ -136,7 +136,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   CancellationToken? _cancellationToken;
 
   /// 加密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
-  double _encryptProgress = 0.0;
+  double _encryptProgress = 0;
 
   /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
   DateTime? _lastProgressUpdateTime;
@@ -146,7 +146,8 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     if (!mounted) return;
     final now = DateTime.now();
     final shouldUpdate = _lastProgressUpdateTime == null ||
-        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        now.difference(_lastProgressUpdateTime!) >=
+            const Duration(milliseconds: 100) ||
         progress >= 1.0;
     if (shouldUpdate) {
       _lastProgressUpdateTime = now;
@@ -196,11 +197,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
   /// 是否锁定内容来源模式（从首页直接进入文件加密时锁定）
   bool get _isContentSourceLocked => widget.initialMode != null;
 
-  String get _exportFormat => _exportFormatValue;
-  String _exportFormatValue = 'straw';
-  set _exportFormat(String value) {
-    _exportFormatValue = value;
-  }
+  String _exportFormat = 'straw';
 
   /// 文件加密模式下只能选 .straw
   String get _effectiveExportFormat {
@@ -223,7 +220,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     super.initState();
     _contentSourceMode = widget.initialMode ?? ContentSourceMode.editor;
     if (widget.initialMode == ContentSourceMode.fileUpload) {
-      _exportFormatValue = 'straw';
+      _exportFormat = 'straw';
     }
   }
 
@@ -274,9 +271,8 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
 
   /// 选择文件
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      withData: false, // 不预加载字节
+    final result = await FilePicker.pickFiles(
+      
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -288,10 +284,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     final ext = dotIndex > 0 ? fileName.substring(dotIndex + 1) : '';
 
     // 获取文件路径
-    final String? filePath = file.path;
+    final filePath = file.path;
 
     // 获取文件大小
-    int fileSize = 0;
+    var fileSize = 0;
     if (filePath != null) {
       try {
         fileSize = await File(filePath).length();
@@ -383,19 +379,15 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       case _FileSizeWarningLevel.hint:
         title = '文件较大';
         cancelText = '知道了';
-        break;
       case _FileSizeWarningLevel.warning:
         title = '文件很大';
         cancelText = '返回';
-        break;
       case _FileSizeWarningLevel.strongWarning:
         title = '文件超大';
         cancelText = '取消选择';
-        break;
       case _FileSizeWarningLevel.severe:
         title = '文件极大';
         cancelText = '取消选择';
-        break;
     }
 
     final confirmed = await showDialog<bool>(
@@ -453,10 +445,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                   children: [
                     NeumorphicButton(
                       label: cancelText,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: '继续',
                       style: NeumorphicButtonStyle.primary,
@@ -507,6 +498,12 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       }
     }
 
+    // PNG 格式强确认：原图发送提醒（不可点击外部关闭）
+    if (_effectiveExportFormat == 'png') {
+      final confirmed = await _showPngOriginalImageWarning();
+      if (!confirmed) return;
+    }
+
     // 文件上传模式：验证已选文件
     if (_contentSourceMode == ContentSourceMode.fileUpload) {
       final pickedFile = ref.read(pickedFileProvider);
@@ -525,6 +522,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       }
 
       if (ImageService.isTotalContentExceeded(editorContent)) {
+        if (!mounted) return;
         final tokens = NeumorphicTokens.ofContext(context);
         final shouldProceed = await showDialog<bool>(
           context: context,
@@ -566,7 +564,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                       '当前卡片内容超过 10MB，可能影响加密/解密性能。是否继续发布？',
                       style: TextStyle(
                         fontSize: 14,
-                        color: tokens.textSecondary,
+                        color: tokens.warning,
                       ),
                     ),
                     SizedBox(height: tokens.spaceLg),
@@ -575,10 +573,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                       children: [
                         NeumorphicButton(
                           label: '取消',
-                          style: NeumorphicButtonStyle.flat,
                           onPressed: () => Navigator.pop(context, false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         NeumorphicButton(
                           label: '继续发布',
                           style: NeumorphicButtonStyle.primary,
@@ -765,7 +762,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
+        integrity: const IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
       );
 
       // 步骤 8：构建二进制 .straw 数据并同步计算 HMAC-SHA256 完整性哈希
@@ -784,15 +781,6 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         integritySink: integritySink,
       );
       final strawBinaryData = binaryResult.bytes;
-      final hash = binaryResult.hash;
-
-      // 步骤 9：用正确的哈希组装最终的 StrawFile（用于后续元数据引用）
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 1, 0),
-        meta: meta,
-        content: strawContent,
-        integrity: IntegrityInfo(hash: hash, hashAlgorithm: 'HMAC-SHA256'),
-      );
 
       String savePath;
       if (_effectiveExportFormat == 'png') {
@@ -913,12 +901,12 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         );
         if (!alreadySaved && mounted) {
           final shouldSave = await _showSavePassphrasePrompt();
-          if (shouldSave == true && mounted) {
+          if ((shouldSave ?? false) && mounted) {
             final saved = await AddPassphraseDialog.show(
               context,
               initialPassphrase: negotiatedPassphrase,
             );
-            if (saved == true) {
+            if (saved ?? false) {
               ref.invalidate(passphraseEntriesProvider);
             }
           }
@@ -1024,7 +1012,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                         l10n.passphraseWeakWarning,
                         style: TextStyle(
                           fontSize: 14,
-                          color: tokens.textSecondary,
+                          color: tokens.warning,
                         ),
                       ),
                     ),
@@ -1045,7 +1033,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                         l10n.passphraseWeakSuggestion,
                         style: TextStyle(
                           fontSize: 13,
-                          color: tokens.textSecondary,
+                          color: tokens.inkSecondary,
                         ),
                       ),
                     ),
@@ -1066,12 +1054,102 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                   children: [
                     NeumorphicButton(
                       label: l10n.backToEdit,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: l10n.confirmContinue,
+                      style: NeumorphicButtonStyle.primary,
+                      onPressed: () => Navigator.pop(context, true),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// 显示 PNG 原图发送强确认对话框
+  ///
+  /// PNG 知识卡片将加密数据嵌入图像像素，必须以原图方式发送。
+  /// 在用户点击发布按钮后、实际加密前进行强确认（不可点击外部关闭）。
+  ///
+  /// 返回：true 表示用户确认了解并继续发布，false 表示返回
+  Future<bool> _showPngOriginalImageWarning() async {
+    final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    NeumorphicIcon(
+                      StrawIcons.warning,
+                      size: 22,
+                      color: tokens.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        l10n.pngOriginalImageConfirmTitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spaceMd),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    NeumorphicIcon(
+                      StrawIcons.warning,
+                      size: 20,
+                      color: tokens.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.pngOriginalImageConfirmBody,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tokens.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spaceLg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    NeumorphicButton(
+                      label: l10n.backToEdit,
+                      onPressed: () => Navigator.pop(context, false),
+                    ),
+                    const SizedBox(width: 12),
+                    NeumorphicButton(
+                      label: l10n.confirmPublish,
                       style: NeumorphicButtonStyle.primary,
                       onPressed: () => Navigator.pop(context, true),
                     ),
@@ -1144,10 +1222,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                   children: [
                     NeumorphicButton(
                       label: l10n.skipSave,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: l10n.savePassphraseAction,
                       style: NeumorphicButtonStyle.primary,
@@ -1179,14 +1256,15 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
 
       // 提取所有 insert 操作中的文本内容，同时检查是否有图片等非文本嵌入
       final buffer = StringBuffer();
-      bool hasNonTextContent = false;
+      var hasNonTextContent = false;
       for (final op in ops) {
         if (op is Map) {
           final insert = op['insert'];
           if (insert is String) {
             buffer.write(insert);
           } else if (insert is Map) {
-            // Image or other embed types (e.g. {"image": "data:..."} or {"video": "..."})
+            // Image or other embed types
+            // (e.g. {"image": "data:..."} or {"video": "..."})
             if (insert.containsKey('image') || insert.containsKey('video')) {
               hasNonTextContent = true;
             }
@@ -1243,15 +1321,17 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     ).join();
   }
 
-  /// Notify Android MediaStore to scan the newly saved file so it appears in the gallery.
+  /// Notify Android MediaStore to scan the newly saved file so it appears in
+  /// the gallery.
   ///
-  /// On Android 10+ (API 29+), files saved via path_provider may not immediately
-  /// appear in the Photos app. This method triggers a media scan using media_scanner.
+  /// On Android 10+ (API 29+), files saved via path_provider may not
+  /// immediately appear in the Photos app. This method triggers a media scan
+  /// using media_scanner.
   Future<void> _notifyMediaStore(String filePath) async {
     try {
       await MediaScanner.loadMedia(path: filePath);
       debugPrint('MediaStore scanned: $filePath');
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('MediaStore notification failed for $filePath: $e');
     }
   }
@@ -1379,13 +1459,10 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   NeumorphicButton(
-                    label: _isLoading && _isCancelling
-                        ? '取消中...'
-                        : l10n.cancel,
-                    style: NeumorphicButtonStyle.flat,
+                    label: l10n.cancel,
                     onPressed: _isCancelling ? null : _handleCancel,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: _isLoading
                         ? (_isCancelling
@@ -1407,7 +1484,8 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
     );
   }
 
-  /// Builds the shared form content used by both desktop Dialog and mobile full-screen versions.
+  /// Builds the shared form content used by both desktop Dialog and mobile
+  /// full-screen versions.
   Widget _buildFormContent(AppLocalizations l10n) {
     final tokens = NeumorphicTokens.ofContext(context);
     final pickedFile = ref.watch(pickedFileProvider);
@@ -1461,7 +1539,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
                     ref.read(pickedFileProvider.notifier).clear();
                   } else {
                     // 切换到文件上传模式时，强制导出格式为 .straw
-                    _exportFormatValue = 'straw';
+                    _exportFormat = 'straw';
                   }
                 });
                 if (mode == ContentSourceMode.editor) {
@@ -1721,7 +1799,7 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
       final warning = _getFileSizeWarning(pickedFile.fileSize);
 
       return NeumorphicContainer(
-        shape: NeumorphicShape.concave,
+        shape: NeumorphicShape.flat,
         borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -1793,7 +1871,9 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
         child: NeumorphicContainer(
           shape: _isDragging ? NeumorphicShape.concave : NeumorphicShape.flat,
           borderRadius: tokens.radiusSmall,
-          color: _isDragging ? tokens.inkWash.withValues(alpha: 0.08) : tokens.surface,
+          color: _isDragging
+              ? tokens.inkWash.withValues(alpha: 0.08)
+              : tokens.surface,
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(
             children: [
@@ -2074,8 +2154,8 @@ class _PublishDialogState extends ConsumerState<PublishDialog> {
 /// - Keyboard-aware layout via MediaQuery.viewInsets
 /// - Minimum 48dp touch targets
 class _PublishDialogMobile extends ConsumerStatefulWidget {
-  final ContentSourceMode? initialMode;
   const _PublishDialogMobile({this.initialMode});
+  final ContentSourceMode? initialMode;
 
   @override
   ConsumerState<_PublishDialogMobile> createState() =>
@@ -2089,7 +2169,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
   bool _isLoading = false;
   bool _isCancelling = false;
   CancellationToken? _cancellationToken;
-  double _encryptProgress = 0.0;
+  double _encryptProgress = 0;
 
   /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
   DateTime? _lastProgressUpdateTime;
@@ -2099,7 +2179,8 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
     if (!mounted) return;
     final now = DateTime.now();
     final shouldUpdate = _lastProgressUpdateTime == null ||
-        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        now.difference(_lastProgressUpdateTime!) >=
+            const Duration(milliseconds: 100) ||
         progress >= 1.0;
     if (shouldUpdate) {
       _lastProgressUpdateTime = now;
@@ -2142,9 +2223,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
   /// 是否锁定内容来源模式
   bool get _isContentSourceLocked => widget.initialMode != null;
 
-  String get _exportFormat => _exportFormatValue;
-  String _exportFormatValue = 'straw';
-  set _exportFormat(String value) => _exportFormatValue = value;
+  String _exportFormat = 'straw';
 
   /// 文件加密模式下只能选 .straw
   String get _effectiveExportFormat {
@@ -2162,7 +2241,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
     super.initState();
     _contentSourceMode = widget.initialMode ?? ContentSourceMode.editor;
     if (widget.initialMode == ContentSourceMode.fileUpload) {
-      _exportFormatValue = 'straw';
+      _exportFormat = 'straw';
     }
   }
 
@@ -2190,7 +2269,6 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
         leading: NeumorphicIconButton(
           icon: StrawIcons.close,
           size: 40,
-          iconSize: 20,
           onPressed: _isCancelling ? null : _handleCancel,
           tooltip: '取消',
         ),
@@ -2236,13 +2314,11 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                                       : '加密中...',
                               style: NeumorphicButtonStyle.primary,
                               expanded: true,
-                              onPressed: null,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           NeumorphicButton(
                             label: '取消',
-                            style: NeumorphicButtonStyle.flat,
                             onPressed: _isCancelling ? null : _handleCancel,
                           ),
                         ],
@@ -2303,9 +2379,8 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
   /// 选择文件
   Future<void> _pickFile() async {
     // 先不用 withData 获取文件信息（路径和大小）
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      withData: false,
+    final result = await FilePicker.pickFiles(
+      
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -2317,10 +2392,10 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
     final ext = dotIndex > 0 ? fileName.substring(dotIndex + 1) : '';
 
     // 获取文件路径
-    String? filePath = file.path;
+    var filePath = file.path;
 
     // 获取文件大小
-    int fileSize = 0;
+    var fileSize = 0;
     if (filePath != null) {
       try {
         fileSize = await File(filePath).length();
@@ -2333,8 +2408,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
     // （安卓端某些 content:// URI 无法直接获取大小和路径）
     if (filePath == null || fileSize == 0) {
       // 回退：重新选择文件，这次 withData: true
-      final resultWithData = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+      final resultWithData = await FilePicker.pickFiles(
         withData: true,
       );
       if (resultWithData == null || resultWithData.files.isEmpty) return;
@@ -2434,19 +2508,15 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       case _FileSizeWarningLevel.hint:
         title = '文件较大';
         cancelText = '知道了';
-        break;
       case _FileSizeWarningLevel.warning:
         title = '文件很大';
         cancelText = '返回';
-        break;
       case _FileSizeWarningLevel.strongWarning:
         title = '文件超大';
         cancelText = '取消选择';
-        break;
       case _FileSizeWarningLevel.severe:
         title = '文件极大';
         cancelText = '取消选择';
-        break;
     }
 
     final confirmed = await showDialog<bool>(
@@ -2504,10 +2574,9 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                   children: [
                     NeumorphicButton(
                       label: cancelText,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: '继续',
                       style: NeumorphicButtonStyle.primary,
@@ -2573,7 +2642,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                 if (mode == ContentSourceMode.editor) {
                   ref.read(pickedFileProvider.notifier).clear();
                 } else {
-                  _exportFormatValue = 'straw';
+                  _exportFormat = 'straw';
                 }
               });
               if (mode == ContentSourceMode.editor) {
@@ -2823,7 +2892,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       final warning = _getFileSizeWarning(pickedFile.fileSize);
 
       return NeumorphicContainer(
-        shape: NeumorphicShape.concave,
+        shape: NeumorphicShape.flat,
         borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -2881,7 +2950,6 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
           borderRadius: BorderRadius.circular(tokens.radiusSmall),
           border: Border.all(
             color: tokens.divider,
-            width: 1,
           ),
         ),
         child: NeumorphicContainer(
@@ -2967,6 +3035,12 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       }
     }
 
+    // PNG 格式强确认：原图发送提醒（不可点击外部关闭）
+    if (_effectiveExportFormat == 'png') {
+      final confirmed = await _showPngOriginalImageWarning();
+      if (!confirmed) return;
+    }
+
     // 文件上传模式：验证已选文件
     if (_contentSourceMode == ContentSourceMode.fileUpload) {
       final pickedFile = ref.read(pickedFileProvider);
@@ -2985,6 +3059,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       }
 
       if (ImageService.isTotalContentExceeded(editorContent)) {
+        if (!mounted) return;
         final tokens = NeumorphicTokens.ofContext(context);
         final shouldProceed = await showDialog<bool>(
           context: context,
@@ -3026,7 +3101,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                       '当前卡片内容超过 10MB，可能影响加密/解密性能。是否继续发布？',
                       style: TextStyle(
                         fontSize: 14,
-                        color: tokens.textSecondary,
+                        color: tokens.warning,
                       ),
                     ),
                     SizedBox(height: tokens.spaceLg),
@@ -3035,10 +3110,9 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                       children: [
                         NeumorphicButton(
                           label: '取消',
-                          style: NeumorphicButtonStyle.flat,
                           onPressed: () => Navigator.pop(context, false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         NeumorphicButton(
                           label: '继续发布',
                           style: NeumorphicButtonStyle.primary,
@@ -3216,7 +3290,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
         formatVersion: const FormatVersion(2, 1, 0),
         meta: meta,
         content: strawContent,
-        integrity: IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
+        integrity: const IntegrityInfo(hash: '', hashAlgorithm: 'HMAC-SHA256'),
       );
 
       // 构建不含哈希的二进制字节，计算 HMAC-SHA256 完整性哈希
@@ -3356,12 +3430,12 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
         );
         if (!alreadySaved && mounted) {
           final shouldSave = await _showMobileSavePassphrasePrompt();
-          if (shouldSave == true && mounted) {
+          if ((shouldSave ?? false) && mounted) {
             final saved = await AddPassphraseDialog.show(
               context,
               initialPassphrase: negotiatedPassphrase,
             );
-            if (saved == true) {
+            if (saved ?? false) {
               ref.invalidate(passphraseEntriesProvider);
             }
           }
@@ -3458,7 +3532,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                         l10n.passphraseWeakWarning,
                         style: TextStyle(
                           fontSize: 14,
-                          color: tokens.textSecondary,
+                          color: tokens.warning,
                         ),
                       ),
                     ),
@@ -3479,7 +3553,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                         l10n.passphraseWeakSuggestion,
                         style: TextStyle(
                           fontSize: 13,
-                          color: tokens.textSecondary,
+                          color: tokens.inkSecondary,
                         ),
                       ),
                     ),
@@ -3500,12 +3574,102 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                   children: [
                     NeumorphicButton(
                       label: l10n.backToEdit,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: l10n.confirmContinue,
+                      style: NeumorphicButtonStyle.primary,
+                      onPressed: () => Navigator.pop(context, true),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// 显示移动端 PNG 原图发送强确认对话框
+  ///
+  /// PNG 知识卡片将加密数据嵌入图像像素，必须以原图方式发送。
+  /// 在用户点击发布按钮后、实际加密前进行强确认（不可点击外部关闭）。
+  ///
+  /// 返回：true 表示用户确认了解并继续发布，false 表示返回
+  Future<bool> _showPngOriginalImageWarning() async {
+    final l10n = AppLocalizations.of(context)!;
+    final tokens = NeumorphicTokens.ofContext(context);
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusXLarge),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    NeumorphicIcon(
+                      StrawIcons.warning,
+                      size: 22,
+                      color: tokens.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        l10n.pngOriginalImageConfirmTitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spaceMd),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    NeumorphicIcon(
+                      StrawIcons.warning,
+                      size: 20,
+                      color: tokens.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.pngOriginalImageConfirmBody,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: tokens.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: tokens.spaceLg),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    NeumorphicButton(
+                      label: l10n.backToEdit,
+                      onPressed: () => Navigator.pop(context, false),
+                    ),
+                    const SizedBox(width: 12),
+                    NeumorphicButton(
+                      label: l10n.confirmPublish,
                       style: NeumorphicButtonStyle.primary,
                       onPressed: () => Navigator.pop(context, true),
                     ),
@@ -3573,10 +3737,9 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
                   children: [
                     NeumorphicButton(
                       label: l10n.skipSave,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: l10n.savePassphraseAction,
                       style: NeumorphicButtonStyle.primary,
@@ -3600,7 +3763,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
       if (ops.isEmpty) return false;
 
       final buffer = StringBuffer();
-      bool hasNonTextContent = false;
+      var hasNonTextContent = false;
       for (final op in ops) {
         if (op is Map) {
           final insert = op['insert'];
@@ -3680,7 +3843,7 @@ class _PublishDialogMobileState extends ConsumerState<_PublishDialogMobile> {
     try {
       await MediaScanner.loadMedia(path: filePath);
       debugPrint('MediaStore scanned: $filePath');
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('MediaStore notification failed for $filePath: $e');
     }
   }

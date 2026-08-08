@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:strawhut/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
+import 'package:strawhut/core/crypto/crypto_service.dart' show CryptoService;
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cancellation_token.dart';
@@ -18,6 +18,7 @@ import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_file_upload.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/key_input.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/widgets/passphrase_decrypt_input.dart';
@@ -78,10 +79,10 @@ class DecryptDialog extends ConsumerStatefulWidget {
   ///   参数为解密结果（包含 PayloadMetadata 和 payloadBytes）
   /// - [strawFilePath] - .straw 文件路径，用于流式解密大文件，可选
   const DecryptDialog({
-    super.key,
     required this.strawFile,
     required this.parsedFile,
     required this.onDecryptSuccess,
+    super.key,
     this.strawFilePath,
   });
 
@@ -185,7 +186,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   CancellationToken? _cancellationToken;
 
   /// 解密进度（0.0 ~ 1.0），仅当 _isLoading 为 true 时有意义
-  double _decryptProgress = 0.0;
+  double _decryptProgress = 0;
 
   /// 进度回调 throttle：上一次 setState 时间，避免每块都触发 UI 重绘
   DateTime? _lastProgressUpdateTime;
@@ -195,7 +196,8 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
     if (!mounted) return;
     final now = DateTime.now();
     final shouldUpdate = _lastProgressUpdateTime == null ||
-        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        now.difference(_lastProgressUpdateTime!) >=
+            const Duration(milliseconds: 100) ||
         progress >= 1.0;
     if (shouldUpdate) {
       _lastProgressUpdateTime = now;
@@ -299,7 +301,8 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
         ),
       );
-      final hmacKey = useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
+      final hmacKey =
+          useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
       integritySink = integrityService.createIntegritySink(
         strawFileForHash: strawFileForSink,
         hmacKey: hmacKey,
@@ -536,7 +539,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
             context,
             initialPassphrase: passphrase,
           );
-          if (saved == true) {
+          if (saved ?? false) {
             ref.invalidate(passphraseEntriesProvider);
           }
         }
@@ -808,7 +811,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
                         if (_errorMessage != null) ...[
                           SizedBox(height: tokens.spaceSm + tokens.spaceXs),
                           NeumorphicContainer(
-                            shape: NeumorphicShape.concave,
+                            shape: NeumorphicShape.flat,
                             borderRadius: tokens.radiusSmall,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -848,10 +851,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
                     NeumorphicButton(
                       key: const ValueKey('decrypt_cancel_button'),
                       label: l10n.cancel,
-                      style: NeumorphicButtonStyle.flat,
                       onPressed: _isCancelling ? null : _handleCancel,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicButton(
                       label: _isLoading
                           ? (_isCancelling
@@ -881,7 +883,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   Widget _buildMetaPreview(CardMeta meta) {
     final tokens = NeumorphicTokens.ofContext(context);
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1019,7 +1021,9 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
   String _formatDate(String isoDate) {
     try {
       final dateTime = DateTime.parse(isoDate).toLocal();
-      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+      return '${dateTime.year}-'
+          '${dateTime.month.toString().padLeft(2, '0')}-'
+          '${dateTime.day.toString().padLeft(2, '0')}';
     } on Exception {
       return isoDate;
     }
@@ -1059,7 +1063,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
   bool _isLoading = false;
   bool _isCancelling = false;
-  double _decryptProgress = 0.0;
+  double _decryptProgress = 0;
   String? _errorMessage;
   String? _currentKey;
   bool _savePassphrase = false;
@@ -1074,7 +1078,8 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     if (!mounted) return;
     final now = DateTime.now();
     final shouldUpdate = _lastProgressUpdateTime == null ||
-        now.difference(_lastProgressUpdateTime!) >= const Duration(milliseconds: 100) ||
+        now.difference(_lastProgressUpdateTime!) >=
+            const Duration(milliseconds: 100) ||
         progress >= 1.0;
     if (shouldUpdate) {
       _lastProgressUpdateTime = now;
@@ -1161,7 +1166,8 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           hashAlgorithm: widget.strawFile.integrity.hashAlgorithm,
         ),
       );
-      final hmacKey = useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
+      final hmacKey =
+          useV21Security ? cryptoService.deriveHmacKey(keyBytes) : null;
       integritySink = integrityService.createIntegritySink(
         strawFileForHash: strawFileForSink,
         hmacKey: hmacKey,
@@ -1378,7 +1384,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
             context,
             initialPassphrase: passphrase,
           );
-          if (saved == true) {
+          if (saved ?? false) {
             ref.invalidate(passphraseEntriesProvider);
           }
         }
@@ -1629,7 +1635,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                     if (_errorMessage != null) ...[
                       SizedBox(height: tokens.spaceSm + tokens.spaceXs),
                       NeumorphicContainer(
-                        shape: NeumorphicShape.concave,
+                        shape: NeumorphicShape.flat,
                         borderRadius: tokens.radiusSmall,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1673,10 +1679,9 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                   NeumorphicButton(
                     key: const ValueKey('decrypt_cancel_button'),
                     label: l10n.cancel,
-                    style: NeumorphicButtonStyle.flat,
                     onPressed: _isCancelling ? null : _handleCancel,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: _isLoading
                         ? (_isCancelling
@@ -1701,7 +1706,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   Widget _buildMetaPreview(CardMeta meta) {
     final tokens = NeumorphicTokens.ofContext(context);
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1826,7 +1831,9 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
   String _formatDate(String isoDate) {
     try {
       final dateTime = DateTime.parse(isoDate).toLocal();
-      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+      return '${dateTime.year}-'
+          '${dateTime.month.toString().padLeft(2, '0')}-'
+          '${dateTime.day.toString().padLeft(2, '0')}';
     } on Exception {
       return isoDate;
     }

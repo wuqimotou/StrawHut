@@ -15,7 +15,7 @@
 // - 完整性校验失败的 .key 文件显示错误提示"文件可能已被篡改"
 // - 正确解析的 .key 文件触发 onKeyFileLoaded 回调
 //
-// 注意：由于 KeyFileUpload 直接使用 FilePicker.platform.pickFiles()
+// 注意：由于 KeyFileUpload 直接使用 FilePicker.pickFiles()
 // 和 dart:io 的 File 类进行真实文件操作，在 Widget 测试中无法直接模拟
 // 文件选择器和文件系统。因此本测试文件侧重于：
 // - UI 渲染验证
@@ -52,7 +52,7 @@ Widget _buildKeyFileUpload({
 ///
 /// 用于测试 .key 文件格式验证。
 String generateValidKeyFileJson(
-    {String keyBase64 = 'dGVzdEtleUJhc2U2NFN0cmluZzEyMzQ1Njc4OTAxMjM0'}) {
+    {String keyBase64 = 'dGVzdEtleUJhc2U2NFN0cmluZzEyMzQ1Njc4OTAxMjM0',}) {
   final now = DateTime.now().toUtc();
   final timestamp = '${now.toIso8601String().split('.').first}Z';
 
@@ -315,7 +315,10 @@ void main() {
         },
       };
 
-      expect(keyFile['key_metadata']['key_length_bits'], isNot(equals(256)));
+      expect(
+        (keyFile['key_metadata'] as Map<String, dynamic>)['key_length_bits'],
+        isNot(equals(256)),
+      );
     });
 
     test('encoding 不为 base64 的 JSON 应该被格式验证拒绝', () {
@@ -336,7 +339,10 @@ void main() {
         },
       };
 
-      expect(keyFile['key_data']['encoding'], isNot(equals('base64')));
+      expect(
+        (keyFile['key_data'] as Map<String, dynamic>)['encoding'],
+        isNot(equals('base64')),
+      );
     });
   });
 
@@ -410,8 +416,9 @@ void main() {
       final json = jsonDecode(content) as Map<String, dynamic>;
 
       expect(json['format_version'], equals('1.0.0'));
-      expect(json['key_data']['key_base64'], isNotEmpty);
-      expect(json['key_data']['encoding'], equals('base64'));
+      final keyData = json['key_data'] as Map<String, dynamic>;
+      expect(keyData['key_base64'], isNotEmpty);
+      expect(keyData['encoding'], equals('base64'));
     });
 
     test('带 integrity 的 .key 文件应该能正确读取', () async {
@@ -422,8 +429,9 @@ void main() {
       final json = jsonDecode(content) as Map<String, dynamic>;
 
       expect(json['format_version'], equals('1.0.0'));
-      expect(json['integrity']['hash'], startsWith('sha256:'));
-      expect(json['integrity']['hash_algorithm'], equals('SHA-256'));
+      final integrity = json['integrity'] as Map<String, dynamic>;
+      expect(integrity['hash'], startsWith('sha256:'));
+      expect(integrity['hash_algorithm'], equals('SHA-256'));
     });
 
     test('篡改后的 .key 文件完整性校验应该失败', () async {
@@ -440,7 +448,8 @@ void main() {
       final content = await tamperedFile.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
 
-      final storedHash = json['integrity']['hash'] as String;
+      final storedHash =
+          (json['integrity'] as Map<String, dynamic>)['hash'] as String;
       final computedHash = computeContentHash(content);
 
       expect(computedHash, isNot(equals(storedHash)));

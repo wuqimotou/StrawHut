@@ -22,7 +22,7 @@ import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 /// - 提示信息：此卡片通过暗号加密
 /// - 提示文本：请与创作者确认暗号内容
 ///
-/// 外部通过 GlobalKey<PassphraseDecryptInputState> 访问：
+/// 外部通过 `GlobalKey<PassphraseDecryptInputState>` 访问：
 /// - passphrase: 获取当前暗号值（String?）
 /// - clear(): 清空输入
 class PassphraseDecryptInput extends ConsumerStatefulWidget {
@@ -81,8 +81,9 @@ class PassphraseDecryptInputState
 
   @override
   void dispose() {
-    _controller.removeListener(_handleTextChanged);
-    _controller.dispose();
+    _controller
+      ..removeListener(_handleTextChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -195,9 +196,8 @@ class PassphraseDecryptInputState
                     children: entries
                         .map(
                           (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: NeumorphicContainer(
-                              shape: NeumorphicShape.flat,
                               borderRadius: tokens.radiusSmall,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -216,19 +216,25 @@ class PassphraseDecryptInputState
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: Text(
-                                        entry.label,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: tokens.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      l10n.usedCount(entry.useCount),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: tokens.textHint,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            entry.label,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: tokens.textPrimary,
+                                            ),
+                                          ),
+                                          Text(
+                                            l10n.usedCount(entry.useCount),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: tokens.textHint,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -292,24 +298,55 @@ class PassphraseDecryptInputState
           Flexible(
             child: ListView.builder(
               shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                return ListTile(
-                  leading: NeumorphicIcon(
-                    StrawIcons.lock,
-                    size: 22,
-                    color: tokens.inkSecondary,
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: NeumorphicContainer(
+                    borderRadius: tokens.radiusSmall,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context, entry),
+                      borderRadius:
+                          BorderRadius.circular(tokens.radiusSmall),
+                      child: Row(
+                        children: [
+                          NeumorphicIcon(
+                            StrawIcons.lock,
+                            size: 20,
+                            color: tokens.inkSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.label,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: tokens.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  l10n.usedCount(entry.useCount),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: tokens.textHint,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  title: Text(
-                    entry.label,
-                    style: TextStyle(color: tokens.textPrimary),
-                  ),
-                  subtitle: Text(
-                    l10n.usedCount(entry.useCount),
-                    style: TextStyle(color: tokens.textHint),
-                  ),
-                  onTap: () => Navigator.pop(context, entry),
                 );
               },
             ),
@@ -329,42 +366,29 @@ class PassphraseDecryptInputState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        entriesAsync.when(
-          data: (entries) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: NeumorphicButton(
+        // 从保险库选择按钮（缩窄、居中，适配文字长度）
+        Center(
+          child: entriesAsync.when(
+            data: (entries) => NeumorphicButton(
               label: l10n.selectFromVault,
               icon: StrawIcons.password,
-              style: NeumorphicButtonStyle.secondary,
-              expanded: true,
               onPressed: widget.enabled && entries.isNotEmpty
                   ? () => _showVaultPicker(context)
                   : null,
             ),
-          ),
-          loading: () => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: NeumorphicButton(
+            loading: () => NeumorphicButton(
               label: l10n.selectFromVault,
               icon: StrawIcons.password,
-              style: NeumorphicButtonStyle.secondary,
-              expanded: true,
-              onPressed: null,
             ),
-          ),
-          error: (_, __) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: NeumorphicButton(
+            error: (_, __) => NeumorphicButton(
               label: l10n.selectFromVault,
               icon: StrawIcons.password,
-              style: NeumorphicButtonStyle.secondary,
-              expanded: true,
-              onPressed: null,
             ),
           ),
         ),
 
         if (_selectedEntry != null) ...[
+          const SizedBox(height: 8),
           InputChip(
             avatar: NeumorphicIcon(
               StrawIcons.lock,
@@ -386,9 +410,65 @@ class PassphraseDecryptInputState
                 : null,
           ),
           SizedBox(height: tokens.spaceSm),
+        ] else ...[
+          SizedBox(height: tokens.spaceMd),
         ],
 
-        // 提示信息：此卡片通过暗号加密（扁平背景，退居次要，避免与输入框争夺视觉焦点）
+        // 暗号输入框（扁平背景，仅按钮保留浮空样式）
+        NeumorphicContainer(
+          shape: NeumorphicShape.flat,
+          color: tokens.surfaceAlt,
+          borderRadius: tokens.radiusSmall,
+          padding: EdgeInsets.zero,
+          child: TextField(
+            controller: _controller,
+            enabled: widget.enabled,
+            obscureText: _obscurePassphrase,
+            decoration: InputDecoration(
+              labelText: l10n.decryptPassphraseLabel,
+              labelStyle: TextStyle(color: tokens.textSecondary),
+              hintText: l10n.decryptPassphraseHint,
+              hintStyle: TextStyle(color: tokens.textHint),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide: BorderSide(color: tokens.divider),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide:
+                    BorderSide(color: tokens.divider),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide:
+                    BorderSide(color: tokens.inkSecondary, width: 1.5),
+              ),
+              filled: true,
+              fillColor: tokens.surface,
+              prefixIcon: NeumorphicIcon(
+                StrawIcons.lock,
+                size: 20,
+                color: tokens.textSecondary,
+              ),
+              suffixIcon: IconButton(
+                icon: NeumorphicIcon(
+                  _obscurePassphrase ? StrawIcons.eyeOff : StrawIcons.eye,
+                  size: 20,
+                  color: tokens.textSecondary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassphrase = !_obscurePassphrase;
+                  });
+                },
+              ),
+            ),
+            style: TextStyle(color: tokens.textPrimary),
+          ),
+        ),
+        SizedBox(height: tokens.spaceSm),
+
+        // 提示信息：此卡片通过暗号加密（移到输入框下方，扁平背景）
         NeumorphicContainer(
           shape: NeumorphicShape.flat,
           color: tokens.surfaceAlt,
@@ -414,33 +494,6 @@ class PassphraseDecryptInputState
                 ),
               ),
             ],
-          ),
-        ),
-        SizedBox(height: tokens.spaceMd),
-
-        // 暗号输入框
-        TextField(
-          controller: _controller,
-          enabled: widget.enabled,
-          obscureText: _obscurePassphrase,
-          decoration: InputDecoration(
-            labelText: l10n.decryptPassphraseLabel,
-            hintText: l10n.decryptPassphraseHint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(tokens.radiusSmall),
-            ),
-            suffixIcon: IconButton(
-              icon: NeumorphicIcon(
-                _obscurePassphrase ? StrawIcons.eyeOff : StrawIcons.eye,
-                size: 20,
-                color: tokens.textSecondary,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassphrase = !_obscurePassphrase;
-                });
-              },
-            ),
           ),
         ),
       ],

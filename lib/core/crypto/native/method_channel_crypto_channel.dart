@@ -1,8 +1,7 @@
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
-import 'platform_crypto_channel.dart';
+import 'package:strawhut/core/crypto/native/platform_crypto_channel.dart';
 
 /// Android 平台加密通道实现
 ///
@@ -15,7 +14,7 @@ class MethodChannelCryptoChannel implements PlatformCryptoChannel {
   static const String _channelName = 'com.strawhut.crypto';
 
   /// MethodChannel 实例（懒加载单例）
-  static final MethodChannel _channel = const MethodChannel(_channelName);
+  static const MethodChannel _channel = MethodChannel(_channelName);
 
   @override
   Future<Uint8List> generateRandom(int length) async {
@@ -26,7 +25,8 @@ class MethodChannelCryptoChannel implements PlatformCryptoChannel {
 
   @override
   Future<AesGcmResult> encryptAesGcm(Uint8List plaintext, Uint8List key) async {
-    final result = await _channel.invokeMethod<Map>('encrypt', {
+    final result =
+        await _channel.invokeMethod<Map<String, dynamic>>('encrypt', {
       'plaintext': plaintext,
       'key': key,
     });

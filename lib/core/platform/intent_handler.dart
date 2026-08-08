@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -16,18 +15,20 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 ///
 /// 架构位置：核心服务层 -> 平台桥接层
 class IntentHandler {
-  static final IntentHandler _instance = IntentHandler._internal();
 
   /// 获取 IntentHandler 单例实例
   factory IntentHandler() => _instance;
 
   IntentHandler._internal();
+  static final IntentHandler _instance = IntentHandler._internal();
 
   /// 广播流，用于分发接收到的共享文件列表
-  final _sharedFilesController = StreamController<List<SharedMediaFile>>.broadcast();
+  final _sharedFilesController =
+      StreamController<List<SharedMediaFile>>.broadcast();
 
   /// 共享文件流，供外部监听
-  Stream<List<SharedMediaFile>> get sharedFilesStream => _sharedFilesController.stream;
+  Stream<List<SharedMediaFile>> get sharedFilesStream =>
+      _sharedFilesController.stream;
 
   StreamSubscription<List<SharedMediaFile>>? _mediaSubscription;
 
@@ -48,7 +49,8 @@ class IntentHandler {
     _mediaSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> files) {
         if (files.isNotEmpty) {
-          debugPrint('IntentHandler: Received ${files.length} shared file(s) while running');
+          debugPrint(
+              'IntentHandler: Received ${files.length} shared file(s) while running',);
           _sharedFilesController.add(files);
         }
       },
@@ -60,7 +62,9 @@ class IntentHandler {
     // 获取应用通过 Intent 启动时的初始共享文件
     _initialFiles = await ReceiveSharingIntent.instance.getInitialMedia();
     if (_initialFiles != null && _initialFiles!.isNotEmpty) {
-      debugPrint('IntentHandler: Got ${_initialFiles!.length} initial shared file(s)');
+      debugPrint(
+        'IntentHandler: Got ${_initialFiles!.length} initial shared file(s)',
+      );
     }
 
     _isInitialized = true;
@@ -99,7 +103,7 @@ class IntentHandler {
 
       debugPrint('IntentHandler: File does not exist: $path');
       return null;
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('IntentHandler: Error reading shared file bytes: $e');
       return null;
     }

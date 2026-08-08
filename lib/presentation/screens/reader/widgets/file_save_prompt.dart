@@ -28,9 +28,8 @@ class FileSavePrompt extends StatelessWidget {
   /// - [onSave] - 保存文件回调
   const FileSavePrompt({
     required this.metadata,
-    this.tempFilePath,
+    required this.onSave, this.tempFilePath,
     this.contentType,
-    required this.onSave,
     super.key,
   });
 
@@ -131,7 +130,6 @@ class FileSavePrompt extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: NeumorphicContainer(
-          shape: NeumorphicShape.convex,
           intensity: NeumorphicIntensity.subtle,
           borderRadius: tokens.radiusXLarge,
           margin: const EdgeInsets.all(24),
@@ -141,8 +139,7 @@ class FileSavePrompt extends StatelessWidget {
             children: [
               // 文件图标（凹陷圆形软质容器内放置线性图标）
               NeumorphicContainer(
-                shape: NeumorphicShape.concave,
-                intensity: NeumorphicIntensity.normal,
+                shape: NeumorphicShape.flat,
                 borderRadius: 48,
                 width: 96,
                 height: 96,
@@ -170,7 +167,7 @@ class FileSavePrompt extends StatelessWidget {
 
               // 文件类型标签（凹陷软质胶囊）
               NeumorphicContainer(
-                shape: NeumorphicShape.concave,
+                shape: NeumorphicShape.flat,
                 intensity: NeumorphicIntensity.subtle,
                 borderRadius: 12,
                 padding: const EdgeInsets.symmetric(

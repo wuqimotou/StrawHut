@@ -17,7 +17,9 @@ PassphraseVaultService passphraseVaultService(PassphraseVaultServiceRef ref) {
 /// 监听保险库数据变化，自动刷新 UI。
 /// 返回按创建时间倒序排列的暗号条目列表。
 @riverpod
-Future<List<PassphraseEntry>> passphraseEntries(PassphraseEntriesRef ref) async {
+Future<List<PassphraseEntry>> passphraseEntries(
+  PassphraseEntriesRef ref,
+) async {
   final vaultService = ref.watch(passphraseVaultServiceProvider);
   return vaultService.getAllEntries();
 }

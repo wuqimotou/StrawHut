@@ -21,6 +21,17 @@ import 'package:flutter/material.dart';
 /// )
 /// ```
 class PlatformAdaptiveButton extends StatelessWidget {
+
+  /// 创建平台自适应按钮实例
+  ///
+  /// 参数说明：
+  /// - [label]: 按钮文字，必填
+  /// - [onPressed]: 点击回调，必填
+  /// - [icon]: 可选的图标
+  const PlatformAdaptiveButton({
+    required this.label, required this.onPressed, super.key,
+    this.icon,
+  });
   /// 按钮文字
   ///
   /// 必填参数，显示按钮的功能描述。
@@ -35,19 +46,6 @@ class PlatformAdaptiveButton extends StatelessWidget {
   ///
   /// 可选参数，为 null 时不显示图标。
   final IconData? icon;
-
-  /// 创建平台自适应按钮实例
-  ///
-  /// 参数说明：
-  /// - [label]: 按钮文字，必填
-  /// - [onPressed]: 点击回调，必填
-  /// - [icon]: 可选的图标
-  const PlatformAdaptiveButton({
-    super.key,
-    required this.label,
-    required this.onPressed,
-    this.icon,
-  });
 
   /// 构建按钮 UI
   ///

@@ -81,7 +81,7 @@ class MigrationService {
   /// 检测文件是否为旧版 JSON 格式
   static Future<bool> isOldFormatFile(String filePath) async {
     final file = File(filePath);
-    if (!await file.exists()) return false;
+    if (!file.existsSync()) return false;
     final bytes = await file.readAsBytes();
     return isOldFormat(bytes);
   }

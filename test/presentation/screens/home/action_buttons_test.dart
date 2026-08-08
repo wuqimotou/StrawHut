@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
@@ -30,7 +30,7 @@ void main() {
   /// 此辅助方法创建一个包含完整路由配置的 MaterialApp，
   /// 并将 ActionButtons 作为 body 内容，用于测试按钮交互。
   /// 使用 ProviderScope 包裹以支持 EditorScreen 中的 Riverpod 依赖。
-  Widget _createTestableWidget() {
+  Widget createTestableWidget() {
     return ProviderScope(
       child: MaterialApp.router(
         routerConfig: appRouter,
@@ -47,7 +47,7 @@ void main() {
   group('ActionButtons 按钮样式测试', () {
     testWidgets('"发布知识卡片"按钮应为 NeumorphicButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找"发布知识卡片"文字
@@ -66,7 +66,7 @@ void main() {
 
     testWidgets('"解密知识卡片"按钮应为 NeumorphicButton 类型', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找"解密知识卡片"文字
@@ -86,7 +86,7 @@ void main() {
     testWidgets('"发布知识卡片"按钮应包含 NeumorphicIcon 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证按钮图标存在（NeumorphicIcon 渲染 SVG 图标）
@@ -102,7 +102,7 @@ void main() {
     testWidgets('"解密知识卡片"按钮应包含 NeumorphicIcon 图标',
         (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证按钮图标存在（NeumorphicIcon 渲染 SVG 图标）
@@ -117,7 +117,7 @@ void main() {
 
     testWidgets('按钮应使用 icon 和 label 的排列方式', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证使用了两个 NeumorphicButton
@@ -128,7 +128,7 @@ void main() {
   group('ActionButtons 布局结构测试', () {
     testWidgets('按钮组应使用 Column 垂直布局', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 ActionButtons 内部使用 Column
@@ -143,7 +143,7 @@ void main() {
 
     testWidgets('按钮组应横向拉伸（stretch）', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 获取 Column 的 crossAxisAlignment 属性
@@ -157,7 +157,7 @@ void main() {
 
     testWidgets('两个按钮之间应有间距', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 获取两个按钮的位置
@@ -173,7 +173,7 @@ void main() {
 
     testWidgets('按钮应有合适的样式配置', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 获取"发布知识卡片"对应的 NeumorphicButton 实例
@@ -189,7 +189,7 @@ void main() {
   group('ActionButtons 导航功能测试', () {
     testWidgets('点击"发布知识卡片"按钮应弹出内容来源选择对话框', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
@@ -206,7 +206,7 @@ void main() {
 
     testWidgets('选择"富文本编辑"应导航到 /editor', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 点击"发布知识卡片"按钮
@@ -223,7 +223,7 @@ void main() {
 
     testWidgets('点击"解密知识卡片"按钮后取消选择应留在首页', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
@@ -242,7 +242,7 @@ void main() {
   group('ActionButtons 按钮存在性测试', () {
     testWidgets('页面应显示"发布知识卡片"文字', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证文字存在
@@ -251,7 +251,7 @@ void main() {
 
     testWidgets('页面应显示"解密知识卡片"文字', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证文字存在
@@ -260,7 +260,7 @@ void main() {
 
     testWidgets('两个按钮都应可点击（onPressed 不为 null）', (WidgetTester tester) async {
       // 构建包含 ActionButtons 的测试 Widget
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 获取第一个 NeumorphicButton 实例（"发布知识卡片"按钮）

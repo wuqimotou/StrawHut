@@ -1,6 +1,5 @@
-import 'package:go_router/go_router.dart';
-
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:strawhut/presentation/screens/editor/editor_screen.dart';
 import 'package:strawhut/presentation/screens/home/home_screen.dart';
 import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
@@ -10,7 +9,7 @@ import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
 /// 使用 go_router 包配置 StrawHut 的所有页面路由。
 ///
 /// 路由列表：
-/// - [/]            → HomeScreen    首页，应用启动后默认显示的路由，展示核心操作按钮
+/// - `[/]`            → HomeScreen    首页，应用启动后默认显示的路由，展示核心操作按钮
 /// - [/editor]      → EditorScreen  编辑器页面，知识卡片编辑，提供富文本编辑功能
 /// - [/reader]      → ReaderScreen  阅读器页面，展示解密后的知识内容，可接收文件路径参数
 ///

@@ -4,7 +4,7 @@
 ///
 /// 设计特点：
 /// - 不可变对象（所有字段为 final）
-/// - 提供便捷工厂方法：[success] 和 [failure]
+/// - 提供便捷工厂方法：[ValidationResult.success] 和 [ValidationResult.failure]
 /// - const 构造函数，支持编译期常量优化
 ///
 /// 使用场景：
@@ -22,19 +22,6 @@
 /// }
 /// ```
 class ValidationResult {
-  /// 验证是否通过
-  ///
-  /// true 表示文件格式正确，可以继续处理。
-  /// false 表示格式有误，应拒绝处理并向用户展示错误信息。
-  final bool isValid;
-
-  /// 错误信息列表
-  ///
-  /// 当 isValid 为 false 时，此列表包含所有验证失败的详细描述。
-  /// 每条错误信息均为人类可读的中文/英文描述，可直接展示给用户。
-  ///
-  /// 当 isValid 为 true 时，此列表为空（const []）。
-  final List<String> errors;
 
   /// 创建验证结果实例
   ///
@@ -74,4 +61,17 @@ class ValidationResult {
   factory ValidationResult.failure(List<String> errors) {
     return ValidationResult(isValid: false, errors: errors);
   }
+  /// 验证是否通过
+  ///
+  /// true 表示文件格式正确，可以继续处理。
+  /// false 表示格式有误，应拒绝处理并向用户展示错误信息。
+  final bool isValid;
+
+  /// 错误信息列表
+  ///
+  /// 当 isValid 为 false 时，此列表包含所有验证失败的详细描述。
+  /// 每条错误信息均为人类可读的中文/英文描述，可直接展示给用户。
+  ///
+  /// 当 isValid 为 true 时，此列表为空（const []）。
+  final List<String> errors;
 }

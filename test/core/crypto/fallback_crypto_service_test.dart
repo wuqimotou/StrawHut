@@ -10,7 +10,7 @@ import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 
 /// 辅助函数：构造富文本 PayloadMetadata
-PayloadMetadata _richTextMetadata() => PayloadMetadata(
+PayloadMetadata _richTextMetadata() => const PayloadMetadata(
       sourceType: SourceType.richText,
       originalExtension: 'delta',
     );

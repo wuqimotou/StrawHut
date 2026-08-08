@@ -99,7 +99,6 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
               _errorMessage = 'PDF 加载失败：${details.error}';
             });
           },
-          canShowTextSelectionMenu: true,
         ),
 
         // 加载指示器
@@ -123,11 +122,13 @@ class _PdfViewerWidgetState extends State<PdfViewerWidget> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                color: Theme.of(context).colorScheme.surface.withValues(
+                  alpha: 0.9,
+                ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),

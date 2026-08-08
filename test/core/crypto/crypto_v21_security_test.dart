@@ -44,7 +44,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = Uint8List.fromList(List.generate(32, (i) => i));
       final payload = Uint8List.fromList(utf8.encode('Hello v2.1 Security!'));
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -53,7 +53,6 @@ void main() {
         payloadBytes: payload,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -76,7 +75,7 @@ void main() {
       final payload = Uint8List.fromList(
         List.generate(500, (i) => i % 256),
       );
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.rawFile,
         originalExtension: 'bin',
       );
@@ -86,7 +85,6 @@ void main() {
         payloadMetadata: metadata,
         key: key,
         chunkSize: chunkSize,
-        useV21Security: true,
       );
 
       expect(encrypted.totalChunks, greaterThan(1));
@@ -106,7 +104,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = Uint8List.fromList(List.generate(32, (i) => i));
       final payload = Uint8List.fromList(utf8.encode('AAD mismatch test'));
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -115,7 +113,6 @@ void main() {
         payloadBytes: payload,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       // 用 v2.0 模式解密 v2.1 加密的数据，应因 AAD 不匹配而失败
@@ -125,7 +122,6 @@ void main() {
           key: key,
           chunkSize: encrypted.chunkSize,
           originalPayloadSize: encrypted.originalPayloadSize,
-          useV21Security: false,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -135,7 +131,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = Uint8List.fromList(List.generate(32, (i) => i));
       final payload = Uint8List.fromList(utf8.encode('v2.0 data'));
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -164,7 +160,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = Uint8List.fromList(List.generate(32, (i) => i));
       final payload = Uint8List.fromList(utf8.encode('same payload'));
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -182,7 +178,6 @@ void main() {
         payloadBytes: payload,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       // 密文长度应相同（GCM 的 AAD 不影响密文长度，只影响认证标签）
@@ -196,7 +191,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = Uint8List.fromList(List.generate(32, (i) => i));
       final payload = Uint8List(0);
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -205,7 +200,6 @@ void main() {
         payloadBytes: payload,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       final decrypted = await cryptoService.decrypt(
@@ -436,7 +430,6 @@ void main() {
         payloadMetadata: metadata,
         key: key,
         chunkSize: 1024,
-        useV21Security: true,
       );
 
       expect(encrypted.totalChunks, greaterThan(1));
@@ -491,7 +484,6 @@ void main() {
         sourcePath: sourceFile.path,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       final strawFile = File('${tempDir.path}/v21_mismatch.straw');
@@ -511,7 +503,6 @@ void main() {
           targetPath: targetPath,
           chunkSize: encrypted.chunkSize,
           originalPayloadSize: encrypted.originalPayloadSize,
-          useV21Security: false,
         ),
         throwsA(isA<CryptoException>()),
       );
@@ -576,7 +567,7 @@ void main() {
       final payload = Uint8List.fromList(
         utf8.encode('端到端完整性校验测试数据'),
       );
-      final metadata = PayloadMetadata(
+      const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
       );
@@ -586,7 +577,6 @@ void main() {
         payloadBytes: payload,
         payloadMetadata: metadata,
         key: key,
-        useV21Security: true,
       );
 
       // 2. 派生 HMAC 密钥

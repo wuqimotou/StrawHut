@@ -11,8 +11,9 @@
 ///
 /// 使用 flutter_test 框架进行 Widget 测试，
 /// 结合 flutter_quill 的 QuillController 进行工具栏交互测试。
+library;
 
-// ignore_for_file: lines_longer_than_80_chars
+// ignore_for_file: lines_longer_than_80_chars, 测试含中文注释与长断言
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -135,8 +136,9 @@ void main() {
       await tester.pumpWidget(createQuillToolbar());
       await tester.pumpAndSettle();
 
-      // 验证标题样式选择按钮存在
-      expect(find.byType(quill.QuillToolbarSelectHeaderStyleDropdownButton), findsOneWidget);
+      // 验证标题样式选择按钮存在（自建浮空下拉，用 PopupMenuButton 实现）
+      expect(find.byType(PopupMenuButton<quill.Attribute<int?>>), findsOneWidget);
+      expect(find.text('正文'), findsOneWidget);
     });
   });
 
@@ -248,7 +250,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 验证对话框出现
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
 
       // 验证对话框包含选项
       expect(find.text('插入图片'), findsOneWidget);
@@ -270,7 +272,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 验证对话框关闭
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
     });
 
     testWidgets('选择输入 URL 选项应该弹出 URL 输入对话框', (tester) async {

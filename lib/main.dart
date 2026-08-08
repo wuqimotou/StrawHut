@@ -1,5 +1,4 @@
-import 'dart:ui';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,13 +31,18 @@ void main() {
   // 必须在调用任何 Flutter 相关 API 之前执行
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Release 模式下静默 debugPrint，避免文件路径等操作痕迹输出到 logcat/stdout
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   // 配置 Flutter 框架层面的错误捕获
   // 用于捕获渲染过程中的异常、Widget 构建错误等
   FlutterError.onError = (FlutterErrorDetails details) {
     // 开发模式下直接输出错误信息
     FlutterError.presentError(details);
 
-    // TODO: 生产环境可替换为日志上报服务
+    // 生产环境可替换为日志上报服务
     // 例如：Sentry.captureException(details.exception, stackTrace: details.stack);
     debugPrint('Flutter 框架错误: ${details.exception}');
     debugPrint('错误堆栈: ${details.stack}');
@@ -51,7 +55,7 @@ void main() {
     debugPrint('平台未捕获错误: $error');
     debugPrint('错误堆栈: $stack');
 
-    // TODO: 生产环境可替换为日志上报服务
+    // TODO(logging): 生产环境可替换为日志上报服务
     // 返回 true 表示错误已处理，阻止应用崩溃
     return true;
   };

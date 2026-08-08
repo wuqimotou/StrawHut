@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'picked_file_provider.g.dart';
@@ -18,9 +17,7 @@ enum ContentSourceMode {
 class PickedFileInfo {
   const PickedFileInfo({
     required this.fileName,
-    this.fileBytes,
-    required this.fileSize,
-    required this.extension,
+    required this.fileSize, required this.extension, this.fileBytes,
     this.filePath,
   });
 

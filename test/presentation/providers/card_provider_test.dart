@@ -9,6 +9,7 @@
 ///
 /// 使用 riverpod 的 ContainerProviderTester 进行隔离测试，
 /// 使用 mocktail 模拟 FileIOService 的依赖。
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -57,7 +58,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: const []),
       );
 
       final container = ProviderContainer(
@@ -84,7 +85,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: const []),
       );
 
       const testFilePath = '/path/to/test.straw';
@@ -114,7 +115,7 @@ void main() {
         callCount++;
         return ParsedStrawFile(
           strawFile: callCount == 1 ? file1 : file2,
-          chunks: [],
+          chunks: const [],
         );
       });
 
@@ -180,7 +181,7 @@ void main() {
           isFirstCall = false;
           throw Exception('First call fails');
         }
-        return ParsedStrawFile(strawFile: testStrawFile, chunks: []);
+        return ParsedStrawFile(strawFile: testStrawFile, chunks: const []);
       });
 
       final container = ProviderContainer(
@@ -234,7 +235,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: const []),
       );
 
       const testPath = '/path/to/test.straw';
@@ -261,7 +262,7 @@ void main() {
       final testStrawFile = createTestStrawFile();
 
       when(() => mockFileIO.readStrawFile(any())).thenAnswer(
-        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: const []),
       );
 
       final container = ProviderContainer(

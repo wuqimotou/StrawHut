@@ -8,6 +8,7 @@
 /// - setLocale(): 更新语言设置状态
 ///
 /// 使用 riverpod 的 ContainerProviderTester 进行隔离测试。
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

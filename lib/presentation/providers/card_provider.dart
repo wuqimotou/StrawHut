@@ -12,7 +12,7 @@ part 'card_provider.g.dart';
 /// 当前正在查看的知识卡片文件状态。
 ///
 /// 架构位置：应用层 - Riverpod Provider
-/// 状态类型：AsyncValue<ParsedStrawFile?>（异步数据流，支持 loading/success/error 状态）
+/// 状态类型：`AsyncValue<ParsedStrawFile?>`（异步数据流，支持 loading/success/error 状态）
 /// keepAlive: false（页面销毁后自动清空，不保留缓存）
 ///
 /// 使用场景：
@@ -31,7 +31,7 @@ part 'card_provider.g.dart';
 ///   error: (e, st) => showError(e),
 /// );
 /// ```
-@Riverpod(keepAlive: false)
+@Riverpod()
 class CurrentCard extends _$CurrentCard {
   /// 初始状态：返回 null 表示尚未加载任何文件
   @override
@@ -55,7 +55,7 @@ class CurrentCard extends _$CurrentCard {
           : await fileIOService.readStrawFileHeader(filePath); // .straw 流式加载
       state = AsyncValue.data(parsedFile);
       return parsedFile;
-    } catch (e, st) {
+    } on Object catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -82,7 +82,7 @@ class CurrentCard extends _$CurrentCard {
           : await fileIOService.readStrawFile(filePath);
       state = AsyncValue.data(parsedFile);
       return parsedFile;
-    } catch (e, st) {
+    } on Object catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -115,7 +115,7 @@ class CurrentCard extends _$CurrentCard {
           : await fileIOService.readStrawFileFromBytes(bytes);
       state = AsyncValue.data(parsedFile);
       return parsedFile;
-    } catch (e, st) {
+    } on Object catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
     }

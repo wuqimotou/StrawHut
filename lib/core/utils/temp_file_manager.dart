@@ -47,7 +47,9 @@ class TempFileManager {
   /// - [extension]: 文件扩展名（不含点），如 'tmp'、'bin'
   ///
   /// 返回：临时目录下的完整随机文件路径
-  static Future<String> generateRandomTempPath({String extension = 'tmp'}) async {
+  static Future<String> generateRandomTempPath({
+    String extension = 'tmp',
+  }) async {
     final tempDir = await getTempDirectory();
     final random = Random.secure();
     final randomBytes = List.generate(16, (_) => random.nextInt(256));
@@ -140,6 +142,6 @@ class TempFileManager {
   /// 检查临时文件是否存在
   static Future<bool> tempFileExists(String filePath) async {
     final file = File(filePath);
-    return file.exists();
+    return file.existsSync();
   }
 }

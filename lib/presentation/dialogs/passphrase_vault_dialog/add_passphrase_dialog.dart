@@ -2,17 +2,17 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_constants.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_exception.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_service.dart';
 import 'package:strawhut/l10n/l10n.dart';
-import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
-import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 添加暗号对话框
 ///
@@ -268,7 +268,7 @@ class _AddPassphraseDialogState extends ConsumerState<AddPassphraseDialog> {
     final tokens = NeumorphicTokens.ofContext(context);
 
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -397,7 +397,7 @@ class _AddPassphraseDialogState extends ConsumerState<AddPassphraseDialog> {
         // 错误消息
         if (_errorMessage != null) ...[
           NeumorphicContainer(
-            shape: NeumorphicShape.concave,
+            shape: NeumorphicShape.flat,
             borderRadius: tokens.radiusSmall,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -476,11 +476,10 @@ class _AddPassphraseDialogState extends ConsumerState<AddPassphraseDialog> {
                 children: [
                   NeumorphicButton(
                     label: l10n.cancel,
-                    style: NeumorphicButtonStyle.flat,
                     onPressed:
                         _isSaving ? null : () => Navigator.pop(context),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: l10n.confirmSave,
                     style: NeumorphicButtonStyle.primary,
@@ -676,7 +675,7 @@ class _AddPassphraseMobileState extends ConsumerState<_AddPassphraseMobile> {
     final tokens = NeumorphicTokens.ofContext(context);
 
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -854,7 +853,7 @@ class _AddPassphraseMobileState extends ConsumerState<_AddPassphraseMobile> {
                   // 错误消息
                   if (_errorMessage != null) ...[
                     NeumorphicContainer(
-                      shape: NeumorphicShape.concave,
+                      shape: NeumorphicShape.flat,
                       borderRadius: tokens.radiusSmall,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -899,13 +898,12 @@ class _AddPassphraseMobileState extends ConsumerState<_AddPassphraseMobile> {
               children: [
                 NeumorphicButton(
                   label: l10n.cancel,
-                  style: NeumorphicButtonStyle.flat,
                   onPressed:
-                      _isSaving ? null : () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 8),
-                NeumorphicButton(
-                  label: l10n.confirmSave,
+                    _isSaving ? null : () => Navigator.pop(context),
+              ),
+              const SizedBox(width: 12),
+              NeumorphicButton(
+                label: l10n.confirmSave,
                   style: NeumorphicButtonStyle.primary,
                   onPressed: _canSave ? _handleSave : null,
                 ),

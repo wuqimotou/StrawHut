@@ -15,7 +15,10 @@ class PublishSecurityNotices extends StatelessWidget {
     required this.isNegotiated,
     this.keyBase64,
     super.key,
-  }) : assert(isNegotiated || keyBase64 != null);
+  }) : assert(
+          isNegotiated || keyBase64 != null,
+          'isNegotiated 或 keyBase64 至少需要一个',
+        );
 
   final String exportFormat;
   final bool isNegotiated;

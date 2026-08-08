@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 /// Platform-aware responsive utilities for cross-platform UI adaptation.
 ///
@@ -41,16 +41,18 @@ bool shouldUseMobileDialog() {
   return isMobilePlatform();
 }
 
-/// Returns the minimum touch target size in logical pixels for the current platform.
+/// Returns the minimum touch target size in logical pixels for the current
+/// platform.
 /// - Mobile (Android/iOS): 48dp (Material Design guideline)
 /// - Desktop: 40dp (desktop pointer interaction)
 double get minTouchTargetSize => isMobilePlatform() ? 48.0 : 40.0;
 
 /// Returns appropriate horizontal padding for the given screen width.
-/// On narrow screens (mobile), uses 16dp. On wider screens (desktop), uses 24dp.
+/// On narrow screens (mobile), uses 16dp. On wider screens (desktop),
+/// uses 24dp.
 double getHorizontalPadding(double screenWidth) {
   if (screenWidth < 600) {
-    return 16.0;
+    return 16;
   }
-  return 24.0;
+  return 24;
 }

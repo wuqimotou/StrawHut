@@ -36,7 +36,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
-import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
@@ -47,6 +46,7 @@ import 'package:strawhut/data/models/integrity_info.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/straw_file.dart';
+import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
 import 'package:strawhut/presentation/screens/reader/reader_screen.dart';
 import 'package:strawhut/presentation/screens/reader/widgets/meta_preview.dart';
@@ -218,7 +218,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       await tester.pumpWidget(
@@ -263,7 +263,7 @@ void main() {
 
       // 完成加载
       completer.complete(
-          ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []));
+          ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),);
       await tester.pumpAndSettle();
     });
   });
@@ -292,7 +292,7 @@ void main() {
 
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
-        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: []),
+        (_) async => ParsedStrawFile(strawFile: testStrawFile, chunks: const []),
       );
 
       container = ProviderContainer(
@@ -417,7 +417,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -450,7 +450,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async => ParsedStrawFile(
-            strawFile: createTestStrawFile(title: '对话框测试卡片'), chunks: []),
+            strawFile: createTestStrawFile(title: '对话框测试卡片'), chunks: const [],),
       );
 
       await tester.pumpWidget(
@@ -537,7 +537,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -614,7 +614,7 @@ void main() {
           if (callCount == 1) {
             throw Exception('第一次加载失败');
           }
-          return ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []);
+          return ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []);
         },
       );
 
@@ -691,7 +691,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -765,7 +765,7 @@ void main() {
         outputPath = invocation.namedArguments[#targetPath] as String;
         File(outputPath!).writeAsStringSync('streamed plain text');
         return DecryptStreamResult(
-          payloadMetadata: PayloadMetadata(
+          payloadMetadata: const PayloadMetadata(
             sourceType: SourceType.rawFile,
             originalExtension: 'txt',
           ),
@@ -852,7 +852,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -902,7 +902,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -1059,7 +1059,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(
@@ -1156,7 +1156,7 @@ void main() {
       when(() => mockFileIOService.readStrawFileHeader(any<String>()))
           .thenAnswer(
         (_) async =>
-            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: []),
+            ParsedStrawFile(strawFile: createTestStrawFile(), chunks: const []),
       );
 
       container = ProviderContainer(

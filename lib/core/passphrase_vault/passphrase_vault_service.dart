@@ -1,32 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/crypto/crypto_models/passphrase_strength.dart';
-import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/crypto/passphrase_strength_service.dart';
-import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_entry.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_constants.dart';
 import 'package:strawhut/core/passphrase_vault/passphrase_vault_exception.dart';
-import 'package:strawhut/core/utils/memory_utils.dart';
 
 /// 暗号保险库服务接口
 ///
-/// 定义暗号保险库的核心操作契约，提供暗号的增删查和自动匹配解密功能。
+/// 定义暗号保险库的核心操作契约，提供暗号的增删查功能。
 ///
 /// 设计原则：
 /// - 接口与实现分离，便于测试和替换实现
 /// - 所有操作均为异步，适配 flutter_secure_storage 的异步 API
-/// - 自动匹配解密支持进度回调，提升用户体验
 ///
 /// 架构位置：核心服务层 - 暗号保险库模块
-/// 依赖接口：[ICryptoService]（密钥派生和解密操作）
 /// 被依赖方：应用层通过 Riverpod Provider 调用
 abstract class IPassphraseVaultService {
   /// 获取所有暗号条目
@@ -104,75 +95,6 @@ abstract class IPassphraseVaultService {
 
   /// Records a successful explicit use of a saved passphrase.
   Future<void> markUsed(String entryId);
-
-  /// 自动匹配解密
-  ///
-  /// 遍历保险库中的所有暗号，尝试用每个暗号派生密钥并解密加密内容。
-  /// 采用智能排序和批量并行策略，优先尝试使用频率高和最近使用的暗号。
-  ///
-  /// 参数说明：
-  /// - [parsedFile]: 解析后的 .straw 文件，包含 StrawFile 和分块数据
-  /// - [cryptoService]: 加密服务实例，用于密钥派生和解密操作
-  /// - [onProgress]: 可选的进度回调，参数为 (当前尝试序号, 总数量)
-  ///
-  /// 返回值：
-  /// - 解密成功时返回 [AutoDecryptResult]，包含 DecryptResult 和 matchedLabel
-  /// - 所有暗号均解密失败时返回 null
-  ///
-  /// 智能排序策略：
-  /// 1. 按 useCount 降序排列（使用次数多的优先）
-  /// 2. useCount 相同时，按 lastUsedAt/createdAt 降序排列（最近使用的优先）
-  ///
-  /// 并行策略：
-  /// - 按 CPU 核心数分批，每批使用 [Future.wait] 并行执行
-  /// - 每个暗号先执行 PBKDF2 密钥派生，再尝试解密
-  /// - 解密失败时使用 [MemoryUtils.wipeBytes] 清除密钥字节
-  /// - 解密成功时更新使用统计（useCount +1，lastUsedAt 更新为当前时间）
-  ///
-  /// 异常：
-  /// - [PassphraseVaultException]：错误代码 `AUTO_DECRYPT_FAILED`（所有暗号均解密失败）
-  Future<AutoDecryptResult?> tryAutoDecrypt({
-    required ParsedStrawFile parsedFile,
-    required ICryptoService cryptoService,
-    void Function(int current, int total)? onProgress,
-  });
-}
-
-/// 自动解密结果
-///
-/// 包含解密后的结果和匹配成功的暗号条目标签。
-class AutoDecryptResult {
-  /// 创建自动解密结果
-  const AutoDecryptResult({
-    required this.decryptResult,
-    required this.matchedLabel,
-  });
-
-  /// 解密结果，包含载荷元数据和解密后的字节
-  final DecryptResult decryptResult;
-
-  /// 匹配成功的暗号条目标签
-  final String matchedLabel;
-}
-
-/// 解密尝试结果
-///
-/// 记录单次解密尝试的结果，用于批量并行解密后的结果汇总。
-class _DecryptAttempt {
-  const _DecryptAttempt({
-    required this.entryId,
-    required this.success,
-    this.decryptResult,
-  });
-
-  /// 尝试解密的暗号条目 ID
-  final String entryId;
-
-  /// 是否解密成功
-  final bool success;
-
-  /// 解密成功时的 DecryptResult，失败时为 null
-  final DecryptResult? decryptResult;
 }
 
 /// 暗号保险库服务实现
@@ -209,10 +131,6 @@ class _DecryptAttempt {
 /// final entry = await vaultService.savePassphrase(
 ///   passphrase: 'MyP@ssw0rd2024!',
 ///   label: '工作暗号',
-/// );
-/// final result = await vaultService.tryAutoDecrypt(
-///   encryptedContent: content,
-///   cryptoService: cryptoService,
 /// );
 /// ```
 class PassphraseVaultService implements IPassphraseVaultService {
@@ -420,176 +338,6 @@ class PassphraseVaultService implements IPassphraseVaultService {
       final entries = vaultData['entries'] as List<dynamic>? ?? [];
       return entries.length;
     });
-  }
-
-  /// 自动匹配解密
-  ///
-  /// 实现步骤：
-  /// 1. 获取互斥锁
-  /// 2. 读取所有暗号条目，如果为空则返回 null
-  /// 3. 智能排序：按 useCount 降序，再按 lastUsedAt/createdAt 降序
-  /// 4. 按 CPU 核心数分批，每批并行执行 PBKDF2 密钥派生 + 解密
-  /// 5. 解密成功时更新使用统计，返回解密内容
-  /// 6. 解密失败时清除密钥字节，继续尝试
-  /// 7. 全部失败时返回 null
-  /// 8. 释放互斥锁
-  @override
-  Future<AutoDecryptResult?> tryAutoDecrypt({
-    required ParsedStrawFile parsedFile,
-    required ICryptoService cryptoService,
-    void Function(int current, int total)? onProgress,
-  }) async {
-    return _withLock(() async {
-      // 1. 读取所有条目
-      final vaultData = await _readVaultData();
-      final entries = (vaultData['entries'] as List<dynamic>? ?? [])
-          .map((e) => PassphraseEntry.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      if (entries.isEmpty) {
-        return null;
-      }
-
-      // 2. 智能排序：按 useCount 降序，再按 lastUsedAt/createdAt 降序
-      final sortedEntries = List<PassphraseEntry>.from(entries)
-        ..sort((a, b) {
-          // 先按 useCount 降序
-          final useCountCompare = b.useCount.compareTo(a.useCount);
-          if (useCountCompare != 0) return useCountCompare;
-
-          // useCount 相同时，按时间降序（优先使用 lastUsedAt，没有则用 createdAt）
-          final aTime = a.lastUsedAt ?? a.createdAt;
-          final bTime = b.lastUsedAt ?? b.createdAt;
-          return bTime.compareTo(aTime);
-        });
-
-      final total = sortedEntries.length;
-      var currentAttempt = 0;
-
-      // 3. 检查是否为协商密钥模式，获取盐值
-      final content = parsedFile.strawFile.content;
-      final saltBase64 = content.saltBase64;
-      if (saltBase64 == null) {
-        return null;
-      }
-      final salt = base64Decode(saltBase64);
-
-      // 4. 按 CPU 核心数分批并行执行
-      final batchSize = Platform.numberOfProcessors;
-      DecryptResult? result;
-      String? successEntryId;
-      String? successEntryLabel;
-
-      for (
-        var batchStart = 0;
-        batchStart < sortedEntries.length && result == null;
-        batchStart += batchSize
-      ) {
-        final batchEnd = (batchStart + batchSize).clamp(
-          0,
-          sortedEntries.length,
-        );
-        final batch = sortedEntries.sublist(batchStart, batchEnd);
-
-        // 并行尝试当前批次的暗号
-        final attempts = await Future.wait(
-          batch.map(
-            (entry) => _tryDecryptEntry(
-              entry: entry,
-              parsedFile: parsedFile,
-              cryptoService: cryptoService,
-              salt: salt,
-            ),
-          ),
-        );
-
-        // 检查批次结果
-        for (final attempt in attempts) {
-          currentAttempt++;
-          onProgress?.call(currentAttempt, total);
-
-          if (attempt.success && attempt.decryptResult != null) {
-            result = attempt.decryptResult;
-            successEntryId = attempt.entryId;
-            // 查找匹配条目的标签
-            final matchedEntry = sortedEntries.firstWhere(
-              (e) => e.id == attempt.entryId,
-            );
-            successEntryLabel = matchedEntry.label;
-            break;
-          }
-        }
-      }
-
-      // 5. 更新成功条目的使用统计
-      if (result != null && successEntryId != null) {
-        await _updateEntryUsage(successEntryId, entries);
-        return AutoDecryptResult(
-          decryptResult: result,
-          matchedLabel: successEntryLabel!,
-        );
-      }
-
-      return null;
-    });
-  }
-
-  /// 尝试用单个暗号条目解密
-  ///
-  /// 执行 PBKDF2 密钥派生后尝试使用分块解密。
-  /// 解密失败时清除密钥字节，防止内存泄露。
-  ///
-  /// 参数说明：
-  /// - [entry]: 暗号条目
-  /// - [parsedFile]: 解析后的 .straw 文件，包含分块数据
-  /// - [cryptoService]: 加密服务实例
-  /// - [salt]: 盐值字节数组
-  ///
-  /// 返回值：[_DecryptAttempt] 记录解密结果
-  Future<_DecryptAttempt> _tryDecryptEntry({
-    required PassphraseEntry entry,
-    required ParsedStrawFile parsedFile,
-    required ICryptoService cryptoService,
-    required Uint8List salt,
-  }) async {
-    Uint8List? derivedKey;
-
-    try {
-      // 1. PBKDF2 密钥派生
-      final content = parsedFile.strawFile.content;
-      final iterations = content.kdfIterations ?? KDF_ITERATIONS;
-      derivedKey = await cryptoService.deriveKeyFromPassphrase(
-        passphrase: entry.passphrase,
-        salt: salt,
-        iterations: iterations,
-      );
-
-      // 2. 使用分块解密
-      // 根据文件次版本号选择解密路径：
-      // - minor=0（v2.0）：GCM 无 AAD
-      // - minor=1（v2.1）：GCM 绑定 AAD
-      final useV21Security =
-          parsedFile.strawFile.formatVersion.minor == BINARY_FORMAT_MINOR_V21;
-      final decryptResult = await cryptoService.decrypt(
-        chunks: parsedFile.chunks,
-        key: derivedKey,
-        chunkSize: content.chunkSize,
-        originalPayloadSize: content.originalPayloadSize,
-        useV21Security: useV21Security,
-      );
-
-      // 3. 解密成功
-      return _DecryptAttempt(
-        entryId: entry.id,
-        success: true,
-        decryptResult: decryptResult,
-      );
-    } on Exception catch (_) {
-      if (derivedKey != null) {
-        MemoryUtils.wipeBytes(derivedKey);
-      }
-      return _DecryptAttempt(entryId: entry.id, success: false);
-    }
   }
 
   /// 更新条目使用统计

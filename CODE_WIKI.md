@@ -1,6 +1,6 @@
 # StrawHut Code Wiki
 
-> **文档版本**: v1.2.2 | **最后更新**: 2026-08-07
+> **文档版本**: v1.3.0 | **最后更新**: 2026-08-08
 
 ---
 
@@ -39,14 +39,14 @@
 | 路由 | go_router 14.6+ |
 | 富文本编辑 | flutter_quill 11.5+ |
 | 加密 | encrypt 5.0 + pointycastle 3.9 + crypto 3.0 |
-| 文件选择 | file_picker 8.1+ |
+| 文件选择 | file_picker 11.0+ |
 | 安全存储 | flutter_secure_storage 9.2+ |
 | 国际化 | flutter_localizations |
 | 代码分析 | very_good_analysis 7.0+ |
 
 ### 版本号
 
-- 当前版本: `1.2.2+6`
+- 当前版本: `1.3.0+7`
 - 文件格式版本: `.straw v2.1.0`（二进制容器格式，v2.1 增强容器认证）
 
 ---
@@ -422,16 +422,6 @@ lib/
 | `containsPassphrase()` | 检查暗号是否已存在 |
 | `getEntryCount()` | 获取条目数量 |
 | `markUsed()` | 标记使用（更新概率） |
-| `tryAutoDecrypt()` | 自动匹配解密：智能排序 + 批量并行尝试 |
-
-**智能排序策略：**
-1. 按 `useCount` 降序（使用频率高的优先）
-2. 按 `lastUsedAt` / `createdAt` 降序（最近使用的优先）
-
-**并行策略：**
-- 按 CPU 核心数分批，每批 `Future.wait` 并行执行
-- 每个暗号先 PBKDF2 密钥派生，再尝试解密
-- 成功则更新使用统计，失败则 `MemoryUtils.wipeBytes()` 清除密钥
 
 **存储：** 使用 `flutter_secure_storage` 加密存储 JSON 结构，基于 Completer 的互斥锁防止并发问题。
 
@@ -688,21 +678,6 @@ lib/
       ├── richText → QuillViewer
       ├── text / markdown → TextViewer
       └── image/audio/video/pdf → FileSavePrompt
-```
-
-### 4.3 暗号自动解密流程
-
-```
-PassphraseVaultService.tryAutoDecrypt()
-  │
-  ├── 读取所有暗号条目
-  ├── 智能排序（useCount 降序 → 时间降序）
-  ├── 按 CPU 核心数分批并行
-  │   ├── PBKDF2 密钥派生
-  │   ├── 尝试解密第一块（根据文件版本选择 useV21Security）
-  │   └── 失败: MemoryUtils.wipeBytes() 清除密钥
-  ├── 成功: 更新 useCount + lastUsedAt
-  └── 全部失败: 返回 null
 ```
 
 ---
@@ -1043,7 +1018,7 @@ FallbackCryptoService (代理层)
 
 | 测试文件 | 覆盖范围 |
 |----------|----------|
-| `passphrase_vault_service_test.dart` | 增删查、去重、容量限制、智能排序、自动解密、并发安全 |
+| `passphrase_vault_service_test.dart` | 增删查、去重、容量限制、智能排序、并发安全 |
 | `passphrase_entry_test.dart` | 条目模型序列化 |
 | `passphrase_vault_exception_test.dart` | 异常处理 |
 
@@ -1229,19 +1204,19 @@ Dart 层 (Flutter)
 | `pointycastle` | ^3.9.1 | 纯 Dart 密码学库（AES-GCM、PBKDF2） |
 | `crypto` | ^3.0.6 | SHA-256 哈希 |
 | `ffi` | ^2.1.0 | Dart FFI 互操作（Windows BCrypt 绑定） |
-| `file_picker` | ^8.1.7 | 跨平台文件选择对话框 |
+| `file_picker` | ^11.0.3 | 跨平台文件选择对话框 |
 | `image` | ^4.3.0 | 图片处理（PNG 读写、封面生成） |
 | `path_provider` | ^2.1.5 | 平台路径获取 |
 | `path` | ^1.9.0 | 跨平台路径操作 |
 | `video_player` | ^2.8.0 | 视频播放 |
-| `audioplayers` | ^5.0.0 | 音频播放 |
+| `audioplayers` | ^6.7.1 | 音频播放 |
 | `flutter_markdown` | ^0.7.0 | Markdown 渲染 |
 | `syncfusion_flutter_pdfviewer` | ^33.2.13 | PDF 查看器 |
 | `go_router` | ^14.6.2 | 声明式路由 |
 | `desktop_drop` | ^0.5.0 | 桌面端文件拖拽 |
 | `share_plus` | ^10.1.3 | 系统分享 |
 | `receive_sharing_intent` | ^1.8.0 | Android 接收外部分享 |
-| `permission_handler` | ^11.3.1 | 运行时权限管理 |
+| `permission_handler` | ^13.0.0 | 运行时权限管理 |
 | `media_scanner` | ^2.1.0 | Android 媒体扫描 |
 | `image_picker` | ^1.1.2 | 图片选择器 |
 | `flutter_secure_storage` | ^9.2.4 | 安全本地存储（暗号保险库） |
@@ -1262,7 +1237,7 @@ Dart 层 (Flutter)
 ### 11.3 依赖关系图
 
 ```
-strawhut (v1.2.2+6)
+strawhut (v1.3.0+7)
 ├── 加密 (Cryptography)
 │   ├── encrypt ^5.0.3
 │   ├── pointycastle ^3.9.1
@@ -1279,7 +1254,7 @@ strawhut (v1.2.2+6)
 │   ├── flutter_quill ^11.5.0
 │   └── flutter_quill_extensions ^11.0.0-dev.7
 ├── 文件操作 (File Operations)
-│   ├── file_picker ^8.1.7
+│   ├── file_picker ^11.0.3
 │   ├── path_provider ^2.1.5
 │   ├── path ^1.9.0
 │   └── image ^4.3.0

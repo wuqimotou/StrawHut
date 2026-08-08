@@ -97,13 +97,11 @@ class PassphraseEntry {
   /// 使用次数
   ///
   /// 记录该暗号成功解密的次数。
-  /// 用于 `tryAutoDecrypt` 中的智能排序，使用次数多的暗号优先尝试。
   final int useCount;
 
   /// 最近使用时间（ISO 8601 UTC 格式，可选）
   ///
   /// 最近一次成功解密的时间戳。
-  /// 用于 `tryAutoDecrypt` 中的智能排序，最近使用的暗号优先尝试。
   /// 在首次使用前为 null。
   final String? lastUsedAt;
 

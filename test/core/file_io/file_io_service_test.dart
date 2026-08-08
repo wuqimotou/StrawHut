@@ -68,16 +68,13 @@ void main() {
         description: description,
         isAnonymous: isAnonymous,
       ),
-      content: StrawContent(
+      content: const StrawContent(
         encryptionAlgorithm: ENCRYPTION_ALGORITHM_AES_256_GCM,
         chunkSize: DEFAULT_CHUNK_SIZE,
         totalChunks: 1,
         originalPayloadSize: 4,
-        saltBase64: null,
-        kdfAlgorithm: null,
-        kdfIterations: null,
       ),
-      integrity: IntegrityInfo(
+      integrity: const IntegrityInfo(
         hash:
             'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
         hashAlgorithm: HASH_ALGORITHM_SHA256,
@@ -150,7 +147,7 @@ void main() {
     builder.addByte(0);
     builder.addByte(0);
     // 不完整的 JSON header
-    final incompleteJson = '{"format_version": "1.0.0"}';
+    const incompleteJson = '{"format_version": "1.0.0"}';
     final jsonBytes = Uint8List.fromList(utf8.encode(incompleteJson));
     // Header Size (uint32 LE)
     builder.addByte(jsonBytes.length & 0xFF);
@@ -246,7 +243,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_EXTENSION',
-        )),
+        ),),
       );
     });
 
@@ -261,7 +258,7 @@ void main() {
           (e) => e.code,
           'code',
           'FILE_NOT_FOUND',
-        )),
+        ),),
       );
     });
 
@@ -341,7 +338,7 @@ void main() {
 
       // 验证 content 字段
       expect(result.strawFile.content.encryptionAlgorithm,
-          ENCRYPTION_ALGORITHM_AES_256_GCM);
+          ENCRYPTION_ALGORITHM_AES_256_GCM,);
       expect(result.strawFile.content.chunkSize, DEFAULT_CHUNK_SIZE);
       expect(result.strawFile.content.totalChunks, 1);
       expect(result.strawFile.content.originalPayloadSize, 4);
@@ -419,7 +416,7 @@ void main() {
           (e) => e.code,
           'code',
           'WRITE_FAILED',
-        )),
+        ),),
       );
     });
   });
@@ -437,7 +434,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_EXTENSION',
-        )),
+        ),),
       );
     });
 
@@ -451,7 +448,7 @@ void main() {
           (e) => e.code,
           'code',
           'FILE_NOT_FOUND',
-        )),
+        ),),
       );
     });
 
@@ -467,7 +464,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_FORMAT',
-        )),
+        ),),
       );
     });
 
@@ -484,7 +481,7 @@ void main() {
           (e) => e.code,
           'code',
           'VALIDATION_FAILED',
-        )),
+        ),),
       );
     });
 
@@ -505,7 +502,7 @@ void main() {
       await validFile.writeAsString(generateValidKeyJson(
         keyId: 'k_20260501120000000_test123',
         associatedCardTitle: '我的知识卡片',
-      ));
+      ),);
 
       final result = await fileIOService.readKeyFile(validFile.path);
 
@@ -520,7 +517,7 @@ void main() {
 
       // 验证 key_data 字段
       expect(result.keyData.keyBase64,
-          '5T2skvZAuZkwvc3/Qom+bTxDrmQQb061Z+EyeQ1y3Xk=');
+          '5T2skvZAuZkwvc3/Qom+bTxDrmQQb061Z+EyeQ1y3Xk=',);
       expect(result.keyData.encoding, 'base64');
 
       // 验证 integrity 字段
@@ -582,7 +579,6 @@ void main() {
         title: '往返测试卡片',
         description: '用于验证读写一致性的测试卡片',
         tags: ['往返测试', '数据完整性'],
-        isAnonymous: true,
       );
       final chunks = createTestChunks();
 
@@ -604,7 +600,7 @@ void main() {
       expect(result.strawFile.meta.isAnonymous, true);
       expect(result.strawFile.meta.publisherAlias, 'Anonymous_a3f7b2c1');
       expect(result.strawFile.content.encryptionAlgorithm,
-          ENCRYPTION_ALGORITHM_AES_256_GCM);
+          ENCRYPTION_ALGORITHM_AES_256_GCM,);
       expect(result.strawFile.content.chunkSize, DEFAULT_CHUNK_SIZE);
       expect(
         result.strawFile.integrity.hash,
@@ -640,7 +636,7 @@ void main() {
       expect(result.keyMetadata.keyAlgorithm, ENCRYPTION_ALGORITHM_AES_256_GCM);
       expect(result.keyMetadata.keyLengthBits, 256);
       expect(result.keyData.keyBase64,
-          '5T2skvZAuZkwvc3/Qom+bTxDrmQQb061Z+EyeQ1y3Xk=');
+          '5T2skvZAuZkwvc3/Qom+bTxDrmQQb061Z+EyeQ1y3Xk=',);
       expect(result.keyData.encoding, 'base64');
       expect(result.integrity.hashAlgorithm, HASH_ALGORITHM_SHA256);
     });
@@ -700,7 +696,7 @@ void main() {
       expect(headerSize, greaterThan(0));
 
       // 验证 JSON Header 存在
-      final headerOffset = 16;
+      const headerOffset = 16;
       expect(bytes.length, greaterThan(headerOffset + headerSize));
 
       // 验证分块数据存在
@@ -714,7 +710,6 @@ void main() {
         title: '往返测试卡片',
         description: '用于验证 buildBinaryFileBytes 的往返一致性',
         tags: ['buildBinaryFileBytes', '往返测试'],
-        isAnonymous: true,
       );
       final chunks = createTestChunks();
 
@@ -731,11 +726,11 @@ void main() {
       expect(result.strawFile.formatVersion.toString(), '2.0.0');
       expect(result.strawFile.meta.title, '往返测试卡片');
       expect(result.strawFile.meta.description,
-          '用于验证 buildBinaryFileBytes 的往返一致性');
+          '用于验证 buildBinaryFileBytes 的往返一致性',);
       expect(result.strawFile.meta.tags, ['buildBinaryFileBytes', '往返测试']);
       expect(result.strawFile.meta.isAnonymous, true);
       expect(result.strawFile.content.encryptionAlgorithm,
-          ENCRYPTION_ALGORITHM_AES_256_GCM);
+          ENCRYPTION_ALGORITHM_AES_256_GCM,);
       expect(result.strawFile.content.chunkSize, DEFAULT_CHUNK_SIZE);
       expect(result.strawFile.content.totalChunks, 1);
       expect(result.chunks.length, 1);

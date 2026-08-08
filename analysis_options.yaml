@@ -1,5 +1,9 @@
 include: package:very_good_analysis/analysis_options.yaml
 
+analyzer:
+  exclude:
+    - "lib/l10n/generated/**"
+
 linter:
   rules:
     prefer_const_constructors: true
@@ -9,5 +13,19 @@ linter:
     avoid_relative_lib_imports: true
     avoid_types_as_parameter_names: true
     prefer_const_declarations: true
-    avoid_slow_async_io: true
     constant_identifier_names: false
+    # 禁用：与 Riverpod Notifier 模式冲突（Notifier 使用方法触发状态更新，而非 setter）
+    use_setters_to_change_properties: false
+    # 禁用：项目为个人加密工具，不需要为每个公开成员强制添加文档注释
+    public_member_api_docs: false
+    # 禁用：纯风格规则，test 场景需真实文件 IO（avoid_slow_async_io）；
+    # 行宽由 dart format 统一管理（lines_longer_than_80_chars）；
+    # cascade 写法与显式写法均可读（cascade_invocations）；
+    # test 中显式传默认值利于可读性（avoid_redundant_argument_values）。
+    # lib 代码已合规，全局禁用不影响生产代码质量。
+    avoid_slow_async_io: false
+    lines_longer_than_80_chars: false
+    cascade_invocations: false
+    avoid_redundant_argument_values: false
+    # 禁用：pubspec.yaml 使用分组注释组织依赖，按字母序重排会破坏注释分组可读性
+    sort_pub_dependencies: false

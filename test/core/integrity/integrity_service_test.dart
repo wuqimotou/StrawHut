@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/integrity/integrity_constants.dart';
+import 'package:strawhut/core/integrity/integrity_service.dart';
 
 void main() {
   group('IntegrityService 单元测试', () {
@@ -37,7 +37,7 @@ void main() {
             List.generate(5, (index) => integrityService.computeHash(input));
 
         // 验证：所有结果都与第一次相同
-        for (int i = 1; i < hashes.length; i++) {
+        for (var i = 1; i < hashes.length; i++) {
           expect(hashes[i], equals(hashes[0]), reason: '第${i + 1}次计算结果应与第1次一致');
         }
       });
@@ -71,7 +71,7 @@ void main() {
         final hashModified = integrityService.computeHash(modified);
 
         expect(hashOriginal, isNot(equals(hashModified)),
-            reason: '单个字符改变应导致哈希值不同（雪崩效应）');
+            reason: '单个字符改变应导致哈希值不同（雪崩效应）',);
       });
 
       test('TC-05: 大小写差异应产生不同哈希值', () {
@@ -92,7 +92,7 @@ void main() {
         final hashWithSpace = integrityService.computeHash(withSpace);
 
         expect(hashOriginal, isNot(equals(hashWithSpace)),
-            reason: '添加空格应导致哈希值不同');
+            reason: '添加空格应导致哈希值不同',);
       });
 
       test('TC-07: JSON内容微小修改应产生不同哈希值', () {
@@ -103,7 +103,7 @@ void main() {
         final hashModified = integrityService.computeHash(modifiedJson);
 
         expect(hashOriginal, isNot(equals(hashModified)),
-            reason: 'JSON中微小数值变化应导致哈希值不同');
+            reason: 'JSON中微小数值变化应导致哈希值不同',);
       });
 
       test('TC-08: 空字符串与单个空格应产生不同哈希值', () {
@@ -124,12 +124,12 @@ void main() {
 
         // 验证以 "sha256:" 开头
         expect(hash.startsWith('sha256:'), isTrue,
-            reason: '哈希值应以 "sha256:" 开头');
+            reason: '哈希值应以 "sha256:" 开头',);
 
         // 验证冒号后是十六进制字符
         final hexPart = hash.substring(7); // 去掉 "sha256:" 前缀
         expect(RegExp(r'^[0-9a-f]+$').hasMatch(hexPart), isTrue,
-            reason: '哈希值应为小写十六进制字符串');
+            reason: '哈希值应为小写十六进制字符串',);
       });
 
       test('TC-10: SHA-256 哈希的十六进制部分长度应为64个字符', () {
@@ -138,17 +138,17 @@ void main() {
 
         final hexPart = hash.substring(7);
         expect(hexPart.length, equals(64),
-            reason: 'SHA-256 哈希转换为十六进制后应为64个字符（32字节）');
+            reason: 'SHA-256 哈希转换为十六进制后应为64个字符（32字节）',);
       });
 
       test('TC-11: 验证常量 IntegrityConstants.hashAlgorithm 的值', () {
         expect(IntegrityConstants.hashAlgorithm, equals('SHA-256'),
-            reason: '哈希算法常量应为 "SHA-256"');
+            reason: '哈希算法常量应为 "SHA-256"',);
       });
 
       test('TC-12: 验证常量 IntegrityConstants.hashLengthBytes 的值', () {
         expect(IntegrityConstants.hashLengthBytes, equals(32),
-            reason: 'SHA-256 哈希长度应为32字节');
+            reason: 'SHA-256 哈希长度应为32字节',);
       });
     });
 
@@ -364,9 +364,9 @@ void main() {
         final input = Uint8List.fromList(List.generate(32, (i) => i));
 
         final hashes = List.generate(
-            5, (index) => integrityService.computeHashFromBytes(input));
+            5, (index) => integrityService.computeHashFromBytes(input),);
 
-        for (int i = 1; i < hashes.length; i++) {
+        for (var i = 1; i < hashes.length; i++) {
           expect(hashes[i], equals(hashes[0]), reason: '第${i + 1}次计算结果应与第1次一致');
         }
       });
@@ -392,7 +392,7 @@ void main() {
         final hashModified = integrityService.computeHashFromBytes(modified);
 
         expect(hashOriginal, isNot(equals(hashModified)),
-            reason: '单个字节改变应导致哈希值不同（雪崩效应）');
+            reason: '单个字节改变应导致哈希值不同（雪崩效应）',);
       });
 
       test('TC-33: 不同长度的字节数组应产生不同哈希值', () {
@@ -413,7 +413,7 @@ void main() {
         final hashWithZero = integrityService.computeHashFromBytes(withZero);
 
         expect(hashOriginal, isNot(equals(hashWithZero)),
-            reason: '添加零字节应导致哈希值不同');
+            reason: '添加零字节应导致哈希值不同',);
       });
     });
 
@@ -424,12 +424,12 @@ void main() {
 
         // 验证以 "sha256:" 开头
         expect(hash.startsWith('sha256:'), isTrue,
-            reason: '哈希值应以 "sha256:" 开头');
+            reason: '哈希值应以 "sha256:" 开头',);
 
         // 验证冒号后是十六进制字符
         final hexPart = hash.substring(7);
         expect(RegExp(r'^[0-9a-f]+$').hasMatch(hexPart), isTrue,
-            reason: '哈希值应为小写十六进制字符串');
+            reason: '哈希值应为小写十六进制字符串',);
       });
 
       test('TC-36: SHA-256 哈希的十六进制部分长度应为64个字符', () {
@@ -438,7 +438,7 @@ void main() {
 
         final hexPart = hash.substring(7);
         expect(hexPart.length, equals(64),
-            reason: 'SHA-256 哈希转换为十六进制后应为64个字符（32字节）');
+            reason: 'SHA-256 哈希转换为十六进制后应为64个字符（32字节）',);
       });
     });
 
@@ -499,7 +499,7 @@ void main() {
         final hashFromBytes = integrityService.computeHashFromBytes(utf8Bytes);
 
         expect(hashFromBytes, equals(hashFromString),
-            reason: 'UTF-8 字符串的字节哈希应与 computeHash 结果一致');
+            reason: 'UTF-8 字符串的字节哈希应与 computeHash 结果一致',);
       });
 
       test('TC-43: 中文内容的字节哈希应与 computeHash 结果一致', () {
@@ -510,7 +510,7 @@ void main() {
         final hashFromBytes = integrityService.computeHashFromBytes(utf8Bytes);
 
         expect(hashFromBytes, equals(hashFromString),
-            reason: '中文内容的字节哈希应与 computeHash 结果一致');
+            reason: '中文内容的字节哈希应与 computeHash 结果一致',);
       });
 
       test('TC-44: 空字符串与空字节数组的哈希应一致', () {
@@ -521,7 +521,7 @@ void main() {
         final hashFromBytes = integrityService.computeHashFromBytes(emptyBytes);
 
         expect(hashFromBytes, equals(hashFromString),
-            reason: '空字符串与空字节数组的哈希应一致');
+            reason: '空字符串与空字节数组的哈希应一致',);
       });
 
       test('TC-45: JSON 内容的字节哈希应与 computeHash 结果一致', () {
@@ -532,7 +532,7 @@ void main() {
         final hashFromBytes = integrityService.computeHashFromBytes(utf8Bytes);
 
         expect(hashFromBytes, equals(hashFromString),
-            reason: 'JSON 内容的字节哈希应与 computeHash 结果一致');
+            reason: 'JSON 内容的字节哈希应与 computeHash 结果一致',);
       });
     });
   });

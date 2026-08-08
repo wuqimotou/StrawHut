@@ -44,7 +44,6 @@ void main() {
             publishDate: '2026-07-14T00:00:00Z',
             title: 'cancel stream',
             isAnonymous: false,
-            tags: <String>[],
           ),
           content: StrawContent(
             encryptionAlgorithm: 'AES-256-GCM',

@@ -3,28 +3,28 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
-import 'package:strawhut/data/models/straw_file.dart';
-import 'package:strawhut/data/models/straw_content.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/straw_content.dart';
+import 'package:strawhut/data/models/straw_file.dart';
 
 void main() {
   // ========== 辅助函数：创建有效的 StrawFile 测试夹具 ==========
   /// 创建一个包含所有必填字段的有效 StrawFile 实例，供多个测试用例复用
-  StrawFile _createValidStrawFile() => StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+  StrawFile createValidStrawFile() => const StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -33,7 +33,7 @@ void main() {
 
   // ========== 辅助函数：创建有效的 JSON 测试夹具 ==========
   /// 创建一个有效的 .straw 文件 JSON 映射，用于 fromJson 测试
-  Map<String, dynamic> _createValidStrawJson() => {
+  Map<String, dynamic> createValidStrawJson() => {
         'format_version': '2.0.0',
         'meta': {
           'publisher_alias': 'TestUser',
@@ -58,8 +58,8 @@ void main() {
     test('两个相同的 StrawFile 对象应该相等', () {
       // 验证 StrawFile 的 == 运算符实现正确
       // 当所有字段都相同时，两个实例应被视为相等
-      final file1 = _createValidStrawFile();
-      final file2 = _createValidStrawFile();
+      final file1 = createValidStrawFile();
+      final file2 = createValidStrawFile();
 
       expect(file1, equals(file2));
     });
@@ -67,8 +67,8 @@ void main() {
     test('两个相同的 StrawFile 对象应该有相同的 hashCode', () {
       // 验证 hashCode 实现与 == 运算符一致
       // 相等的对象必须具有相同的 hashCode，这是 Dart 集合（如 HashSet、HashMap）正确工作的前提
-      final file1 = _createValidStrawFile();
-      final file2 = _createValidStrawFile();
+      final file1 = createValidStrawFile();
+      final file2 = createValidStrawFile();
 
       expect(file1.hashCode, equals(file2.hashCode));
     });
@@ -76,22 +76,22 @@ void main() {
     test('不同内容的 StrawFile 对象不应该相等', () {
       // 验证当某个字段不同时，两个 StrawFile 不相等
       // 测试 title 字段不同
-      final file1 = _createValidStrawFile();
-      final file2 = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      final file1 = createValidStrawFile();
+      const file2 = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '不同的标题', // 唯一不同的字段
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -103,16 +103,16 @@ void main() {
 
     test('StrawFile 与自身应该相等（同一实例）', () {
       // 验证 identical 场景下相等性成立
-      final file = _createValidStrawFile();
+      final file = createValidStrawFile();
       expect(file, equals(file));
     });
 
     test('StrawFile 与其他类型的对象不应该相等', () {
       // 验证 StrawFile 的 == 运算符正确判断类型
-      final file = _createValidStrawFile();
-      // ignore: unrelated_type_equality_checks
+      final file = createValidStrawFile();
+      // ignore: unrelated_type_equality_checks, 跨类型比较测试
       expect(file == 'not a StrawFile', isFalse);
-      // ignore: unrelated_type_equality_checks
+      // ignore: unrelated_type_equality_checks, 跨类型比较测试
       expect(file == 42, isFalse);
       expect(identical(file, null), isFalse);
     });
@@ -122,7 +122,7 @@ void main() {
     test('缺少 format_version 字段时应抛出异常', () {
       // 验证 fromJson 在缺少必填字段时的容错行为
       // format_version 是 StrawFile 的必填字段，缺失时应抛出异常
-      final json = _createValidStrawJson();
+      final json = createValidStrawJson();
       json.remove('format_version');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
@@ -130,7 +130,7 @@ void main() {
 
     test('缺少 meta 字段时应抛出异常', () {
       // meta 是必填字段，CardMeta.fromJson 会因为 null 转换失败而抛出异常
-      final json = _createValidStrawJson();
+      final json = createValidStrawJson();
       json.remove('meta');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
@@ -138,7 +138,7 @@ void main() {
 
     test('缺少 content 字段时应抛出异常', () {
       // content 是必填字段，缺失时应抛出异常
-      final json = _createValidStrawJson();
+      final json = createValidStrawJson();
       json.remove('content');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
@@ -146,7 +146,7 @@ void main() {
 
     test('缺少 integrity 字段时应抛出异常', () {
       // integrity 是必填字段，缺失时应抛出异常
-      final json = _createValidStrawJson();
+      final json = createValidStrawJson();
       json.remove('integrity');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
@@ -154,7 +154,7 @@ void main() {
 
     test('content 缺少 chunk_size 时应抛出异常', () {
       // StrawContent 的 chunkSize 是必填字段
-      final json = _createValidStrawJson();
+      final json = createValidStrawJson();
       (json['content'] as Map<String, dynamic>).remove('chunk_size');
 
       expect(() => StrawFile.fromJson(json), throwsA(isA<TypeError>()));
@@ -163,21 +163,21 @@ void main() {
 
   group('StrawFile.toJson', () {
     test('应输出包含所有必填字段的 JSON 映射', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -193,21 +193,21 @@ void main() {
     });
 
     test('JSON 键名应使用 snake_case 格式', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -234,22 +234,22 @@ void main() {
     });
 
     test('CardMeta 可选字段为 null 时不应输出', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
           // description 和 customAnnotations 为 null（默认）
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -264,9 +264,9 @@ void main() {
     });
 
     test('CardMeta 可选字段有值时应正确输出', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
@@ -275,13 +275,13 @@ void main() {
           description: '这是一张测试卡片',
           customAnnotations: {'key': 'value'},
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -458,21 +458,21 @@ void main() {
 
   group('StrawFile.assembleToJson', () {
     test('应输出有效的 JSON 字符串', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -487,9 +487,9 @@ void main() {
     });
 
     test('assembleToJson 应与 toJson 结果一致', () {
-      final strawFile = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const strawFile = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
@@ -497,13 +497,13 @@ void main() {
           tags: ['测试'],
           description: '描述',
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 1,
           originalPayloadSize: 256,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -523,9 +523,9 @@ void main() {
 
   group('StrawFile toJson/fromJson 序列化循环', () {
     test('完整序列化循环应还原所有字段', () {
-      final original = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const original = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '测试卡片',
@@ -534,13 +534,13 @@ void main() {
           description: '这是一张测试卡片',
           customAnnotations: {'version': '1'},
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 3,
           originalPayloadSize: 2500000,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -571,28 +571,28 @@ void main() {
       expect(restored.content.chunkSize, original.content.chunkSize);
       expect(restored.content.totalChunks, original.content.totalChunks);
       expect(restored.content.originalPayloadSize,
-          original.content.originalPayloadSize);
+          original.content.originalPayloadSize,);
       expect(restored.integrity.hash, original.integrity.hash);
       expect(
-          restored.integrity.hashAlgorithm, original.integrity.hashAlgorithm);
+          restored.integrity.hashAlgorithm, original.integrity.hashAlgorithm,);
     });
 
     test('assembleToJson 后再解析应还原所有字段', () {
-      final original = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      const original = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'Anonymous_a3f7b2c1',
           publishDate: '2026-05-02T08:30:00Z',
           title: '匿名卡片',
           isAnonymous: true,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 5,
           originalPayloadSize: 5000000,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:0000000000000000000000000000000000000000000000000000000000000000',
           hashAlgorithm: 'SHA-256',

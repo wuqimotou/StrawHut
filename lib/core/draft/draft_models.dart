@@ -9,6 +9,16 @@
 /// - 展示草稿列表时显示最后修改时间
 /// - 判断草稿的新鲜度（是否需要自动清除）
 class DraftInfo {
+
+  /// 创建草稿信息实例
+  ///
+  /// 参数说明：
+  /// - [content]: 草稿的 Delta JSON 内容，不能为 null
+  /// - [lastModified]: 最后修改时间，通常使用 DateTime.now().toUtc()
+  const DraftInfo({
+    required this.content,
+    required this.lastModified,
+  });
   /// 草稿内容（Delta JSON 字符串）
   ///
   /// Quill 编辑器的 Delta 格式，可直接用于恢复编辑状态。
@@ -21,14 +31,4 @@ class DraftInfo {
   /// - 草稿列表中按时间排序
   /// - 判断草稿是否过期（未来功能）
   final DateTime lastModified;
-
-  /// 创建草稿信息实例
-  ///
-  /// 参数说明：
-  /// - [content]: 草稿的 Delta JSON 内容，不能为 null
-  /// - [lastModified]: 最后修改时间，通常使用 DateTime.now().toUtc()
-  const DraftInfo({
-    required this.content,
-    required this.lastModified,
-  });
 }

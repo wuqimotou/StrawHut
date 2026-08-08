@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,10 +167,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
                 children: [
                   NeumorphicButton(
                     label: '新建文档',
-                    style: NeumorphicButtonStyle.flat,
                     onPressed: () => Navigator.pop(dialogContext, false),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: '恢复',
                     style: NeumorphicButtonStyle.primary,
@@ -186,7 +183,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
                             jsonDecode(content) as List,
                           );
                           _quillController.document = doc;
-                        } catch (e) {
+                        } on Object catch (e) {
                           debugPrint('Failed to restore draft: $e');
                         }
                       }
@@ -253,8 +250,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
             children: [
               NeumorphicIconButton(
                 icon: StrawIcons.arrowBack,
-                size: 44,
-                iconSize: 20,
                 tooltip: '返回',
                 onPressed: () => _handleBack(context),
               ),
@@ -271,8 +266,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
               ),
               NeumorphicIconButton(
                 icon: StrawIcons.publish,
-                size: 44,
-                iconSize: 20,
                 tooltip: '发布',
                 color: tokens.inkPrimary,
                 onPressed: () => _handlePublish(context),
@@ -295,7 +288,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
             NeumorphicButton(
               label: _isPreviewMode ? '返回编辑' : '预览',
               icon: _isPreviewMode ? StrawIcons.editNote : StrawIcons.eye,
-              style: NeumorphicButtonStyle.secondary,
               padding: const EdgeInsets.symmetric(
                 horizontal: 24,
                 vertical: 12,
@@ -369,10 +361,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
                 children: [
                   NeumorphicButton(
                     label: '取消',
-                    style: NeumorphicButtonStyle.flat,
                     onPressed: () => Navigator.pop(dialogContext, false),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: '离开',
                     style: NeumorphicButtonStyle.primary,

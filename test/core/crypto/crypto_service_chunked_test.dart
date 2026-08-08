@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
-import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
 import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
@@ -193,7 +192,7 @@ void main() {
         originalExtension: 'delta',
       );
       final payloadBytes =
-          Uint8List.fromList(utf8.encode('{"ops": [{"insert": "Hello\\n"}]}'));
+          Uint8List.fromList(utf8.encode(r'{"ops": [{"insert": "Hello\n"}]}'));
 
       final encrypted = await cryptoService.encrypt(
         payloadBytes: payloadBytes,
@@ -453,7 +452,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_KEY_LENGTH',
-        )),
+        ),),
       );
     });
 
@@ -478,7 +477,7 @@ void main() {
           (e) => e.code,
           'code',
           'INVALID_KEY_LENGTH',
-        )),
+        ),),
       );
     });
   });
@@ -499,7 +498,7 @@ void main() {
           (e) => e.code,
           'code',
           'EMPTY_CHUNKS',
-        )),
+        ),),
       );
     });
   });
@@ -546,7 +545,7 @@ void main() {
       final key = await cryptoService.generateKey();
 
       final payloadBytes =
-          Uint8List.fromList(utf8.encode('{"ops": [{"insert": "你好，世界！\\n"}]}'));
+          Uint8List.fromList(utf8.encode(r'{"ops": [{"insert": "你好，世界！\n"}]}'));
       const metadata = PayloadMetadata(
         sourceType: SourceType.richText,
         originalExtension: 'delta',
@@ -568,7 +567,7 @@ void main() {
 
       expect(decrypted.payloadBytes, equals(payloadBytes));
       expect(utf8.decode(decrypted.payloadBytes),
-          '{"ops": [{"insert": "你好，世界！\\n"}]}');
+          r'{"ops": [{"insert": "你好，世界！\n"}]}',);
     });
   });
 

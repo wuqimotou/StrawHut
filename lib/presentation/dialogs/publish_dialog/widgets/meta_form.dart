@@ -87,8 +87,9 @@ class MetaFormState extends State<MetaForm> {
     _publisherController.addListener(_notifyChanged);
     _descriptionController.addListener(_notifyChanged);
     // 标签输入：实时规范化（中英文逗号统一、去除首尾空格）
-    _tagsController.addListener(_normalizeTags);
-    _tagsController.addListener(_notifyChanged);
+    _tagsController
+      ..addListener(_normalizeTags)
+      ..addListener(_notifyChanged);
   }
 
   /// 标签输入规范化监听器
@@ -176,7 +177,7 @@ class MetaFormState extends State<MetaForm> {
     if (raw.isEmpty) return [];
 
     return raw
-        .split(RegExp(r'[,，]'))
+        .split(RegExp('[,，]'))
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
@@ -195,13 +196,14 @@ class MetaFormState extends State<MetaForm> {
     _titleController.text = newTitle;
   }
 
-  /// 用凹陷软质容器包裹输入框，使其成为视觉焦点
+  /// 用扁平容器包裹输入框
   ///
-  /// Neumorphism 层级原则：输入框是用户交互的核心区域，应通过凹陷软槽
-  /// （双向阴影模拟内壁）突出；而说明性文字区块应扁平退居次要。
-  Widget _concaveField(NeumorphicTokens tokens, TextFormField field) {
+  /// 设计原则：输入框采用扁平背景（surfaceAlt 微差色）以保持视觉简洁，
+  /// 仅按钮保留浮空（convex）样式作为操作焦点。
+  Widget _flatField(NeumorphicTokens tokens, TextFormField field) {
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
+      color: tokens.surfaceAlt,
       borderRadius: tokens.radiusSmall,
       padding: EdgeInsets.zero,
       child: field,
@@ -223,10 +225,10 @@ class MetaFormState extends State<MetaForm> {
     final tokens = NeumorphicTokens.ofContext(context);
 
     // 统一的输入框边框样式
-    // 未聚焦时边框透明，由外层凹陷软质容器的阴影定义边界（Neumorphism 核心原则）
+    // 可见边框：扁平样式下明确区分输入框边界
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
-      borderSide: BorderSide(color: Colors.transparent, width: 1),
+      borderSide: BorderSide(color: tokens.divider),
     );
     final inputBorderFocused = OutlineInputBorder(
       borderRadius: BorderRadius.circular(tokens.radiusSmall),
@@ -239,8 +241,8 @@ class MetaFormState extends State<MetaForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 标题输入框（必填，凹陷软槽作为视觉焦点）
-          _concaveField(
+          // 标题输入框（必填，扁平背景）
+          _flatField(
             tokens,
             TextFormField(
               controller: _titleController,
@@ -272,8 +274,8 @@ class MetaFormState extends State<MetaForm> {
           ),
           SizedBox(height: tokens.spaceMd),
 
-          // 发布者代号输入框（非匿名模式下必填，凹陷软槽）
-          _concaveField(
+          // 发布者代号输入框（非匿名模式下必填，扁平背景）
+          _flatField(
             tokens,
             TextFormField(
               controller: _publisherController,
@@ -329,7 +331,6 @@ class MetaFormState extends State<MetaForm> {
                   borderRadius: BorderRadius.circular(tokens.radiusSmall),
                   borderSide: BorderSide(
                     color: tokens.inkWash.withValues(alpha: 0.3),
-                    width: 1,
                   ),
                 ),
                 filled: true,
@@ -382,7 +383,6 @@ class MetaFormState extends State<MetaForm> {
                   color: _isAnonymous
                       ? tokens.inkWash.withValues(alpha: 0.35)
                       : tokens.divider,
-                  width: 1,
                 ),
               ),
               child: Row(
@@ -419,7 +419,7 @@ class MetaFormState extends State<MetaForm> {
                       });
                       _notifyChanged();
                     },
-                    activeColor: tokens.inkPrimary,
+                    activeThumbColor: tokens.inkPrimary,
                     activeTrackColor: tokens.inkWash,
                     inactiveThumbColor: tokens.surface,
                     inactiveTrackColor: tokens.surfaceAlt,
@@ -430,8 +430,8 @@ class MetaFormState extends State<MetaForm> {
           ),
           SizedBox(height: tokens.spaceSm),
 
-          // 描述输入框（可选，最多 200 字符，凹陷软槽）
-          _concaveField(
+          // 描述输入框（可选，最多 200 字符，扁平背景）
+          _flatField(
             tokens,
             TextFormField(
               controller: _descriptionController,
@@ -481,8 +481,8 @@ class MetaFormState extends State<MetaForm> {
           ),
           SizedBox(height: tokens.spaceMd),
 
-          // 标签输入框（可选，逗号分隔，最多 10 个标签，凹陷软槽）
-          _concaveField(
+          // 标签输入框（可选，逗号分隔，最多 10 个标签，扁平背景）
+          _flatField(
             tokens,
             TextFormField(
               controller: _tagsController,
@@ -511,7 +511,7 @@ class MetaFormState extends State<MetaForm> {
                 }
 
                 final parsedTags = value
-                    .split(RegExp(r'[,，]'))
+                    .split(RegExp('[,，]'))
                     .map((e) => e.trim())
                     .where((e) => e.isNotEmpty)
                     .toList();

@@ -22,7 +22,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -35,8 +34,8 @@ import 'package:strawhut/core/crypto/crypto_service.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
 import 'package:strawhut/core/file_io/file_io_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
-import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/core/utils/cancellation_token.dart';
+import 'package:strawhut/core/utils/memory_utils.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
@@ -124,7 +123,7 @@ Widget _buildDecryptDialog({
           builder: (context) {
             return DecryptDialog(
               strawFile: strawFile,
-              parsedFile: ParsedStrawFile(strawFile: strawFile, chunks: []),
+              parsedFile: ParsedStrawFile(strawFile: strawFile, chunks: const []),
               onDecryptSuccess: onDecryptSuccess,
               strawFilePath: strawFilePath,
             );
@@ -600,7 +599,7 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
-          payloadMetadata: PayloadMetadata(
+          payloadMetadata: const PayloadMetadata(
             sourceType: SourceType.richText,
             originalExtension: 'delta',
           ),
@@ -786,7 +785,7 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => DecryptResult(
-          payloadMetadata: PayloadMetadata(
+          payloadMetadata: const PayloadMetadata(
             sourceType: SourceType.richText,
             originalExtension: 'delta',
           ),
@@ -1008,7 +1007,7 @@ void main() {
       // 完成解密操作
       completer.complete(
         DecryptResult(
-          payloadMetadata: PayloadMetadata(
+          payloadMetadata: const PayloadMetadata(
             sourceType: SourceType.richText,
             originalExtension: 'delta',
           ),
@@ -1080,7 +1079,7 @@ void main() {
       // 完成解密操作
       completer.complete(
         DecryptResult(
-          payloadMetadata: PayloadMetadata(
+          payloadMetadata: const PayloadMetadata(
             sourceType: SourceType.richText,
             originalExtension: 'delta',
           ),

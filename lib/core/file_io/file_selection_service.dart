@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:strawhut/core/platform/android_file_saver.dart';
 
 /// Platform-aware file selection service
@@ -30,10 +28,9 @@ class FileSelectionService {
   /// 安卓端使用 withData: false 获取文件缓存路径。
   /// 返回 null 如果用户取消选择。
   Future<String?> pickStrawOrPngFilePath() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: isAndroid ? FileType.any : FileType.custom,
       allowedExtensions: isAndroid ? null : ['straw', 'png'],
-      withData: false,
     );
     if (result == null || result.files.isEmpty) return null;
 
@@ -61,8 +58,7 @@ class FileSelectionService {
     if (isAndroid) {
       // 安卓端：FileType.custom 无法识别 .straw 扩展名（无对应 MIME 类型），
       // 使用 FileType.any 显示所有文件，选择后验证扩展名
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+      final result = await FilePicker.pickFiles(
         withData: true,
       );
       if (result == null || result.files.isEmpty) return null;
@@ -85,7 +81,7 @@ class FileSelectionService {
     }
 
     // 桌面端：使用 FileType.custom 精确过滤
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['straw', 'png'],
       withData: true,
@@ -104,7 +100,7 @@ class FileSelectionService {
   ///
   /// Returns null if the user cancels the selection.
   Future<(Uint8List bytes, String fileName)?> pickKeyFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['key'],
       withData: true,
@@ -123,7 +119,7 @@ class FileSelectionService {
   ///
   /// Returns null if the user cancels the selection.
   Future<(Uint8List bytes, String fileName)?> pickImageFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       withData: true,
     );
@@ -180,38 +176,6 @@ class FileSelectionService {
     }
   }
 
-  /// Ensure storage permission on Android 9 and below.
-  ///
-  /// On Android 10+ (scoped storage), no explicit permission is needed
-  /// for file_picker operations.
-  Future<bool> _ensureStoragePermission() async {
-    if (!isAndroid) return true;
-
-    try {
-      final info = await _getAndroidSdkVersion();
-      if (info != null && info <= 29) {
-        final status = await Permission.storage.request();
-        return status.isGranted;
-      }
-    } catch (_) {
-      // If we can't get the SDK version, proceed anyway
-    }
-
-    // Android 10+: Scoped Storage, no permission needed for file_picker
-    return true;
-  }
-
-  /// Get the Android SDK version.
-  ///
-  /// Uses a device info approach that works without the device_info_plus
-  /// package by using Platform API (only available on Android).
-  Future<int?> _getAndroidSdkVersion() async {
-    // We use a simple approach: if on Android, assume 10+ (API 29+)
-    // since minSdkVersion is 23, but Android 10+ is the dominant version.
-    // The permission handler itself handles older versions gracefully.
-    return null;
-  }
-
   /// Save a file on Android using MediaStore.
   ///
   /// Uses the Android platform channel to save files to proper system folders:
@@ -256,7 +220,7 @@ class FileSelectionService {
         }
       } else {
         // 非多媒体文件：存到 Downloads
-        final downloadMimeType = 'application/octet-stream';
+        const downloadMimeType = 'application/octet-stream';
         final uri = await AndroidFileSaver.saveToDownloads(
           fileName: fileName,
           mimeType: downloadMimeType,
@@ -267,7 +231,7 @@ class FileSelectionService {
           return 'Downloads/$fileName';
         }
       }
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('MediaStore save failed, falling back to path_provider: $e');
     }
 
@@ -388,7 +352,7 @@ class FileSelectionService {
     final allowedExtensions =
         knownExtensions[fileType] ?? (fileType != 'any' ? [fileType] : null);
 
-    final savePath = await FilePicker.platform.saveFile(
+    final savePath = await FilePicker.saveFile(
       fileName: fileName,
       type: type,
       allowedExtensions: allowedExtensions,
@@ -413,9 +377,9 @@ class FileSelectionService {
     if (file.path != null) {
       try {
         return File(file.path!).readAsBytes();
-      } catch (e) {
+      } on Object {
         debugPrint(
-            'FileSelectionService: Failed to read file at path: ${file.path}');
+            'FileSelectionService: Failed to read file at path: ${file.path}',);
         return null;
       }
     }
@@ -428,7 +392,7 @@ class FileSelectionService {
           bytes.addAll(chunk);
         }
         return Uint8List.fromList(bytes);
-      } catch (e) {
+      } on Object catch (_) {
         debugPrint('FileSelectionService: Failed to read file from stream');
         return null;
       }

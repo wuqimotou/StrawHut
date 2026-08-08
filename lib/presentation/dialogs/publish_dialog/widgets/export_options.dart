@@ -55,7 +55,6 @@ class ExportOptions extends StatelessWidget {
       borderRadius: tokens.radiusSmall,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           NeumorphicIcon(
             StrawIcons.password,

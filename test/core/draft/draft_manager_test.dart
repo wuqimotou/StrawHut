@@ -10,6 +10,7 @@
 /// 采用纯内存存储方案，符合"零持久化"架构原则。
 /// 这些测试确保草稿管理器在各种边界条件下行为正确，
 /// 为用户数据安全和编辑体验提供可靠保障。
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/draft/draft_manager.dart';
@@ -173,7 +174,7 @@ void main() {
       // 验证新建实例直接调用 clearDraft 的安全性
       final manager = DraftManager();
 
-      expect(() => manager.clearDraft(), returnsNormally);
+      expect(manager.clearDraft, returnsNormally);
     });
 
     test('清除草稿后 hasDraft 返回 false', () {
@@ -259,7 +260,7 @@ void main() {
 
       // 复杂富文本
       manager.saveToDraft(
-        '{"ops":[{"insert":"Bold","attributes":{"bold":true}},{"insert":"\\n"}]}',
+        r'{"ops":[{"insert":"Bold","attributes":{"bold":true}},{"insert":"\n"}]}',
       );
       expect(manager.hasDraft(), isTrue);
     });

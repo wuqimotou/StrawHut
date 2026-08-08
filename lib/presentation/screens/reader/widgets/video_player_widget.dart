@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         setState(() {
           _isInitialized = true;
         });
-        _controller.setLooping(true);
+        unawaited(_controller.setLooping(true));
       }
     } on Exception catch (e) {
       if (mounted) {
@@ -142,7 +143,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                     if (!_controller.value.isPlaying)
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           shape: BoxShape.circle,
                         ),
                         padding: const EdgeInsets.all(16),
@@ -170,8 +171,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 allowScrubbing: true,
                 colors: VideoProgressColors(
                   playedColor: Theme.of(context).colorScheme.primary,
-                  bufferedColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  bufferedColor: Theme.of(context).colorScheme.primary
+                      .withValues(alpha: 0.3),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
               ),
               const SizedBox(height: 8),

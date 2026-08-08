@@ -48,7 +48,7 @@ class MemoryUtils {
   ///
   /// 遍历 Map 中的所有键值对：
   /// - 如果值为 Uint8List，调用 wipeBytes 逐字节置零
-  /// - 如果值为 List<int>，逐元素置零
+  /// - 如果值为 `List<int>`，逐元素置零
   /// - 所有值最终设置为 null
   ///
   /// 参数：[map] - 要安全清除的 Map

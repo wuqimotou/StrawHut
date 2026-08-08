@@ -124,7 +124,7 @@ class FormatValidator implements IFormatValidator {
         final majorVersion = version.split('.').first;
         if (majorVersion != BINARY_FORMAT_MAJOR.toString()) {
           errors.add(
-            '不兼容的格式版本号: $version，仅支持主版本为 ${BINARY_FORMAT_MAJOR} 的文件格式',
+            '不兼容的格式版本号: $version，仅支持主版本为 $BINARY_FORMAT_MAJOR 的文件格式',
           );
         }
       }
@@ -259,7 +259,8 @@ class FormatValidator implements IFormatValidator {
             );
             if (!hashPattern.hasMatch(hash)) {
               errors.add(
-                'integrity.hash 格式无效，应为 "sha256:" 或 "hmac-sha256:" 后跟 64 位十六进制字符',
+                'integrity.hash 格式无效，应为 "sha256:" 或 "hmac-sha256:"'
+                ' 后跟 64 位十六进制字符',
               );
             }
           }
@@ -277,7 +278,8 @@ class FormatValidator implements IFormatValidator {
           if (hashAlgo != HASH_ALGORITHM_SHA256 &&
               hashAlgo != HASH_ALGORITHM_HMAC_SHA256) {
             errors.add(
-              '不支持的哈希算法: $hashAlgo，仅支持 $HASH_ALGORITHM_SHA256 或 $HASH_ALGORITHM_HMAC_SHA256',
+              '不支持的哈希算法: $hashAlgo，仅支持 $HASH_ALGORITHM_SHA256'
+              ' 或 $HASH_ALGORITHM_HMAC_SHA256',
             );
           }
         }

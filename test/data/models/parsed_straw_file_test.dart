@@ -11,21 +11,21 @@ import 'package:strawhut/data/models/straw_file.dart';
 
 void main() {
   // ========== 辅助函数：创建测试用 StrawFile ==========
-  StrawFile _createTestStrawFile() => StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+  StrawFile createTestStrawFile() => const StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'TestUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '分块测试卡片',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 2,
           originalPayloadSize: 1500000,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -33,7 +33,7 @@ void main() {
       );
 
   // ========== 辅助函数：创建测试用 ChunkInfo ==========
-  ChunkInfo _createTestChunk({int seed = 0}) {
+  ChunkInfo createTestChunk({int seed = 0}) {
     return ChunkInfo(
       iv: Uint8List.fromList(List.generate(16, (i) => (i + seed) & 0xFF)),
       encryptedData: Uint8List.fromList(
@@ -44,8 +44,8 @@ void main() {
 
   group('ParsedStrawFile 构造', () {
     test('应正确构造含 strawFile 和 chunks 的实例', () {
-      final strawFile = _createTestStrawFile();
-      final chunks = [_createTestChunk(seed: 0), _createTestChunk(seed: 1)];
+      final strawFile = createTestStrawFile();
+      final chunks = [createTestChunk(), createTestChunk(seed: 1)];
 
       final parsed = ParsedStrawFile(strawFile: strawFile, chunks: chunks);
 
@@ -56,9 +56,9 @@ void main() {
     });
 
     test('应支持空 chunks 列表', () {
-      final strawFile = _createTestStrawFile();
+      final strawFile = createTestStrawFile();
 
-      final parsed = ParsedStrawFile(strawFile: strawFile, chunks: []);
+      final parsed = ParsedStrawFile(strawFile: strawFile, chunks: const []);
 
       expect(parsed.chunks, isEmpty);
     });
@@ -66,8 +66,8 @@ void main() {
 
   group('ParsedStrawFile 相等性', () {
     test('两个字段完全相同的实例应相等', () {
-      final strawFile = _createTestStrawFile();
-      final chunks = [_createTestChunk(seed: 0)];
+      final strawFile = createTestStrawFile();
+      final chunks = [createTestChunk()];
 
       final parsed1 = ParsedStrawFile(strawFile: strawFile, chunks: chunks);
       final parsed2 = ParsedStrawFile(strawFile: strawFile, chunks: chunks);
@@ -76,28 +76,28 @@ void main() {
     });
 
     test('strawFile 不同时不应相等', () {
-      final strawFile1 = _createTestStrawFile();
-      final strawFile2 = StrawFile(
-        formatVersion: const FormatVersion(2, 0, 0),
-        meta: const CardMeta(
+      final strawFile1 = createTestStrawFile();
+      const strawFile2 = StrawFile(
+        formatVersion: FormatVersion(2, 0, 0),
+        meta: CardMeta(
           publisherAlias: 'DifferentUser',
           publishDate: '2026-05-01T12:00:00Z',
           title: '不同的标题',
           isAnonymous: false,
         ),
-        content: const StrawContent(
+        content: StrawContent(
           encryptionAlgorithm: 'AES-256-GCM',
           chunkSize: 1048576,
           totalChunks: 2,
           originalPayloadSize: 1500000,
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
         ),
       );
-      final chunks = [_createTestChunk(seed: 0)];
+      final chunks = [createTestChunk()];
 
       final parsed1 = ParsedStrawFile(strawFile: strawFile1, chunks: chunks);
       final parsed2 = ParsedStrawFile(strawFile: strawFile2, chunks: chunks);
@@ -106,9 +106,9 @@ void main() {
     });
 
     test('chunks 不同时不应相等', () {
-      final strawFile = _createTestStrawFile();
-      final chunks1 = [_createTestChunk(seed: 0)];
-      final chunks2 = [_createTestChunk(seed: 1)];
+      final strawFile = createTestStrawFile();
+      final chunks1 = [createTestChunk()];
+      final chunks2 = [createTestChunk(seed: 1)];
 
       final parsed1 = ParsedStrawFile(strawFile: strawFile, chunks: chunks1);
       final parsed2 = ParsedStrawFile(strawFile: strawFile, chunks: chunks2);
@@ -117,11 +117,11 @@ void main() {
     });
 
     test('chunks 长度不同时不应相等', () {
-      final strawFile = _createTestStrawFile();
-      final chunks1 = [_createTestChunk(seed: 0)];
+      final strawFile = createTestStrawFile();
+      final chunks1 = [createTestChunk()];
       final chunks2 = [
-        _createTestChunk(seed: 0),
-        _createTestChunk(seed: 1),
+        createTestChunk(),
+        createTestChunk(seed: 1),
       ];
 
       final parsed1 = ParsedStrawFile(strawFile: strawFile, chunks: chunks1);
@@ -131,8 +131,8 @@ void main() {
     });
 
     test('与自身应相等', () {
-      final strawFile = _createTestStrawFile();
-      final chunks = [_createTestChunk(seed: 0)];
+      final strawFile = createTestStrawFile();
+      final chunks = [createTestChunk()];
       final parsed = ParsedStrawFile(strawFile: strawFile, chunks: chunks);
 
       expect(parsed, equals(parsed));

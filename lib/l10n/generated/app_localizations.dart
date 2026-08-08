@@ -434,6 +434,24 @@ abstract class AppLocalizations {
   /// **'请以原图方式发送，否则接收方无法解密'**
   String get shareAsOriginalImage;
 
+  /// PNG 发布前强确认弹框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'原图发送提醒'**
+  String get pngOriginalImageConfirmTitle;
+
+  /// PNG 发布前强确认弹框正文
+  ///
+  /// In zh, this message translates to:
+  /// **'PNG 知识卡片将加密数据嵌入图像像素，必须以原图方式发送（不压缩、不转格式、不二次截图），否则接收方将无法解密。是否确认了解并继续发布？'**
+  String get pngOriginalImageConfirmBody;
+
+  /// PNG 强确认弹框的继续发布按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确认发布'**
+  String get confirmPublish;
+
   /// PNG 分享按钮文字
   ///
   /// In zh, this message translates to:
@@ -565,24 +583,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请输入 DELETE 以确认'**
   String get clearAllConfirmInput;
-
-  /// 自动解密进度提示
-  ///
-  /// In zh, this message translates to:
-  /// **'正在尝试自动解密...'**
-  String get autoDecryptProgress;
-
-  /// 带进度的自动解密提示
-  ///
-  /// In zh, this message translates to:
-  /// **'正在尝试自动解密 ({current}/{total})...'**
-  String autoDecryptProgressWithCount(int current, int total);
-
-  /// 自动解密成功提示
-  ///
-  /// In zh, this message translates to:
-  /// **'已使用保存的暗号\"{label}\"自动解密'**
-  String autoDecryptSuccess(String label);
 
   /// 解密后保存暗号复选框
   ///

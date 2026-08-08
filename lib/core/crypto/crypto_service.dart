@@ -1,17 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes.dart';
+import 'package:pointycastle/block/modes/gcm.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
-import 'package:pointycastle/block/modes/gcm.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/errors/crypto_exception.dart';
@@ -83,7 +82,8 @@ abstract class ICryptoService {
   /// 加密载荷（统一接口）
   ///
   /// 将载荷字节和元数据加密为分块结构。第一个分块包含元数据前缀：
-  /// [MetadataLength(2B uint16 LE)] + [MetadataBytes] + [PayloadData[:剩余空间]]
+  /// `[MetadataLength(2B uint16 LE)]` + `[MetadataBytes]` +
+  /// `[PayloadData[:剩余空间]]`
   /// 后续分块仅包含载荷数据。
   /// 每个分块独立生成 IV，使用 AES-256-GCM 加密。
   ///
@@ -377,7 +377,7 @@ class CryptoService implements ICryptoService {
     );
 
     final chunks = <ChunkInfo>[];
-    int payloadOffset = 0;
+    var payloadOffset = 0;
 
     // ---- 第一个分块 ----
     final firstPayloadSize = min(
@@ -389,13 +389,14 @@ class CryptoService implements ICryptoService {
     firstChunkPlaintext[0] = metadataLen & 0xFF;
     firstChunkPlaintext[1] = (metadataLen >> 8) & 0xFF;
     // 写入元数据字节
-    firstChunkPlaintext.setRange(2, 2 + metadataLen, metadataBytes);
-    // 写入第一部分载荷数据
-    firstChunkPlaintext.setRange(
-      2 + metadataLen,
-      firstChunkPlaintext.length,
-      payloadBytes,
-    );
+    firstChunkPlaintext
+      ..setRange(2, 2 + metadataLen, metadataBytes)
+      // 写入第一部分载荷数据
+      ..setRange(
+        2 + metadataLen,
+        firstChunkPlaintext.length,
+        payloadBytes,
+      );
     payloadOffset = firstPayloadSize;
 
     // 使用 compute 在后台 Isolate 中加密第一个分块
@@ -457,7 +458,7 @@ class CryptoService implements ICryptoService {
   /// 解密载荷（统一接口）
   ///
   /// 实现步骤：
-  /// 1. 解密第一个分块 → 提取 [MetadataLength(2B)] + [MetadataBytes] + 首段载荷
+  /// 1. 解密第一个分块 → 提取 `[MetadataLength(2B)]` + `[MetadataBytes]` + 首段载荷
   /// 2. 解析 PayloadMetadata → 获取 sourceType + originalExtension
   /// 3. 解密第 2..N 个分块 → 拼接载荷数据
   /// 4. 返回 DecryptResult（PayloadMetadata + 完整 PayloadBytes）
@@ -475,7 +476,7 @@ class CryptoService implements ICryptoService {
     _validateKeyLength(key);
 
     if (chunks.isEmpty) {
-      throw CryptoException('分块列表为空，无法解密', code: 'EMPTY_CHUNKS');
+      throw const CryptoException('分块列表为空，无法解密', code: 'EMPTY_CHUNKS');
     }
 
     final totalChunks = chunks.length;
@@ -497,12 +498,15 @@ class CryptoService implements ICryptoService {
 
     // 提取元数据长度（uint16 LE）
     if (firstPlaintext.length < 2) {
-      throw CryptoException('第一个分块过小，无法读取元数据长度', code: 'FIRST_CHUNK_TOO_SMALL');
+      throw const CryptoException(
+        '第一个分块过小，无法读取元数据长度',
+        code: 'FIRST_CHUNK_TOO_SMALL',
+      );
     }
     final metadataLen = firstPlaintext[0] | (firstPlaintext[1] << 8);
 
     if (firstPlaintext.length < 2 + metadataLen) {
-      throw CryptoException('第一个分块过小，元数据被截断', code: 'METADATA_TRUNCATED');
+      throw const CryptoException('第一个分块过小，元数据被截断', code: 'METADATA_TRUNCATED');
     }
 
     // 提取元数据字节并反序列化
@@ -540,7 +544,7 @@ class CryptoService implements ICryptoService {
       (sum, part) => sum + part.length,
     );
     final payloadBytes = Uint8List(totalSize);
-    int offset = 0;
+    var offset = 0;
     for (final part in payloadParts) {
       cancellationToken?.throwIfCancelled();
       payloadBytes.setRange(offset, offset + part.length, part);
@@ -583,6 +587,7 @@ class CryptoService implements ICryptoService {
     _validateKeyLength(key);
 
     final file = File(sourcePath);
+    // ignore: avoid_slow_async_io, 文件存在检查在异步加密流程中调用
     if (!await file.exists()) {
       throw CryptoException('源文件不存在：$sourcePath', code: 'FILE_NOT_FOUND');
     }
@@ -623,12 +628,13 @@ class CryptoService implements ICryptoService {
       final firstChunkPlaintext = Uint8List(2 + metadataLen + firstPayloadSize);
       firstChunkPlaintext[0] = metadataLen & 0xFF;
       firstChunkPlaintext[1] = (metadataLen >> 8) & 0xFF;
-      firstChunkPlaintext.setRange(2, 2 + metadataLen, metadataBytes);
-      firstChunkPlaintext.setRange(
-        2 + metadataLen,
-        firstChunkPlaintext.length,
-        firstPayloadData,
-      );
+      firstChunkPlaintext
+        ..setRange(2, 2 + metadataLen, metadataBytes)
+        ..setRange(
+          2 + metadataLen,
+          firstChunkPlaintext.length,
+          firstPayloadData,
+        );
 
       // 使用 compute 在后台 Isolate 中加密第一个分块
       final firstResult = await compute(
@@ -648,7 +654,7 @@ class CryptoService implements ICryptoService {
       onProgress?.call(1, totalChunks);
 
       // ---- 后续分块 ----
-      int chunkIndex = 1;
+      var chunkIndex = 1;
       while (await raf.position() < fileSize) {
         cancellationToken?.throwIfCancelled();
         final remaining = fileSize - await raf.position();
@@ -721,6 +727,7 @@ class CryptoService implements ICryptoService {
     _validateKeyLength(key);
 
     final file = File(strawFilePath);
+    // ignore: avoid_slow_async_io, 文件存在检查在异步加密流程中调用
     if (!await file.exists()) {
       throw CryptoException('文件不存在：$strawFilePath', code: 'FILE_NOT_FOUND');
     }
@@ -734,7 +741,10 @@ class CryptoService implements ICryptoService {
       // ---- 读取 JSON 头部长度 ----
       final headerLenBytes = await raf.read(4);
       if (headerLenBytes.length < 4) {
-        throw CryptoException('文件头部格式错误：无法读取头部长度', code: 'INVALID_FILE_FORMAT');
+        throw const CryptoException(
+          '文件头部格式错误：无法读取头部长度',
+          code: 'INVALID_FILE_FORMAT',
+        );
       }
       final headerLength =
           headerLenBytes[0] |
@@ -745,7 +755,7 @@ class CryptoService implements ICryptoService {
       // 长度上限校验：防止恶意文件触发超大内存分配
       if (headerLength > MAX_HEADER_SIZE_BYTES) {
         throw CryptoException(
-          'Header Size 超过上限: $headerLength 字节，'
+          'Header Size 超过上限: $headerLength 字节， '
           '最大允许 $MAX_HEADER_SIZE_BYTES 字节',
           code: 'INVALID_FILE_FORMAT',
         );
@@ -775,7 +785,7 @@ class CryptoService implements ICryptoService {
       // 长度上限校验：防止恶意文件触发超长循环
       if (totalChunks <= 0 || totalChunks > MAX_TOTAL_CHUNKS_LIMIT) {
         throw CryptoException(
-          'totalChunks 异常: $totalChunks，'
+          'totalChunks 异常: $totalChunks， '
           '允许范围为 1..$MAX_TOTAL_CHUNKS_LIMIT',
           code: 'INVALID_FILE_FORMAT',
         );
@@ -786,7 +796,7 @@ class CryptoService implements ICryptoService {
       final targetRaf = await targetFile.open(mode: FileMode.writeOnly);
 
       PayloadMetadata? payloadMetadata;
-      int bytesWritten = 0;
+      var bytesWritten = 0;
 
       try {
         for (var i = 0; i < totalChunks; i++) {
@@ -817,7 +827,7 @@ class CryptoService implements ICryptoService {
           // 长度上限校验：防止恶意文件触发超大内存分配
           if (encDataLen > MAX_CHUNK_CIPHERTEXT_BYTES) {
             throw CryptoException(
-              '分块 $i 密文长度超过上限: $encDataLen 字节，'
+              '分块 $i 密文长度超过上限: $encDataLen 字节， '
               '最大允许 $MAX_CHUNK_CIPHERTEXT_BYTES 字节',
               code: 'INVALID_FILE_FORMAT',
             );
@@ -827,7 +837,7 @@ class CryptoService implements ICryptoService {
           final encDataBytes = await raf.read(encDataLen);
           if (encDataBytes.length < encDataLen) {
             throw CryptoException(
-              '分块 $i 加密数据不完整：期望 $encDataLen 字节，'
+              '分块 $i 加密数据不完整：期望 $encDataLen 字节， '
               '实际 ${encDataBytes.length} 字节',
               code: 'INVALID_FILE_FORMAT',
             );
@@ -835,9 +845,10 @@ class CryptoService implements ICryptoService {
 
           // 边读边算：将 IV + len + ciphertext 更新到 IntegritySink
           if (integritySink != null) {
-            integritySink.updateChunkIv(ivBytes);
-            integritySink.updateChunkLength(encDataLenBytes);
-            integritySink.updateChunkCipher(encDataBytes);
+            integritySink
+              ..updateChunkIv(ivBytes)
+              ..updateChunkLength(encDataLenBytes)
+              ..updateChunkCipher(encDataBytes);
           }
 
           // 使用 compute 在后台 Isolate 中解密分块
@@ -857,7 +868,7 @@ class CryptoService implements ICryptoService {
           if (i == 0) {
             // 第一个分块：提取元数据前缀
             if (plaintext.length < 2) {
-              throw CryptoException(
+              throw const CryptoException(
                 '第一个分块过小，无法读取元数据长度',
                 code: 'FIRST_CHUNK_TOO_SMALL',
               );
@@ -865,7 +876,7 @@ class CryptoService implements ICryptoService {
             final metadataLen = plaintext[0] | (plaintext[1] << 8);
 
             if (plaintext.length < 2 + metadataLen) {
-              throw CryptoException(
+              throw const CryptoException(
                 '第一个分块过小，元数据被截断',
                 code: 'METADATA_TRUNCATED',
               );
@@ -911,12 +922,14 @@ class CryptoService implements ICryptoService {
       );
     } on OperationCancelledException {
       final partialFile = File(targetPath);
+      // ignore: avoid_slow_async_io, 文件存在检查在异步加密流程中调用
       if (await partialFile.exists()) {
         await partialFile.delete();
       }
       rethrow;
     } catch (e) {
       final partialFile = File(targetPath);
+      // ignore: avoid_slow_async_io, 文件存在检查在异步加密流程中调用
       if (await partialFile.exists()) {
         await partialFile.delete();
       }
@@ -948,6 +961,7 @@ class CryptoService implements ICryptoService {
   ///
   /// 调用方应在持有加密密钥时调用此方法，得到 HMAC 密钥后用于
   /// [IntegrityService.computeHmacFromBytes] 等方法。
+  @override
   Uint8List deriveHmacKey(Uint8List encryptionKey) {
     _validateKeyLength(encryptionKey);
     return _deriveHmacKeyStatic(encryptionKey);
@@ -968,27 +982,6 @@ class CryptoService implements ICryptoService {
     }
     final remaining = payloadSize - firstChunkPayloadCapacity;
     return 1 + ((remaining + chunkSize - 1) ~/ chunkSize);
-  }
-
-  /// 生成密码学安全随机字节
-  Uint8List _generateSecureRandomBytes(int length) {
-    final random = Random.secure();
-    final bytes = Uint8List(length);
-    for (var i = 0; i < length; i++) {
-      bytes[i] = random.nextInt(256);
-    }
-    return bytes;
-  }
-
-  /// AES-256-GCM 加密单个分块
-  ///
-  /// 返回密文（含 GCM 16 字节认证标签）。
-  Uint8List _encryptAesGcm(Uint8List plaintext, Uint8List key, Uint8List iv) {
-    final encrypter = enc.Encrypter(
-      enc.AES(enc.Key(key), mode: enc.AESMode.gcm),
-    );
-    final encrypted = encrypter.encryptBytes(plaintext, iv: enc.IV(iv));
-    return encrypted.bytes;
   }
 
   /// AES-256-GCM 解密单个分块
@@ -1029,15 +1022,15 @@ class CryptoService implements ICryptoService {
 
 /// Parameters for PBKDF2 key derivation (must be serializable for compute/Isolate).
 class _DeriveKeyParams {
-  final String passphrase;
-  final Uint8List salt;
-  final int iterations;
 
   _DeriveKeyParams({
     required this.passphrase,
     required this.salt,
     required this.iterations,
   });
+  final String passphrase;
+  final Uint8List salt;
+  final int iterations;
 }
 
 /// Top-level function for PBKDF2 key derivation in a background Isolate.
@@ -1110,14 +1103,15 @@ Uint8List _generateSecureRandomBytesStatic(int length) {
 
 /// 构建 v2.1 容器认证的 AAD
 ///
-/// AAD = UTF8(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR) + u32LE(chunkIndex) + u32LE(totalChunks)
+/// AAD = UTF8(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR) +
+/// u32LE(chunkIndex) + u32LE(totalChunks)
 ///
 /// 绑定分块序号和总数，防止分块重排或截断攻击。
 /// 必须为顶层函数以便在 Isolate 中调用。
 Uint8List _buildAadV21Static(int chunkIndex, int totalChunks) {
   final domainBytes = utf8.encode(STRAWHUT_V21_AAD_DOMAIN_SEPARATOR);
-  final aad = Uint8List(domainBytes.length + 8);
-  aad.setRange(0, domainBytes.length, domainBytes);
+  final aad = Uint8List(domainBytes.length + 8)
+    ..setRange(0, domainBytes.length, domainBytes);
   // chunkIndex u32 LE
   aad[domainBytes.length] = chunkIndex & 0xFF;
   aad[domainBytes.length + 1] = (chunkIndex >> 8) & 0xFF;
@@ -1160,11 +1154,11 @@ Uint8List _encryptAesGcmStatic(
   }
 
   // v2.1 路径：直接使用 pointycastle 的 GCMBlockCipher 以支持 AAD
-  final cipher = GCMBlockCipher(AESEngine());
-  cipher.init(
-    true,
-    AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
-  );
+  final cipher = GCMBlockCipher(AESEngine())
+    ..init(
+      true,
+      AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
+    );
   // GCM 加密输出 = 明文长度 + 认证标签长度
   final output = Uint8List(plaintext.length + GCM_TAG_LENGTH_BYTES);
   var offset = cipher.processBytes(plaintext, 0, plaintext.length, output, 0);
@@ -1176,13 +1170,18 @@ Uint8List _encryptAesGcmStatic(
 ///
 /// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
 /// 每次调用生成新的随机 IV 并加密。
-/// 根据 [params.useV21Security] 决定是否绑定 AAD。
+/// 根据 `params.useV21Security` 决定是否绑定 AAD。
 _ChunkEncryptResult _encryptChunkInIsolate(_ChunkEncryptParams params) {
   final iv = _generateSecureRandomBytesStatic(16); // CHUNK_IV_LENGTH_BYTES = 16
   final aad = params.useV21Security
       ? _buildAadV21Static(params.chunkIndex, params.totalChunks)
       : null;
-  final encrypted = _encryptAesGcmStatic(params.plaintext, params.key, iv, aad: aad);
+  final encrypted = _encryptAesGcmStatic(
+    params.plaintext,
+    params.key,
+    iv,
+    aad: aad,
+  );
   return _ChunkEncryptResult(iv: iv, encryptedData: encrypted);
 }
 
@@ -1208,11 +1207,11 @@ Uint8List _decryptAesGcmStatic(
     }
 
     // v2.1 路径：直接使用 pointycastle 的 GCMBlockCipher
-    final cipher = GCMBlockCipher(AESEngine());
-    cipher.init(
-      false,
-      AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
-    );
+    final cipher = GCMBlockCipher(AESEngine())
+      ..init(
+        false,
+        AEADParameters(KeyParameter(key), GCM_TAG_LENGTH_BYTES * 8, iv, aad),
+      );
     // GCM 解密输出 = 密文长度 - 认证标签长度（分配密文长度足够安全）
     final output = Uint8List(ciphertext.length);
     var offset =
@@ -1230,10 +1229,15 @@ Uint8List _decryptAesGcmStatic(
 /// 在 Isolate 中执行单个分块的 AES-256-GCM 解密
 ///
 /// 必须是顶层函数，因为 [compute] 要求可序列化的顶层函数。
-/// 根据 [params.useV21Security] 决定是否绑定 AAD。
+/// 根据 `params.useV21Security` 决定是否绑定 AAD。
 Uint8List _decryptChunkInIsolate(_ChunkDecryptParams params) {
   final aad = params.useV21Security
       ? _buildAadV21Static(params.chunkIndex, params.totalChunks)
       : null;
-  return _decryptAesGcmStatic(params.ciphertext, params.key, params.iv, aad: aad);
+  return _decryptAesGcmStatic(
+    params.ciphertext,
+    params.key,
+    params.iv,
+    aad: aad,
+  );
 }

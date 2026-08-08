@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Neumorphism 设计令牌（水墨风）
 ///
 /// 集中定义颜色、阴影、圆角、间距等设计常量，供所有软质组件复用。
-/// 通过 [NeumorphicTheme.of] 获取当前亮/暗模式下的令牌。
+/// 通过 [NeumorphicTokens.of] 获取当前亮/暗模式下的令牌。
 ///
 /// 设计原则：
 /// - 元素与背景同色，靠双向阴影定义体积
@@ -229,8 +229,8 @@ List<BoxShadow> buildNeumorphicShadows({
   }
 
   // 根据强度调整阴影参数
-  double offset = tokens.shadowOffset;
-  double blur = tokens.shadowBlur;
+  var offset = tokens.shadowOffset;
+  var blur = tokens.shadowBlur;
   switch (intensity) {
     case NeumorphicIntensity.strong:
       offset = tokens.shadowOffset * 1.3;

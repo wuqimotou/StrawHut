@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
 /// Base64 密钥的最小合法长度（32 字节 Base64 编码）
@@ -117,7 +118,7 @@ class KeyInputState extends State<KeyInput> {
         _hasError = true;
         _errorMessage =
             '密钥长度不正确，应为 $_kMinKeyLength~$_kMaxKeyLength 个字符，'
-            '当前为 ${text.length} 个字符';
+            ' 当前为 ${text.length} 个字符';
       });
       widget.onKeyChanged?.call(null);
       return;
@@ -179,48 +180,66 @@ class KeyInputState extends State<KeyInput> {
         ),
         SizedBox(height: tokens.spaceSm),
 
-        // 密钥输入框
-        TextField(
-          controller: _controller,
-          decoration: InputDecoration(
-            hintText: '请输入 Base64 编码的密钥字符串',
-            helperText: '32 字节密钥经 Base64 编码后约 43~44 个字符',
-            helperStyle: TextStyle(fontSize: 12, color: tokens.textHint),
-            prefixIcon: NeumorphicIcon(
-              StrawIcons.password,
-              size: 20,
-              color: tokens.textSecondary,
+        // 密钥输入框（扁平背景，仅按钮保留浮空样式）
+        NeumorphicContainer(
+          shape: NeumorphicShape.flat,
+          color: tokens.surfaceAlt,
+          borderRadius: tokens.radiusSmall,
+          padding: EdgeInsets.zero,
+          child: TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              hintText: '请输入 Base64 编码的密钥字符串',
+              hintStyle: TextStyle(color: tokens.textHint),
+              helperText: '32 字节密钥经 Base64 编码后约 43~44 个字符',
+              helperStyle: TextStyle(fontSize: 12, color: tokens.textHint),
+              prefixIcon: NeumorphicIcon(
+                StrawIcons.password,
+                size: 20,
+                color: tokens.textSecondary,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide: BorderSide(color: tokens.divider),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide:
+                    BorderSide(color: tokens.divider),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSmall),
+                borderSide:
+                    BorderSide(color: tokens.inkSecondary, width: 1.5),
+              ),
+              filled: true,
+              fillColor: tokens.surface,
+              // 错误状态使用红色边框和错误文本
+              errorText: _hasError ? _errorMessage : null,
+              errorStyle: TextStyle(fontSize: 12, color: tokens.error),
+              // 清除按钮，方便用户快速清空重输
+              suffixIcon: _controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: NeumorphicIcon(
+                        StrawIcons.close,
+                        size: 20,
+                        color: tokens.textSecondary,
+                      ),
+                      onPressed: clear,
+                      tooltip: '清除输入',
+                    )
+                  : null,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(tokens.radiusSmall),
+            // 使用等宽字体，方便阅读和比对 Base64 字符串
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 14,
+              color: tokens.textPrimary,
             ),
-            // 错误状态使用红色边框和错误文本
-            errorText: _hasError ? _errorMessage : null,
-            errorStyle: TextStyle(fontSize: 12, color: tokens.error),
-            // 清除按钮，方便用户快速清空重输
-            suffixIcon: _controller.text.isNotEmpty
-                ? IconButton(
-                    icon: NeumorphicIcon(
-                      StrawIcons.close,
-                      size: 20,
-                      color: tokens.textSecondary,
-                    ),
-                    onPressed: clear,
-                    tooltip: '清除输入',
-                  )
-                : null,
+            // 最大行数限制，防止输入过长
+            maxLines: 3,
+            minLines: 1,
           ),
-          // 使用等宽字体，方便阅读和比对 Base64 字符串
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 14,
-            color: tokens.textPrimary,
-          ),
-          // 最大行数限制，防止输入过长
-          maxLines: 3,
-          minLines: 1,
-          // 自动大写关闭，避免 Base64 大小写被改变
-          textCapitalization: TextCapitalization.none,
         ),
       ],
     );

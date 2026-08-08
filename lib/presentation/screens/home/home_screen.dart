@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
-import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
+import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/passphrase_vault_dialog.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
 import 'package:strawhut/presentation/screens/home/widgets/help_dialog.dart';
@@ -86,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _version = 'v${packageInfo.version}';
         });
       }
-    } catch (e) {
+    } on Exception catch (_) {
       // 忽略错误，版本号显示为空
     }
   }
@@ -124,13 +124,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           if (context.canPop()) {
             context.pop();
           } else {
-            SystemNavigator.pop();
+            await SystemNavigator.pop();
           }
           return;
         }
         final shouldExit = await _handleBack();
         if (shouldExit) {
-          SystemNavigator.pop();
+          await SystemNavigator.pop();
         }
       },
       child: Scaffold(
@@ -233,8 +233,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // 左侧：品牌标识（凸起圆形软质图标）
               NeumorphicIconButton(
                 icon: StrawIcons.lock,
-                size: 44,
-                iconSize: 20,
                 color: tokens.inkPrimary,
               ),
               const SizedBox(width: 12),
@@ -252,17 +250,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // 右侧：暗号保险库
               NeumorphicIconButton(
                 icon: StrawIcons.password,
-                size: 44,
-                iconSize: 20,
                 tooltip: '暗号保险库',
                 onPressed: () => PassphraseVaultDialog.show(context),
               ),
-              const SizedBox(width: 8),
-              // 右侧：帮助
+              const SizedBox(width: 12),
+              // 右侧：帮助（使用教程）
               NeumorphicIconButton(
                 icon: StrawIcons.help,
-                size: 44,
-                iconSize: 20,
                 tooltip: '使用教程',
                 onPressed: () => _showHelpDialog(context),
               ),
@@ -277,7 +271,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildLogo(NeumorphicTokens tokens) {
     return Center(
       child: NeumorphicContainer(
-        shape: NeumorphicShape.convex,
         intensity: NeumorphicIntensity.strong,
         borderRadius: 60,
         width: 120,

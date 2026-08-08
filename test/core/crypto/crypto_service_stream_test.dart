@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
-import 'package:strawhut/core/crypto/crypto_models/chunk_info.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
 import 'package:strawhut/core/crypto/crypto_models/source_type.dart';
@@ -35,7 +34,7 @@ void main() {
 
       // 创建测试文件
       final sourceFile = File('${tempDir.path}/small.txt');
-      final testContent = 'Hello, Stream Encryption!';
+      const testContent = 'Hello, Stream Encryption!';
       await sourceFile.writeAsString(testContent);
 
       const metadata = PayloadMetadata(
@@ -121,7 +120,7 @@ void main() {
           (e) => e.code,
           'code',
           'FILE_NOT_FOUND',
-        )),
+        ),),
       );
     });
 
@@ -159,7 +158,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final testContent = 'Identical content for both methods';
+      const testContent = 'Identical content for both methods';
       final payloadBytes = Uint8List.fromList(utf8.encode(testContent));
 
       const metadata = PayloadMetadata(
@@ -190,7 +189,7 @@ void main() {
       expect(streamResult.totalChunks, nonStreamResult.totalChunks);
       expect(streamResult.chunkSize, nonStreamResult.chunkSize);
       expect(streamResult.originalPayloadSize,
-          nonStreamResult.originalPayloadSize);
+          nonStreamResult.originalPayloadSize,);
       expect(streamResult.chunks.length, nonStreamResult.chunks.length);
     });
   });
@@ -201,7 +200,7 @@ void main() {
       final key = await cryptoService.generateKey();
 
       // 准备测试数据
-      final originalContent = 'Hello, Stream Decryption!';
+      const originalContent = 'Hello, Stream Decryption!';
       final payloadBytes = Uint8List.fromList(utf8.encode(originalContent));
 
       const metadata = PayloadMetadata(
@@ -239,7 +238,7 @@ void main() {
       expect(result.targetPath, targetPath);
       expect(result.payloadMetadata.sourceType, metadata.sourceType);
       expect(
-          result.payloadMetadata.originalExtension, metadata.originalExtension);
+          result.payloadMetadata.originalExtension, metadata.originalExtension,);
 
       // 验证文件内容
       final decryptedFile = File(targetPath);
@@ -283,7 +282,7 @@ void main() {
 
       // 流式解密
       final targetPath = '${tempDir.path}/large_decrypted.bin';
-      final result = await cryptoService.decryptStream(
+      await cryptoService.decryptStream(
         strawFilePath: strawFile.path,
         key: key.bytes,
         targetPath: targetPath,
@@ -298,7 +297,7 @@ void main() {
       expect(decryptedData.length, largeData.length);
       for (var i = 0; i < largeData.length; i++) {
         expect(decryptedData[i], largeData[i],
-            reason: 'Byte mismatch at index $i');
+            reason: 'Byte mismatch at index $i',);
       }
     });
 
@@ -318,7 +317,7 @@ void main() {
           (e) => e.code,
           'code',
           'FILE_NOT_FOUND',
-        )),
+        ),),
       );
     });
 
@@ -326,7 +325,7 @@ void main() {
       final cryptoService = _createCryptoService();
       final key = await cryptoService.generateKey();
 
-      final testContent = 'Test content for stream decryption progress';
+      const testContent = 'Test content for stream decryption progress';
       final payloadBytes = Uint8List.fromList(utf8.encode(testContent));
 
       const metadata = PayloadMetadata(
@@ -422,7 +421,7 @@ void main() {
       expect(decryptedData.length, originalData.length);
       for (var i = 0; i < originalData.length; i++) {
         expect(decryptedData[i], originalData[i],
-            reason: 'Mismatch at byte $i');
+            reason: 'Mismatch at byte $i',);
       }
     });
   });

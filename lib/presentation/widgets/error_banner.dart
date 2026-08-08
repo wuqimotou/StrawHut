@@ -30,6 +30,16 @@ import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 /// )
 /// ```
 class ErrorBanner extends StatelessWidget {
+
+  /// 创建错误横幅实例
+  ///
+  /// 参数说明：
+  /// - [message]: 错误提示文字，必填
+  /// - [onDismiss]: 可选的关闭按钮回调
+  const ErrorBanner({
+    required this.message, super.key,
+    this.onDismiss,
+  });
   /// 错误提示文字
   ///
   /// 必填参数，人类可读的错误描述。
@@ -40,17 +50,6 @@ class ErrorBanner extends StatelessWidget {
   /// 可选参数，为 null 时不显示关闭按钮。
   /// 通常在用户点击关闭按钮后设置错误状态为 false。
   final VoidCallback? onDismiss;
-
-  /// 创建错误横幅实例
-  ///
-  /// 参数说明：
-  /// - [message]: 错误提示文字，必填
-  /// - [onDismiss]: 可选的关闭按钮回调
-  const ErrorBanner({
-    super.key,
-    required this.message,
-    this.onDismiss,
-  });
 
   /// 构建错误横幅 UI
   ///
@@ -65,7 +64,7 @@ class ErrorBanner extends StatelessWidget {
     final tokens = NeumorphicTokens.ofContext(context);
 
     return NeumorphicContainer(
-      shape: NeumorphicShape.concave,
+      shape: NeumorphicShape.flat,
       borderRadius: tokens.radiusMedium,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

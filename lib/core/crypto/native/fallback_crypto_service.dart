@@ -4,10 +4,9 @@ import 'dart:typed_data';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models.dart';
 import 'package:strawhut/core/crypto/crypto_service.dart';
+import 'package:strawhut/core/crypto/native/native_crypto_service.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 import 'package:strawhut/core/utils/cancellation_token.dart';
-
-import 'native_crypto_service.dart';
 
 /// 带回退的加密服务
 ///
@@ -75,7 +74,7 @@ class FallbackCryptoService implements ICryptoService {
         }
 
         return NativeCryptoService(integrityService, channel);
-      } catch (_) {
+      } on Object catch (_) {
         // 原生 API 初始化失败，回退到纯 Dart 实现
       }
     }
@@ -123,7 +122,7 @@ class FallbackCryptoService implements ICryptoService {
         iterations: iterations,
         cancellationToken: cancellationToken,
       );
-    } on UnsupportedError {
+    } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       // 原生 PBKDF2 不支持（Windows 版本过低），回退到纯 Dart 实现
       final dartService = CryptoService(integrityService);
       return dartService.deriveKeyFromPassphrase(
@@ -160,7 +159,7 @@ class FallbackCryptoService implements ICryptoService {
         useV21Security: useV21Security,
         cancellationToken: cancellationToken,
       );
-    } on UnsupportedError {
+    } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       final dartService = CryptoService(integrityService);
       return dartService.encrypt(
         payloadBytes: payloadBytes,
@@ -199,7 +198,7 @@ class FallbackCryptoService implements ICryptoService {
         cancellationToken: cancellationToken,
         useV21Security: useV21Security,
       );
-    } on UnsupportedError {
+    } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       final dartService = CryptoService(integrityService);
       return dartService.decrypt(
         chunks: chunks,
@@ -238,7 +237,7 @@ class FallbackCryptoService implements ICryptoService {
         useV21Security: useV21Security,
         cancellationToken: cancellationToken,
       );
-    } on UnsupportedError {
+    } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       final dartService = CryptoService(integrityService);
       return dartService.encryptStream(
         sourcePath: sourcePath,
@@ -281,7 +280,7 @@ class FallbackCryptoService implements ICryptoService {
         useV21Security: useV21Security,
         integritySink: integritySink,
       );
-    } on UnsupportedError {
+    } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       final dartService = CryptoService(integrityService);
       return dartService.decryptStream(
         strawFilePath: strawFilePath,
@@ -310,7 +309,7 @@ class FallbackCryptoService implements ICryptoService {
           ivBase64: ivBase64,
           key: key,
         );
-      } on UnsupportedError {
+      } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
         final dartService = CryptoService(integrityService);
         return dartService.decryptLegacyContent(
           encryptedDataBase64: encryptedDataBase64,
@@ -332,7 +331,7 @@ class FallbackCryptoService implements ICryptoService {
     if (_delegate != null) {
       try {
         return _delegate!.deriveHmacKey(encryptionKey);
-      } on UnsupportedError {
+      } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
         final dartService = CryptoService(integrityService);
         return dartService.deriveHmacKey(encryptionKey);
       }

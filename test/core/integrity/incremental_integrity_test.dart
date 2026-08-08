@@ -19,7 +19,6 @@ void main() {
       publishDate: '2026-07-14T00:00:00Z',
       title: 'incremental hash',
       isAnonymous: false,
-      tags: <String>[],
     ),
     content: StrawContent(
       encryptionAlgorithm: 'AES-256-GCM',

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -64,7 +64,6 @@ class ActionButtons extends ConsumerWidget {
         NeumorphicButton(
           label: '解密知识卡片',
           icon: StrawIcons.folderOpen,
-          style: NeumorphicButtonStyle.secondary,
           expanded: true,
           minimumSize: Size(double.infinity, minHeight),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -134,7 +133,6 @@ class ActionButtons extends ConsumerWidget {
                   NeumorphicButton(
                     label: '富文本编辑',
                     icon: StrawIcons.editNote,
-                    style: NeumorphicButtonStyle.secondary,
                     expanded: true,
                     minimumSize: const Size(double.infinity, 56),
                     padding: const EdgeInsets.symmetric(
@@ -151,7 +149,6 @@ class ActionButtons extends ConsumerWidget {
                   NeumorphicButton(
                     label: '直接加密文件',
                     icon: StrawIcons.uploadFile,
-                    style: NeumorphicButtonStyle.secondary,
                     expanded: true,
                     minimumSize: const Size(double.infinity, 56),
                     padding: const EdgeInsets.symmetric(
@@ -198,7 +195,6 @@ class ActionButtons extends ConsumerWidget {
                 ListTile(
                   leading: NeumorphicIcon(
                     StrawIcons.editNote,
-                    size: 24,
                     color: tokens.textPrimary,
                   ),
                   title: const Text('富文本编辑'),
@@ -211,7 +207,6 @@ class ActionButtons extends ConsumerWidget {
                 ListTile(
                   leading: NeumorphicIcon(
                     StrawIcons.uploadFile,
-                    size: 24,
                     color: tokens.textPrimary,
                   ),
                   title: const Text('直接加密文件'),
@@ -274,7 +269,6 @@ class ActionButtons extends ConsumerWidget {
                 ListTile(
                   leading: NeumorphicIcon(
                     StrawIcons.image,
-                    size: 24,
                     color: tokens.textPrimary,
                   ),
                   title: const Text('从相册加载'),
@@ -289,7 +283,6 @@ class ActionButtons extends ConsumerWidget {
                 ListTile(
                   leading: NeumorphicIcon(
                     StrawIcons.folderOpen,
-                    size: 24,
                     color: tokens.textPrimary,
                   ),
                   title: const Text('从文件系统加载'),
@@ -311,7 +304,7 @@ class ActionButtons extends ConsumerWidget {
 
   /// 从相册选择 .png 文件（Android 使用 image_picker，Desktop 使用 FilePicker）
   Future<void> _doOpenCardFromGallery(
-      BuildContext context, WidgetRef ref) async {
+      BuildContext context, WidgetRef ref,) async {
     Uint8List bytes;
     String fileName;
 
@@ -322,8 +315,10 @@ class ActionButtons extends ConsumerWidget {
       if (pickedFile == null) return;
 
       bytes = await pickedFile.readAsBytes();
-      // Always force .png extension since we know we're picking a PNG knowledge card.
-      // image_picker may return filenames like "image_picker_xxx.jpg" or no extension.
+      // Always force .png extension since we know we're picking a PNG
+      // knowledge card.
+      // image_picker may return filenames like "image_picker_xxx.jpg" or
+      // no extension.
       fileName = 'strawhut_card.png';
     } else {
       // Desktop: 使用 FileSelectionService

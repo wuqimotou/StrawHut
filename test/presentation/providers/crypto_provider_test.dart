@@ -11,6 +11,7 @@
 ///
 /// 使用 riverpod 的 ContainerProviderTester 进行隔离测试，
 /// 确保 Provider 之间的依赖关系正确且实例创建符合预期。
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';

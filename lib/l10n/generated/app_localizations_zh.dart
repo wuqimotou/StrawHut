@@ -181,6 +181,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shareAsOriginalImage => '请以原图方式发送，否则接收方无法解密';
 
   @override
+  String get pngOriginalImageConfirmTitle => '原图发送提醒';
+
+  @override
+  String get pngOriginalImageConfirmBody =>
+      'PNG 知识卡片将加密数据嵌入图像像素，必须以原图方式发送（不压缩、不转格式、不二次截图），否则接收方将无法解密。是否确认了解并继续发布？';
+
+  @override
+  String get confirmPublish => '确认发布';
+
+  @override
   String get sharePngCard => '分享卡片';
 
   @override
@@ -250,19 +260,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get clearAllConfirmInput => '请输入 DELETE 以确认';
-
-  @override
-  String get autoDecryptProgress => '正在尝试自动解密...';
-
-  @override
-  String autoDecryptProgressWithCount(int current, int total) {
-    return '正在尝试自动解密 ($current/$total)...';
-  }
-
-  @override
-  String autoDecryptSuccess(String label) {
-    return '已使用保存的暗号\"$label\"自动解密';
-  }
 
   @override
   String get saveAfterDecrypt => '解密后保存此暗号到保险库';

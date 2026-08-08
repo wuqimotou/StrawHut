@@ -16,7 +16,7 @@ import 'package:strawhut/app/routes.dart';
 /// - 每条路由都配置了 name 和 builder
 /// - 路由能正确构建对应的页面 Widget
 void main() {
-  Widget _createTestableApp() {
+  Widget createTestableApp() {
     return ProviderScope(
       child: MaterialApp.router(
         routerConfig: appRouter,
@@ -40,11 +40,11 @@ void main() {
       testWidgets('初始路由位置应设置为 "/"', (WidgetTester tester) async {
         // 验证 initialLocation 配置为 '/'
         // 需要先 pumpWidget 让路由初始化
-        await tester.pumpWidget(_createTestableApp());
+        await tester.pumpWidget(createTestableApp());
         await tester.pumpAndSettle();
 
         expect(
-            appRouter.routerDelegate.currentConfiguration.uri.path, '/');
+            appRouter.routerDelegate.currentConfiguration.uri.path, '/',);
       });
 
       test('应配置 3 条路由', () {
@@ -161,7 +161,7 @@ void main() {
       });
 
       testWidgets('从首页可以导航到编辑器页面', (WidgetTester tester) async {
-        await tester.pumpWidget(_createTestableApp());
+        await tester.pumpWidget(createTestableApp());
         await tester.pumpAndSettle();
 
         expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/');
@@ -173,7 +173,7 @@ void main() {
       });
 
       testWidgets('从首页可以导航到阅读器页面', (WidgetTester tester) async {
-        await tester.pumpWidget(_createTestableApp());
+        await tester.pumpWidget(createTestableApp());
         await tester.pumpAndSettle();
 
         expect(appRouter.routerDelegate.currentConfiguration.uri.path, '/');
@@ -186,7 +186,7 @@ void main() {
 
       testWidgets('从编辑器页面可以返回首页',
           (WidgetTester tester) async {
-        await tester.pumpWidget(_createTestableApp());
+        await tester.pumpWidget(createTestableApp());
         await tester.pumpAndSettle();
 
         appRouter.go('/editor');
@@ -208,10 +208,10 @@ void main() {
         for (final route in goRoutes) {
           // 路径应以 / 开头
           expect(route.path.startsWith('/'), true,
-              reason: '路径 "${route.path}" 应以 / 开头');
+              reason: '路径 "${route.path}" 应以 / 开头',);
           // 路径不应包含空格
           expect(route.path.contains(' '), false,
-              reason: '路径 "${route.path}" 不应包含空格');
+              reason: '路径 "${route.path}" 不应包含空格',);
         }
       });
 
@@ -221,7 +221,7 @@ void main() {
         final names = goRoutes.map((r) => r.name).whereType<String>().toList();
 
         expect(names.length, names.toSet().length,
-            reason: '路由名称应唯一，发现重复: ${names.where((name) => names.where((n) => n == name).length > 1).toSet().join(", ")}');
+            reason: '路由名称应唯一，发现重复: ${names.where((name) => names.where((n) => n == name).length > 1).toSet().join(", ")}',);
       });
 
       test('所有路由 name 不应为空', () {

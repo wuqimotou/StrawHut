@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride, TargetPlatform;
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/home_screen.dart';
 import 'package:strawhut/presentation/screens/home/widgets/action_buttons.dart';
@@ -34,7 +34,7 @@ void main() {
   /// 此辅助方法创建一个包含完整路由配置的 MaterialApp，
   /// 用于测试需要导航功能的 Widget。
   /// 使用 ProviderScope 包裹以支持 EditorScreen 中的 Riverpod 依赖。
-  Widget _createTestableWidget() {
+  Widget createTestableWidget() {
     return ProviderScope(
       child: MaterialApp.router(
         routerConfig: appRouter,
@@ -51,7 +51,7 @@ void main() {
   group('HomeScreen 页面布局测试', () {
     testWidgets('页面应包含 Scaffold 组件', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证页面根组件为 Scaffold
@@ -60,7 +60,7 @@ void main() {
 
     testWidgets('页面应包含 PreferredSize 顶部栏组件', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 PreferredSize（软质浮动应用栏）
@@ -69,7 +69,7 @@ void main() {
 
     testWidgets('顶部栏标题应显示 "StrawHut · 草棚"', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证顶部栏标题文字
@@ -81,7 +81,7 @@ void main() {
 
     testWidgets('页面应显示欢迎标题 "欢迎使用 StrawHut"', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证欢迎标题文字存在
@@ -90,7 +90,7 @@ void main() {
 
     testWidgets('页面应显示副标题引导文字', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证副标题文字存在
@@ -102,7 +102,7 @@ void main() {
 
     testWidgets('页面应显示 NeumorphicContainer Logo 图标', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 Logo 容器（120x120 凸起软质容器）
@@ -125,7 +125,7 @@ void main() {
   group('HomeScreen 组件结构测试', () {
     testWidgets('页面应包含 ActionButtons 组件', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 ActionButtons 组件
@@ -134,7 +134,7 @@ void main() {
 
     testWidgets('页面应包含 DropZone 组件', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 DropZone 组件
@@ -143,7 +143,7 @@ void main() {
 
     testWidgets('页面 body 应使用 Column 布局', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 Column 布局
@@ -152,7 +152,7 @@ void main() {
 
     testWidgets('页面 body 应使用 Center 居中对齐', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 Scaffold 的 body 使用 Center 组件（通过查找 HomeScreen 内部的 Center）
@@ -173,7 +173,7 @@ void main() {
     testWidgets('页面 body 应使用 SingleChildScrollView 支持滚动',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 SingleChildScrollView 用于支持小屏幕滚动
@@ -183,7 +183,7 @@ void main() {
     testWidgets('页面 body 应使用 ConstrainedBox 限制最大宽度',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 ConstrainedBox 用于宽度限制
@@ -197,7 +197,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         // 构建首页
-        await tester.pumpWidget(_createTestableWidget());
+        await tester.pumpWidget(createTestableWidget());
         await tester.pumpAndSettle();
 
         // 获取所有可见的文字和图标
@@ -241,7 +241,7 @@ void main() {
   group('HomeScreen 导航功能测试', () {
     testWidgets('点击"发布知识卡片"按钮应弹出内容来源选择', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证初始路由为首页
@@ -260,7 +260,7 @@ void main() {
 
     testWidgets('选择"富文本编辑"后应导航到 /editor', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 点击"发布知识卡片"按钮

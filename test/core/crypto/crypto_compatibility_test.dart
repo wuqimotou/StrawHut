@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/core/crypto/crypto_constants.dart';
 import 'package:strawhut/core/crypto/crypto_models/payload_metadata.dart';
@@ -12,7 +12,7 @@ import 'package:strawhut/core/crypto/native/windows_crypto_ffi.dart';
 import 'package:strawhut/core/integrity/integrity_service.dart';
 
 /// 辅助函数：构造富文本 PayloadMetadata
-PayloadMetadata _richTextMetadata() => PayloadMetadata(
+PayloadMetadata _richTextMetadata() => const PayloadMetadata(
       sourceType: SourceType.richText,
       originalExtension: 'delta',
     );
@@ -38,7 +38,7 @@ void main() {
       try {
         WindowsCryptoFfi.generateRandom(1);
         return true;
-      } catch (_) {
+      } on Object {
         return false;
       }
     }
@@ -50,7 +50,7 @@ void main() {
   group('PBKDF2 output consistency', () {
     test('CC-04: native PBKDF2 should match pure Dart PBKDF2', () async {
       if (!nativeAvailable) {
-        print('Skipping PBKDF2 compatibility test: native API not available');
+        debugPrint('Skipping PBKDF2 compatibility test: native API not available');
         return;
       }
 
@@ -76,8 +76,8 @@ void main() {
           salt: salt,
           iterations: iterations,
         );
-      } on UnsupportedError {
-        print('Skipping: native PBKDF2 not supported on this platform');
+      } on Object {
+        debugPrint('Skipping: native PBKDF2 not supported on this platform');
         return;
       }
 
@@ -92,7 +92,7 @@ void main() {
   group('Cross-implementation encrypt/decrypt', () {
     test('CC-01: pure Dart encrypt -> native decrypt', () async {
       if (!nativeAvailable) {
-        print('Skipping cross-implementation test: native API not available');
+        debugPrint('Skipping cross-implementation test: native API not available');
         return;
       }
 
@@ -123,7 +123,7 @@ void main() {
 
     test('CC-02: native encrypt -> pure Dart decrypt', () async {
       if (!nativeAvailable) {
-        print('Skipping cross-implementation test: native API not available');
+        debugPrint('Skipping cross-implementation test: native API not available');
         return;
       }
 
@@ -154,7 +154,7 @@ void main() {
 
     test('CC-03: native encrypt -> native decrypt', () async {
       if (!nativeAvailable) {
-        print('Skipping native-only test: native API not available');
+        debugPrint('Skipping native-only test: native API not available');
         return;
       }
 
@@ -185,7 +185,7 @@ void main() {
 
     test('CC-05: chunks have unique IVs across services', () async {
       if (!nativeAvailable) {
-        print('Skipping IV uniqueness test: native API not available');
+        debugPrint('Skipping IV uniqueness test: native API not available');
         return;
       }
 
@@ -208,7 +208,7 @@ void main() {
       // Verify each chunk has a 16-byte IV
       for (final chunk in dartEncryptResult.chunks) {
         expect(chunk.iv.length, CHUNK_IV_LENGTH_BYTES,
-            reason: 'Each chunk should use ${CHUNK_IV_LENGTH_BYTES}-byte IV');
+            reason: 'Each chunk should use $CHUNK_IV_LENGTH_BYTES-byte IV',);
       }
 
       // Decrypt with native service using Dart encrypt result
@@ -225,7 +225,7 @@ void main() {
     test('CC-06: native encrypt chunks can be decrypted by pure Dart',
         () async {
       if (!nativeAvailable) {
-        print('Skipping native chunk test: native API not available');
+        debugPrint('Skipping native chunk test: native API not available');
         return;
       }
 
@@ -248,7 +248,7 @@ void main() {
       // Verify each chunk has a 16-byte IV
       for (final chunk in encryptResult.chunks) {
         expect(chunk.iv.length, CHUNK_IV_LENGTH_BYTES,
-            reason: 'Each chunk should use ${CHUNK_IV_LENGTH_BYTES}-byte IV');
+            reason: 'Each chunk should use $CHUNK_IV_LENGTH_BYTES-byte IV',);
       }
 
       // Decrypt with pure Dart

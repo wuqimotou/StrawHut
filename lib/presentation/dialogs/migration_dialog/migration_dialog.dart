@@ -5,15 +5,15 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/migration/migration_service.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/l10n/l10n.dart';
-import 'package:strawhut/app/neumorphic_tokens.dart';
+import 'package:strawhut/presentation/providers/crypto_provider.dart';
+import 'package:strawhut/presentation/providers/migration_provider.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
-import 'package:strawhut/presentation/providers/crypto_provider.dart';
-import 'package:strawhut/presentation/providers/migration_provider.dart';
 
 /// 迁移旧版文件对话框
 ///
@@ -76,7 +76,7 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
 
   /// 选择 .straw 文件
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['straw'],
       withData: true,
@@ -315,7 +315,6 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
                       NeumorphicButton(
                         label: _selectedFileName ?? l10n.selectLegacyFile,
                         icon: StrawIcons.folderOpen,
-                        style: NeumorphicButtonStyle.secondary,
                         expanded: true,
                         onPressed: _pickFile,
                       ),
@@ -332,12 +331,14 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
                         TextField(
                           controller: _keyController,
                           decoration: InputDecoration(
-                            labelText: _oldFileJson != null && _isNegotiatedKeyMode()
-                                ? l10n.decryptPassphraseLabel
-                                : l10n.copyKey,
-                            hintText: _oldFileJson != null && _isNegotiatedKeyMode()
-                                ? l10n.decryptPassphraseHint
-                                : 'Base64',
+                            labelText:
+                                _oldFileJson != null && _isNegotiatedKeyMode()
+                                    ? l10n.decryptPassphraseLabel
+                                    : l10n.copyKey,
+                            hintText:
+                                _oldFileJson != null && _isNegotiatedKeyMode()
+                                    ? l10n.decryptPassphraseHint
+                                    : 'Base64',
                             prefixIcon: NeumorphicIcon(
                               _oldFileJson != null && _isNegotiatedKeyMode()
                                   ? StrawIcons.lock
@@ -353,7 +354,7 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
                       if (_resultMessage != null) ...[
                         SizedBox(height: tokens.spaceMd),
                         NeumorphicContainer(
-                          shape: NeumorphicShape.concave,
+                          shape: NeumorphicShape.flat,
                           borderRadius: tokens.radiusSmall,
                           padding: const EdgeInsets.all(12),
                           child: Row(
@@ -389,7 +390,7 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
                         SizedBox(height: tokens.spaceMd),
                         Center(
                           child: NeumorphicContainer(
-                            shape: NeumorphicShape.concave,
+                            shape: NeumorphicShape.flat,
                             borderRadius: tokens.radiusXLarge,
                             padding: const EdgeInsets.all(16),
                             child: CircularProgressIndicator(
@@ -411,10 +412,9 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
                 children: [
                   NeumorphicButton(
                     label: l10n.cancel,
-                    style: NeumorphicButtonStyle.flat,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   if ((_isOldFormat ?? false) && !_isMigrating)
                     NeumorphicButton(
                       label: l10n.performMigration,
@@ -444,7 +444,7 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
 
     if (_isOldFormat ?? false) {
       return NeumorphicContainer(
-        shape: NeumorphicShape.concave,
+        shape: NeumorphicShape.flat,
         borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -469,7 +469,7 @@ class _MigrationDialogState extends ConsumerState<MigrationDialog> {
       );
     } else if (_isOldFormat == false) {
       return NeumorphicContainer(
-        shape: NeumorphicShape.concave,
+        shape: NeumorphicShape.flat,
         borderRadius: tokens.radiusSmall,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'package:strawhut/app/neumorphic_tokens.dart';
@@ -138,7 +138,7 @@ class _NeumorphicButtonState extends State<NeumorphicButton> {
         Size(_isMobile ? 48.0 : 40.0, _isMobile ? 48.0 : 40.0);
 
     // 内容
-    Widget content = _buildContent(contentColor);
+    var content = _buildContent(contentColor);
 
     // 包裹最小尺寸
     content = ConstrainedBox(
@@ -279,13 +279,13 @@ enum NeumorphicButtonStyle {
 /// ```
 class NeumorphicIconButton extends StatefulWidget {
   const NeumorphicIconButton({
-    super.key,
-    required this.icon,
+    required this.icon, super.key,
     this.onPressed,
     this.size = 44,
     this.iconSize = 20,
     this.tooltip,
     this.color,
+    this.circular = false,
   });
 
   /// 图标 SVG body
@@ -305,6 +305,9 @@ class NeumorphicIconButton extends StatefulWidget {
 
   /// 自定义图标颜色
   final Color? color;
+
+  /// 是否使用圆形形状（默认 false，使用圆角矩形）
+  final bool circular;
 
   @override
   State<NeumorphicIconButton> createState() => _NeumorphicIconButtonState();
@@ -354,7 +357,7 @@ class _NeumorphicIconButtonState extends State<NeumorphicIconButton> {
       child: NeumorphicContainer(
         shape: shape,
         intensity: intensity,
-        borderRadius: widget.size / 2,
+        borderRadius: widget.circular ? widget.size / 2 : tokens.radiusMedium,
         padding: EdgeInsets.zero,
         alignment: Alignment.center,
         child: NeumorphicIcon(
@@ -367,7 +370,7 @@ class _NeumorphicIconButtonState extends State<NeumorphicIconButton> {
 
     if (widget.tooltip != null) {
       button = Tooltip(
-        message: widget.tooltip!,
+        message: widget.tooltip,
         child: button,
       );
     }

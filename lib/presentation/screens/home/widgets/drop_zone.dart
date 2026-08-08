@@ -1,6 +1,6 @@
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;

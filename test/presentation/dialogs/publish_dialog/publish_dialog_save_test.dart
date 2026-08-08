@@ -190,7 +190,7 @@ void main() {
       final filledButton = tester.widget<FilledButton>(
         find.byType(FilledButton),
       );
-      final buttonText = (filledButton.child as Text).data;
+      final buttonText = (filledButton.child! as Text).data;
       expect(buttonText, '保存暗号');
     });
 
@@ -209,7 +209,7 @@ void main() {
       final textButton = tester.widget<TextButton>(
         find.byType(TextButton),
       );
-      final buttonText = (textButton.child as Text).data;
+      final buttonText = (textButton.child! as Text).data;
       expect(buttonText, '跳过');
     });
   });
@@ -254,11 +254,11 @@ void main() {
       );
 
       // title 应为非空 Text widget
-      final titleWidget = alertDialog.title as Text;
+      final titleWidget = alertDialog.title! as Text;
       expect(titleWidget.data, isNotEmpty);
 
       // content 应为非空 Text widget
-      final contentWidget = alertDialog.content as Text;
+      final contentWidget = alertDialog.content! as Text;
       expect(contentWidget.data, isNotEmpty);
     });
   });

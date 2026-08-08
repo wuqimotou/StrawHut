@@ -80,8 +80,7 @@ void main() {
   /// [entries] 保险库条目列表，用于 override passphraseEntriesProvider
   /// [key] PassphraseInput 的 GlobalKey
   Widget buildTestWidget({
-    List<PassphraseEntry> entries = const [],
-    required GlobalKey<PassphraseInputState> key,
+    required GlobalKey<PassphraseInputState> key, List<PassphraseEntry> entries = const [],
   }) {
     return ProviderScope(
       overrides: [
@@ -161,7 +160,7 @@ void main() {
       expect(key.currentState!.validate(), isFalse);
 
       // 使用 setPassphraseFromVault 填充匹配的暗号
-      final entry = createTestEntry(passphrase: 'abcdefgh');
+      final entry = createTestEntry();
       key.currentState!.setPassphraseFromVault(entry);
       await tester.pumpAndSettle();
 
@@ -180,7 +179,7 @@ void main() {
     testWidgets('保险库有条目时按钮应可见且可点击', (WidgetTester tester) async {
       final key = GlobalKey<PassphraseInputState>();
       final entries = [
-        createTestEntry(passphrase: 'abcdefgh', label: '暗号 #1'),
+        createTestEntry(),
       ];
 
       await tester.pumpWidget(buildTestWidget(key: key, entries: entries));
@@ -198,7 +197,7 @@ void main() {
     testWidgets('保险库为空时按钮应禁用', (WidgetTester tester) async {
       final key = GlobalKey<PassphraseInputState>();
 
-      await tester.pumpWidget(buildTestWidget(key: key, entries: const []));
+      await tester.pumpWidget(buildTestWidget(key: key));
       await tester.pumpAndSettle();
 
       // 查找 "从保险库选择" 按钮
@@ -215,7 +214,6 @@ void main() {
       final entries = [
         createTestEntry(
           id: 'pv_1_a1b2',
-          passphrase: 'abcdefgh',
           label: '工作暗号',
           useCount: 3,
         ),
@@ -248,7 +246,6 @@ void main() {
       final entries = [
         createTestEntry(
           id: 'pv_1_a1b2',
-          passphrase: 'abcdefgh',
           label: '工作暗号',
           useCount: 3,
         ),
@@ -273,7 +270,7 @@ void main() {
     testWidgets('保险库为空时点击按钮应显示提示 SnackBar', (WidgetTester tester) async {
       final key = GlobalKey<PassphraseInputState>();
 
-      await tester.pumpWidget(buildTestWidget(key: key, entries: const []));
+      await tester.pumpWidget(buildTestWidget(key: key));
       await tester.pumpAndSettle();
 
       // 空保险库时按钮是禁用的，所以无法点击
@@ -341,7 +338,7 @@ void main() {
       // 使用 setPassphraseFromVault 填充有效暗号
       // abcdefgh 是 weak 强度（8 字符，不满足 medium/strong 条件）
       // 但 weak 强度可以通过 validate（只有 veryWeak 不行）
-      final entry = createTestEntry(passphrase: 'abcdefgh');
+      final entry = createTestEntry();
       key.currentState!.setPassphraseFromVault(entry);
       await tester.pumpAndSettle();
 
@@ -400,7 +397,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 先填充暗号
-      final entry = createTestEntry(passphrase: 'abcdefgh');
+      final entry = createTestEntry();
       key.currentState!.setPassphraseFromVault(entry);
       await tester.pumpAndSettle();
 
@@ -441,7 +438,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // abcdefgh 是 weak 强度（8 字符，不满足 medium/strong 条件）
-      final entry = createTestEntry(passphrase: 'abcdefgh');
+      final entry = createTestEntry();
       key.currentState!.setPassphraseFromVault(entry);
       await tester.pumpAndSettle();
 
@@ -519,7 +516,7 @@ void main() {
       expect(find.text('两次输入的暗号不一致'), findsOneWidget);
 
       // 使用 setPassphraseFromVault 填充匹配暗号
-      final entry = createTestEntry(passphrase: 'abcdefgh');
+      final entry = createTestEntry();
       key.currentState!.setPassphraseFromVault(entry);
       await tester.pumpAndSettle();
 

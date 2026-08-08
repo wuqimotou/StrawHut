@@ -77,8 +77,8 @@ class PassphraseStrengthService {
   static bool _hasConsecutiveSameChars(String passphrase, int minCount) {
     if (passphrase.length < minCount) return false;
 
-    int consecutiveCount = 1;
-    for (int i = 1; i < passphrase.length; i++) {
+    var consecutiveCount = 1;
+    for (var i = 1; i < passphrase.length; i++) {
       if (passphrase[i] == passphrase[i - 1]) {
         consecutiveCount++;
         if (consecutiveCount >= minCount) {
@@ -100,7 +100,7 @@ class PassphraseStrengthService {
     final digitRuns = <String>[];
     final buffer = StringBuffer();
 
-    for (int i = 0; i < passphrase.length; i++) {
+    for (var i = 0; i < passphrase.length; i++) {
       if (passphrase[i].contains(RegExp(r'\d'))) {
         buffer.write(passphrase[i]);
       } else {
@@ -115,15 +115,15 @@ class PassphraseStrengthService {
     }
 
     // 检查每个数字子串是否包含 6+ 位连续序列
-    const int sequenceLength = 6;
+    const sequenceLength = 6;
     for (final run in digitRuns) {
       if (run.length < sequenceLength) continue;
 
-      for (int start = 0; start <= run.length - sequenceLength; start++) {
-        bool ascending = true;
-        bool descending = true;
+      for (var start = 0; start <= run.length - sequenceLength; start++) {
+        var ascending = true;
+        var descending = true;
 
-        for (int i = start + 1; i < start + sequenceLength; i++) {
+        for (var i = start + 1; i < start + sequenceLength; i++) {
           final prev = run.codeUnitAt(i - 1);
           final curr = run.codeUnitAt(i);
 
@@ -148,7 +148,7 @@ class PassphraseStrengthService {
   /// - 数字 (0-9)
   /// - 特殊字符（非字母数字）
   static int _countCharacterCategories(String passphrase) {
-    int count = 0;
+    var count = 0;
     if (_hasUppercase(passphrase)) count++;
     if (_hasLowercase(passphrase)) count++;
     if (_hasDigit(passphrase)) count++;
@@ -158,12 +158,12 @@ class PassphraseStrengthService {
 
   /// 检查是否包含大写字母
   static bool _hasUppercase(String passphrase) {
-    return passphrase.contains(RegExp(r'[A-Z]'));
+    return passphrase.contains(RegExp('[A-Z]'));
   }
 
   /// 检查是否包含小写字母
   static bool _hasLowercase(String passphrase) {
-    return passphrase.contains(RegExp(r'[a-z]'));
+    return passphrase.contains(RegExp('[a-z]'));
   }
 
   /// 检查是否包含数字
@@ -173,11 +173,11 @@ class PassphraseStrengthService {
 
   /// 检查是否包含字母
   static bool _hasLetter(String passphrase) {
-    return passphrase.contains(RegExp(r'[a-zA-Z]'));
+    return passphrase.contains(RegExp('[a-zA-Z]'));
   }
 
   /// 检查是否包含特殊字符
   static bool _hasSpecialChar(String passphrase) {
-    return passphrase.contains(RegExp(r'[^a-zA-Z0-9]'));
+    return passphrase.contains(RegExp('[^a-zA-Z0-9]'));
   }
 }

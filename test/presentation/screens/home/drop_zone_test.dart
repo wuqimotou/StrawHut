@@ -1,8 +1,8 @@
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride, TargetPlatform;
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/app/routes.dart';
 import 'package:strawhut/presentation/screens/home/widgets/drop_zone.dart';
@@ -40,14 +40,14 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
-    }, skip: skip);
+    }, skip: skip,);
   }
 
   /// 构建带路由的测试 Widget
   ///
   /// 此辅助方法创建一个包含完整路由配置的 MaterialApp，
   /// 用于测试 DropZone 组件的渲染和交互。
-  Widget _createTestableWidget() {
+  Widget createTestableWidget() {
     return MaterialApp.router(
       routerConfig: appRouter,
     );
@@ -56,7 +56,7 @@ void main() {
   group('DropZone 组件存在性测试', () {
     testWidgetsOnDesktop('页面应包含 DropZone 组件', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 DropZone 组件存在
@@ -66,7 +66,7 @@ void main() {
     testWidgetsOnDesktop('DropZone 应包含 DropTarget 组件',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 DropZone 内部使用 DropTarget
@@ -83,7 +83,7 @@ void main() {
   group('DropZone 视觉元素测试', () {
     testWidgetsOnDesktop('拖拽区域应显示上传图标', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在 NeumorphicIcon（默认状态渲染 cloudUpload SVG 图标）
@@ -98,7 +98,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域应显示提示文字', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证存在拖拽提示文字
@@ -113,7 +113,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域应使用 NeumorphicContainer 容器', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 DropTarget 内部使用 NeumorphicContainer
@@ -128,7 +128,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域内容应使用 Column 布局', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证 DropZone 内部 NeumorphicContainer 使用 Column 布局
@@ -145,7 +145,7 @@ void main() {
   group('DropZone 布局属性测试', () {
     testWidgetsOnDesktop('拖拽区域容器应有固定高度 120', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropZone 内部的 NeumorphicContainer
@@ -161,7 +161,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域应有圆角', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropZone 内部的 NeumorphicContainer
@@ -177,7 +177,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域默认状态应为凹陷软质形态', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropZone 内部的 NeumorphicContainer
@@ -196,7 +196,7 @@ void main() {
 
     testWidgetsOnDesktop('拖拽区域内容应居中对齐', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropZone 内部的 NeumorphicContainer
@@ -217,7 +217,7 @@ void main() {
     testWidgetsOnDesktop('默认状态下应显示 NeumorphicIcon 上传图标',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 验证默认状态存在 NeumorphicIcon
@@ -232,7 +232,7 @@ void main() {
 
     testWidgetsOnDesktop('默认状态下文字颜色应为灰色', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找提示文字
@@ -250,7 +250,7 @@ void main() {
 
     testWidgetsOnDesktop('图标和文字之间应有间距', (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找图标和文字
@@ -276,7 +276,7 @@ void main() {
     testWidgetsOnDesktop('DropTarget 应配置 onDragEntered 回调',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropTarget
@@ -295,7 +295,7 @@ void main() {
     testWidgetsOnDesktop('DropTarget 应配置 onDragExited 回调',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropTarget
@@ -314,7 +314,7 @@ void main() {
     testWidgetsOnDesktop('DropTarget 应配置 onDragDone 回调',
         (WidgetTester tester) async {
       // 构建首页
-      await tester.pumpWidget(_createTestableWidget());
+      await tester.pumpWidget(createTestableWidget());
       await tester.pumpAndSettle();
 
       // 查找 DropTarget

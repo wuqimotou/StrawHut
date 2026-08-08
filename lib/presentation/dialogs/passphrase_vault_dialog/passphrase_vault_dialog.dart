@@ -9,10 +9,10 @@ import 'package:strawhut/core/passphrase_vault/passphrase_vault_service.dart';
 import 'package:strawhut/l10n/l10n.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/add_passphrase_dialog.dart';
 import 'package:strawhut/presentation/dialogs/passphrase_vault_dialog/widgets/passphrase_entry_tile.dart';
+import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
-import 'package:strawhut/presentation/providers/passphrase_vault_provider.dart';
 
 /// 暗号保险库管理对话框
 ///
@@ -128,12 +128,11 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
                     children: [
                       NeumorphicButton(
                         label: l10n.cancel,
-                        style: NeumorphicButtonStyle.flat,
                         onPressed: () => Navigator.pop(context, false),
-                      ),
-                      const SizedBox(width: 8),
-                      NeumorphicButton(
-                        label: l10n.delete,
+                    ),
+                    const SizedBox(width: 12),
+                    NeumorphicButton(
+                      label: l10n.delete,
                         style: NeumorphicButtonStyle.primary,
                         onPressed: () => Navigator.pop(context, true),
                       ),
@@ -246,12 +245,11 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
                         children: [
                           NeumorphicButton(
                             label: l10n.cancel,
-                            style: NeumorphicButtonStyle.flat,
                             onPressed: () => Navigator.pop(context, false),
-                          ),
-                          const SizedBox(width: 8),
-                          NeumorphicButton(
-                            label: l10n.clearAll,
+                        ),
+                        const SizedBox(width: 12),
+                        NeumorphicButton(
+                          label: l10n.clearAll,
                             style: NeumorphicButtonStyle.primary,
                             onPressed: isDeleteEnabled
                                 ? () => Navigator.pop(context, true)
@@ -340,7 +338,7 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
       children: [
         // 安全提示
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
           child: Row(
@@ -383,17 +381,15 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
               child: NeumorphicButton(
                 label: l10n.vaultAddButton,
                 icon: StrawIcons.add,
-                style: NeumorphicButtonStyle.secondary,
                 expanded: true,
                 onPressed: _handleAddPassphrase,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: NeumorphicButton(
                 label: l10n.vaultClearAllButton,
                 icon: StrawIcons.trash,
-                style: NeumorphicButtonStyle.secondary,
                 expanded: true,
                 onPressed: entries.isNotEmpty ? _handleClearAll : null,
               ),
@@ -478,7 +474,7 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
                       height: 200,
                       child: Center(
                         child: NeumorphicContainer(
-                          shape: NeumorphicShape.concave,
+                          shape: NeumorphicShape.flat,
                           borderRadius: tokens.radiusXLarge,
                           padding: const EdgeInsets.all(16),
                           child: CircularProgressIndicator(
@@ -520,7 +516,6 @@ class _PassphraseVaultDialogState extends ConsumerState<PassphraseVaultDialog> {
                 alignment: Alignment.centerRight,
                 child: NeumorphicButton(
                   label: l10n.cancel,
-                  style: NeumorphicButtonStyle.flat,
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -603,12 +598,11 @@ class _PassphraseVaultMobileState
                     children: [
                       NeumorphicButton(
                         label: l10n.cancel,
-                        style: NeumorphicButtonStyle.flat,
                         onPressed: () => Navigator.pop(context, false),
-                      ),
-                      const SizedBox(width: 8),
-                      NeumorphicButton(
-                        label: l10n.delete,
+                    ),
+                    const SizedBox(width: 12),
+                    NeumorphicButton(
+                      label: l10n.delete,
                         style: NeumorphicButtonStyle.primary,
                         onPressed: () => Navigator.pop(context, true),
                       ),
@@ -720,12 +714,11 @@ class _PassphraseVaultMobileState
                         children: [
                           NeumorphicButton(
                             label: l10n.cancel,
-                            style: NeumorphicButtonStyle.flat,
                             onPressed: () => Navigator.pop(context, false),
-                          ),
-                          const SizedBox(width: 8),
-                          NeumorphicButton(
-                            label: l10n.clearAll,
+                        ),
+                        const SizedBox(width: 12),
+                        NeumorphicButton(
+                          label: l10n.clearAll,
                             style: NeumorphicButtonStyle.primary,
                             onPressed: isDeleteEnabled
                                 ? () => Navigator.pop(context, true)
@@ -812,7 +805,7 @@ class _PassphraseVaultMobileState
       children: [
         // 安全提示
         NeumorphicContainer(
-          shape: NeumorphicShape.concave,
+          shape: NeumorphicShape.flat,
           borderRadius: tokens.radiusSmall,
           padding: const EdgeInsets.all(10),
           child: Row(
@@ -855,17 +848,15 @@ class _PassphraseVaultMobileState
               child: NeumorphicButton(
                 label: l10n.vaultAddButton,
                 icon: StrawIcons.add,
-                style: NeumorphicButtonStyle.secondary,
                 expanded: true,
                 onPressed: _handleAddPassphrase,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: NeumorphicButton(
                 label: l10n.vaultClearAllButton,
                 icon: StrawIcons.trash,
-                style: NeumorphicButtonStyle.secondary,
                 expanded: true,
                 onPressed: entries.isNotEmpty ? _handleClearAll : null,
               ),
@@ -958,7 +949,7 @@ class _PassphraseVaultMobileState
                   height: 200,
                   child: Center(
                     child: NeumorphicContainer(
-                      shape: NeumorphicShape.concave,
+                      shape: NeumorphicShape.flat,
                       borderRadius: tokens.radiusXLarge,
                       padding: const EdgeInsets.all(16),
                       child: CircularProgressIndicator(
@@ -1004,7 +995,6 @@ class _PassphraseVaultMobileState
             ),
             child: NeumorphicButton(
               label: l10n.cancel,
-              style: NeumorphicButtonStyle.secondary,
               expanded: true,
               minimumSize: const Size(0, 48),
               onPressed: () => Navigator.pop(context),

@@ -5,13 +5,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/core/crypto/crypto_models/content_type_classifier.dart';
 import 'package:strawhut/core/crypto/crypto_models/encrypt_result.dart';
 import 'package:strawhut/core/migration/migration_service.dart';
 import 'package:strawhut/core/utils/temp_file_manager.dart';
 import 'package:strawhut/data/models/parsed_straw_file.dart';
 import 'package:strawhut/l10n/l10n.dart';
-import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/dialogs/decrypt_dialog/decrypt_dialog.dart';
 import 'package:strawhut/presentation/providers/card_provider.dart';
 import 'package:strawhut/presentation/providers/crypto_provider.dart';
@@ -228,10 +228,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 children: [
                   NeumorphicButton(
                     label: l10n.cancel,
-                    style: NeumorphicButtonStyle.flat,
                     onPressed: () => Navigator.of(dialogContext).pop(false),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   NeumorphicButton(
                     label: l10n.migrate,
                     style: NeumorphicButtonStyle.primary,
@@ -270,7 +269,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (MigrationService.isOldFormat(bytes)) {
         if (mounted) {
           final shouldMigrate = await _showMigrationDialog();
-          if (shouldMigrate == true) {
+          if (!mounted) return;
+          if (shouldMigrate ?? false) {
             final l10n = AppLocalizations.of(context)!;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(l10n.legacyFileMigrationRequired)),
@@ -344,6 +344,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (isOldFormat) {
         if (mounted) {
           final shouldMigrate = await _showMigrationDialog();
+          if (!mounted) return;
           if (shouldMigrate != true) {
             if (mounted) context.go('/');
           } else {
@@ -500,9 +501,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       strawFile: strawFile.strawFile,
       parsedFile: strawFile,
       strawFilePath: _filePath,
-      onDecryptSuccess: (result) {
-        _handleDecryptSuccess(result);
-      },
+      onDecryptSuccess: _handleDecryptSuccess,
     );
   }
 
@@ -630,7 +629,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             children: [
               // 凹陷凹槽内的软质进度
               NeumorphicContainer(
-                shape: NeumorphicShape.concave,
+                shape: NeumorphicShape.flat,
                 borderRadius: tokens.radiusLarge,
                 padding: const EdgeInsets.all(24),
                 child: CircularProgressIndicator(
@@ -867,7 +866,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
 
     return PopScope(
-      canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _clearDecryptedState();
@@ -888,8 +886,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 children: [
                   NeumorphicIconButton(
                     icon: StrawIcons.arrowBack,
-                    size: 44,
-                    iconSize: 20,
                     tooltip: '返回首页',
                     onPressed: _handleBack,
                   ),
@@ -914,18 +910,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       _contentType != ContentType.markdown)
                     NeumorphicIconButton(
                       icon: StrawIcons.saveAlt,
-                      size: 44,
-                      iconSize: 20,
                       tooltip: '保存文件',
                       onPressed: _handleSaveFile,
                     ),
                   // 重新解密按钮
                   if (_status == ReaderStatus.decrypted) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     NeumorphicIconButton(
                       icon: StrawIcons.unlock,
-                      size: 44,
-                      iconSize: 20,
                       tooltip: '重新解密',
                       onPressed: () {
                         _cleanupTempFile();
@@ -952,7 +944,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   String _formatDate(String isoDate) {
     try {
       final dateTime = DateTime.parse(isoDate).toLocal();
-      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+      return '${dateTime.year}-'
+          '${dateTime.month.toString().padLeft(2, '0')}-'
+          '${dateTime.day.toString().padLeft(2, '0')}';
     } on Exception {
       return isoDate;
     }

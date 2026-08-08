@@ -3,25 +3,25 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:strawhut/data/models/card_meta.dart';
 import 'package:strawhut/data/models/format_version.dart';
-import 'package:strawhut/data/models/key_file.dart';
 import 'package:strawhut/data/models/integrity_info.dart';
+import 'package:strawhut/data/models/key_file.dart';
 
 // ========== 辅助函数：创建有效的 KeyFile 测试夹具 ==========
 /// 创建一个包含所有必填字段的有效 KeyFile 实例，供多个测试用例复用
-KeyFile _createValidKeyFile() => KeyFile(
-      formatVersion: const FormatVersion(1, 0, 0),
-      keyMetadata: const KeyMetadata(
+KeyFile _createValidKeyFile() => const KeyFile(
+      formatVersion: FormatVersion(1, 0, 0),
+      keyMetadata: KeyMetadata(
         keyId: 'k_20260501120000000_a3f7b2c1',
         createdAt: '2026-05-01T12:00:00Z',
         keyAlgorithm: 'AES-256-GCM',
         keyLengthBits: 256,
       ),
-      keyData: const KeyData(
+      keyData: KeyData(
         keyBase64:
             'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2g=',
         encoding: 'base64',
       ),
-      integrity: const IntegrityInfo(
+      integrity: IntegrityInfo(
         hash:
             'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
         hashAlgorithm: 'SHA-256',
@@ -52,20 +52,20 @@ void main() {
     test('不同 keyId 的 KeyFile 对象不应该相等', () {
       // 验证当 keyMetadata 中的 keyId 不同时，两个 KeyFile 不相等
       final file1 = _createValidKeyFile();
-      final file2 = KeyFile(
-        formatVersion: const FormatVersion(1, 0, 0),
-        keyMetadata: const KeyMetadata(
+      const file2 = KeyFile(
+        formatVersion: FormatVersion(1, 0, 0),
+        keyMetadata: KeyMetadata(
           keyId: 'k_20260502120000000_deadbeef', // 不同的 keyId
           createdAt: '2026-05-01T12:00:00Z',
           keyAlgorithm: 'AES-256-GCM',
           keyLengthBits: 256,
         ),
-        keyData: const KeyData(
+        keyData: KeyData(
           keyBase64:
               'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2g=',
           encoding: 'base64',
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -78,19 +78,19 @@ void main() {
     test('不同 keyBase64 的 KeyFile 对象不应该相等', () {
       // 验证当 keyData 中的 keyBase64 不同时，两个 KeyFile 不相等
       final file1 = _createValidKeyFile();
-      final file2 = KeyFile(
-        formatVersion: const FormatVersion(1, 0, 0),
-        keyMetadata: const KeyMetadata(
+      const file2 = KeyFile(
+        formatVersion: FormatVersion(1, 0, 0),
+        keyMetadata: KeyMetadata(
           keyId: 'k_20260501120000000_a3f7b2c1',
           createdAt: '2026-05-01T12:00:00Z',
           keyAlgorithm: 'AES-256-GCM',
           keyLengthBits: 256,
         ),
-        keyData: const KeyData(
+        keyData: KeyData(
           keyBase64: 'ZGlmZmVyZW50S2V5QmFzZTY0VmFsdWUxMjM0NTY3ODkwYWJjZGVmZ2g=', // 不同的密钥
           encoding: 'base64',
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -109,9 +109,9 @@ void main() {
     test('KeyFile 与其他类型的对象不应该相等', () {
       // 验证 KeyFile 的 == 运算符正确判断类型
       final file = _createValidKeyFile();
-      // ignore: unrelated_type_equality_checks
+      // ignore: unrelated_type_equality_checks, 跨类型比较测试
       expect(file == 'not a KeyFile', isFalse);
-      // ignore: unrelated_type_equality_checks
+      // ignore: unrelated_type_equality_checks, 跨类型比较测试
       expect(file == 42, isFalse);
       expect(identical(file, null), isFalse);
     });
@@ -279,9 +279,9 @@ void main() {
 
   group('KeyFile.toJson/fromJson 序列化循环', () {
     test('完整序列化循环应还原所有字段', () {
-      final original = KeyFile(
-        formatVersion: const FormatVersion(1, 0, 0),
-        keyMetadata: const KeyMetadata(
+      const original = KeyFile(
+        formatVersion: FormatVersion(1, 0, 0),
+        keyMetadata: KeyMetadata(
           keyId: 'k_20260501120000000_a3f7b2c1',
           createdAt: '2026-05-01T12:00:00Z',
           keyAlgorithm: 'AES-256-GCM',
@@ -290,12 +290,12 @@ void main() {
           associatedCardId: 'card_001',
           notes: '这是一把测试密钥',
         ),
-        keyData: const KeyData(
+        keyData: KeyData(
           keyBase64:
               'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2g=',
           encoding: 'base64',
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
           hashAlgorithm: 'SHA-256',
@@ -335,19 +335,19 @@ void main() {
     });
 
     test('assembleToJson 类似流程应还原所有字段', () {
-      final original = KeyFile(
-        formatVersion: const FormatVersion(1, 0, 0),
-        keyMetadata: const KeyMetadata(
+      const original = KeyFile(
+        formatVersion: FormatVersion(1, 0, 0),
+        keyMetadata: KeyMetadata(
           keyId: 'k_20260502083000000_b2c3d4e5',
           createdAt: '2026-05-02T08:30:00Z',
           keyAlgorithm: 'AES-256-GCM',
           keyLengthBits: 256,
         ),
-        keyData: const KeyData(
+        keyData: KeyData(
           keyBase64: 'c2VjcmV0a2V5MTIzNDU2Nzg5MGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHk=',
           encoding: 'base64',
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash:
               'sha256:0000000000000000000000000000000000000000000000000000000000000001',
           hashAlgorithm: 'SHA-256',
@@ -364,19 +364,19 @@ void main() {
     });
 
     test('toJson 应输出正确的顶层键名', () {
-      final keyFile = KeyFile(
-        formatVersion: const FormatVersion(1, 0, 0),
-        keyMetadata: const KeyMetadata(
+      const keyFile = KeyFile(
+        formatVersion: FormatVersion(1, 0, 0),
+        keyMetadata: KeyMetadata(
           keyId: 'k_20260501120000000_test',
           createdAt: '2026-05-01T12:00:00Z',
           keyAlgorithm: 'AES-256-GCM',
           keyLengthBits: 256,
         ),
-        keyData: const KeyData(
+        keyData: KeyData(
           keyBase64: 'dGVzdGtleQ==',
           encoding: 'base64',
         ),
-        integrity: const IntegrityInfo(
+        integrity: IntegrityInfo(
           hash: 'sha256:abc',
           hashAlgorithm: 'SHA-256',
         ),
@@ -721,7 +721,6 @@ void main() {
         publishDate: '2026-05-01T12:00:00Z',
         title: '测试',
         isAnonymous: false,
-        tags: [],
       );
 
       final json = meta.toJson();

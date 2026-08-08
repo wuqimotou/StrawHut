@@ -192,6 +192,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please send as original image, otherwise recipient cannot decrypt';
 
   @override
+  String get pngOriginalImageConfirmTitle => 'Original Image Reminder';
+
+  @override
+  String get pngOriginalImageConfirmBody =>
+      'PNG knowledge cards embed encrypted data into image pixels. You MUST send it as the original image (no compression, no format conversion, no re-screenshot), otherwise the recipient will not be able to decrypt it. Do you confirm you understand and want to continue publishing?';
+
+  @override
+  String get confirmPublish => 'Confirm Publish';
+
+  @override
   String get sharePngCard => 'Share Card';
 
   @override
@@ -265,19 +275,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clearAllConfirmInput => 'Type DELETE to confirm';
-
-  @override
-  String get autoDecryptProgress => 'Trying auto-decrypt...';
-
-  @override
-  String autoDecryptProgressWithCount(int current, int total) {
-    return 'Trying auto-decrypt ($current/$total)...';
-  }
-
-  @override
-  String autoDecryptSuccess(String label) {
-    return 'Auto-decrypted with saved passphrase \"$label\"';
-  }
 
   @override
   String get saveAfterDecrypt =>
