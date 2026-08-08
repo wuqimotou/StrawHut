@@ -29,7 +29,6 @@
 
 | 任务 | 阻塞原因 |
 |------|---------|
-| 1.1 CI/CD 搭建 | 需用户确认 GitHub Actions 触发 + 额度 |
 | 2.1 patch/minor 依赖升级 | 需双平台功能确认 |
 | 2.2 Android 包升级 | 需真机测试 |
 | 2.3 核心框架大版本升级 | 需独立分支 + 全面验证 |
@@ -38,6 +37,12 @@
 | 3.4 Dialog 文件拆分 | 需确认方案 + 回归测试 |
 | 4.3 Renovate/Dependabot 配置 | 需 GitHub 仓库设置 |
 | 4.4 Windows 代码签名 | 需购买证书 |
+
+### 已取消 ❌
+
+| 任务 | 原因 |
+|------|------|
+| 1.1 CI/CD 搭建 | 用户要求删除（邮件通知干扰），workflow 文件已从本地+远程删除 |
 
 ### 务实清零方案说明（4.2 已完成）
 
@@ -70,7 +75,7 @@
 
 ### 1.1 [P0] 搭建 GitHub Actions CI/CD
 
-**状态**: ⚠️ 需用户手动执行（AI 已编写 workflow 文件，待推送确认）
+**状态**: ❌ 已取消（用户要求删除，因邮件通知干扰；workflow 文件已从本地和远程仓库删除）
 
 **AI 可做**:
 - 创建 `.github/workflows/ci_checks.yml`（analyze + test）
@@ -738,8 +743,10 @@ linter:
 4. Renovate/Dependabot 配置 — 需 GitHub 仓库设置
 5. Windows 代码签名 — 需购买证书
 
-### 🔶 AI 已执行 + 待用户确认（4 项）
-1. CI/CD 搭建 — workflow 文件待推送，需确认 GitHub Actions 触发
-2. patch/minor 依赖升级 — 待双平台确认
-3. IV 长度统一 — 待确认格式版本引入
-4. Dialog 文件拆分 — 待确认方案 + 回归测试
+### 🔶 AI 已执行 + 待用户确认（3 项）
+1. patch/minor 依赖升级 — 待双平台确认
+2. IV 长度统一 — 待确认格式版本引入
+3. Dialog 文件拆分 — 待确认方案 + 回归测试
+
+### ❌ 已取消（1 项）
+1. CI/CD 搭建 — 用户要求删除（邮件通知干扰），workflow 文件已从本地+远程删除
