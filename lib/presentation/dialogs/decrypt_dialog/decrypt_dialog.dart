@@ -29,6 +29,44 @@ import 'package:strawhut/presentation/widgets/neumorphic_button.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_container.dart';
 import 'package:strawhut/presentation/widgets/neumorphic_icon.dart';
 
+/// 根据 CryptoException 的 code 精准映射错误提示
+///
+/// 每个错误码对应独立的用户友好提示，便于精确定位问题。
+String _mapCryptoExceptionToMessage(CryptoException e, AppLocalizations l10n, {required bool isPassphraseMode}) {
+  switch (e.code) {
+    // GCM 认证标签校验失败 = 密钥/暗号不匹配
+    case 'CHUNK_DECRYPTION_FAILED':
+      return isPassphraseMode ? l10n.wrongPassphrase : l10n.wrongKey;
+    // 文件相关问题
+    case 'FILE_NOT_FOUND':
+      return l10n.errFileNotFound;
+    case 'INVALID_FILE_FORMAT':
+      return l10n.errInvalidFileFormat;
+    case 'EMPTY_CHUNKS':
+      return l10n.errEmptyChunks;
+    case 'METADATA_TRUNCATED':
+      return l10n.errMetadataTruncated;
+    case 'FIRST_CHUNK_TOO_SMALL':
+      return l10n.errFirstChunkTooSmall;
+    case 'INVALID_SALT_LENGTH':
+      return l10n.errInvalidSaltLength;
+    case 'DECRYPT_STREAM_FAILED':
+      return l10n.errDecryptStreamFailed;
+    case 'METADATA_TOO_LARGE':
+      return l10n.errMetadataTooLarge;
+    case 'CHUNK_SIZE_TOO_SMALL':
+      return l10n.errChunkSizeTooSmall;
+    // 密钥派生相关
+    case 'KEY_DERIVATION_FAILED':
+      return l10n.errKeyDerivationFailed;
+    case 'INVALID_KEY_LENGTH':
+      return l10n.errInvalidKeyLength;
+    // 未知错误
+    default:
+      return l10n.errUnknown;
+  }
+}
+
 /// 解密对话框
 ///
 /// 知识卡片解密的弹窗界面，支持两种解密方式：
@@ -354,6 +392,8 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
 
     // ========== 完整性校验 ==========
     // v2.1 使用 HMAC-SHA256（带密钥），v2.0 使用无密钥 SHA-256
+    // 重置节流时间戳，确保完整性校验阶段的首次进度更新能通过节流
+    _lastProgressUpdateTime = null;
     final strawFileForHash = StrawFile(
       formatVersion: widget.strawFile.formatVersion,
       meta: widget.strawFile.meta,
@@ -402,6 +442,8 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         );
       }
       cancellationToken.throwIfCancelled();
+      // 哈希计算完成，进入比对阶段，触发节流逃生通道（progress >= 1.0）
+      _throttledSetProgress(1);
     } on Exception {
       if (decryptResult.decryptedFilePath != null) {
         await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
@@ -471,7 +513,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = l10n.passphraseDecryptFailed;
+            _errorMessage = l10n.errInvalidFileFormat;
           });
           return;
         }
@@ -483,7 +525,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = l10n.passphraseDecryptFailed;
+            _errorMessage = l10n.errInvalidSaltLength;
           });
           return;
         }
@@ -517,59 +559,74 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         keyBytes = null;
         cryptoService.clearSensitiveData();
 
-        if (selectedEntryId != null) {
-          try {
-            await ref
-                .read(passphraseVaultServiceProvider)
-                .markUsed(selectedEntryId);
-            ref.invalidate(passphraseEntriesProvider);
-          } on Exception {
-            // Usage statistics must not turn a successful decrypt into a
-            // failure if secure storage is temporarily unavailable.
-          }
-        }
-
         // 清除暗号输入框中的敏感内容
         _passphraseInputKey.currentState?.clear();
 
-        // 如果用户勾选了"保存此暗号"，弹出保存对话框
-        if (_savePassphrase && mounted) {
-          cancellationToken.throwIfCancelled();
-          final saved = await AddPassphraseDialog.show(
-            context,
-            initialPassphrase: passphrase,
-          );
-          if (saved ?? false) {
-            ref.invalidate(passphraseEntriesProvider);
+        // 立即调用成功回调并关闭对话框，避免后续异步操作（markUsed /
+        // AddPassphraseDialog）导致 UI 卡在"校验中..."状态
+        final shouldSavePassphrase = _savePassphrase;
+        final passphraseToSave = passphrase;
+        final entryIdToMark = selectedEntryId;
+        final vaultService = entryIdToMark != null
+            ? ref.read(passphraseVaultServiceProvider)
+            : null;
+        // 捕获根 Navigator，用于对话框关闭后显示 AddPassphraseDialog
+        // ignore: use_build_context_synchronously
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+
+        if (mounted) {
+          // 先关闭对话框/BottomSheet，再在下一帧执行成功回调。
+          // 关键：在 pop 之前重置 _isLoading，否则 PopScope.canPop 仍为 false，
+          // 会导致 Navigator.pop 被 PopScope 拦截，BottomSheet/Dialog 卡在
+          // "校验中..."状态无法关闭。
+          // 之后再用 addPostFrameCallback 在下一帧执行回调，避免与
+          // ReaderScreen 的 setState 重建在同一帧发生。
+          final callback = widget.onDecryptSuccess;
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.pop(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            callback(decryptResult);
+          });
+        }
+
+        // ========== 对话框关闭后的后置操作 ==========
+        // 这些操作不再阻塞对话框关闭，避免 UI 卡在"校验中..."状态
+
+        // 更新保险库使用计数
+        if (vaultService != null && entryIdToMark != null) {
+          try {
+            await vaultService.markUsed(entryIdToMark);
+          } on Exception {
+            // 使用统计失败不应影响解密成功
           }
         }
 
-        // 调用成功回调，传入 DecryptResult
-        cancellationToken.throwIfCancelled();
-        if (mounted) {
-          widget.onDecryptSuccess(decryptResult);
-          // 关闭对话框
-          Navigator.pop(context);
+        // 弹出保存暗号对话框（使用根 Navigator 的 context）
+        if (shouldSavePassphrase && rootNavigator.mounted) {
+          await AddPassphraseDialog.show(
+            rootNavigator.context,
+            initialPassphrase: passphraseToSave,
+          );
         }
       } on OperationCancelledException {
         if (mounted && !_isCancelling) {
           Navigator.pop(context);
         }
-      } on CryptoException {
+      } on CryptoException catch (e) {
         if (!mounted || cancellationToken.isCancelled) return;
-        // 加密服务抛出的异常（暗号错误、解密失败等）
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = l10n.passphraseDecryptFailed;
+          _errorMessage = _mapCryptoExceptionToMessage(e, l10n, isPassphraseMode: true);
         });
-      } on Exception catch (e) {
+      } on Exception {
         if (!mounted || cancellationToken.isCancelled) return;
-        // 其他已知异常
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = '解密过程中发生错误：$e';
+          _errorMessage = l10n.errDecryptGeneric;
         });
       } finally {
         // 确保密钥字节被清理（即使发生异常）
@@ -586,7 +643,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
       // 验证是否已输入密钥
       if (_currentKey == null || _currentKey!.isEmpty) {
         setState(() {
-          _errorMessage = '请输入密钥或上传 .key 文件';
+          _errorMessage = l10n.errKeyRequired;
         });
         return;
       }
@@ -613,7 +670,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = '密钥格式不正确，无法解析为有效的 Base64 数据';
+            _errorMessage = l10n.errInvalidKeyFormat;
           });
           return;
         }
@@ -623,8 +680,7 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = '密钥长度不正确：期望 $KEY_LENGTH_BYTES '
-                '字节，实际 ${decodedKey.length} 字节';
+            _errorMessage = l10n.errInvalidKeyLength;
           });
           MemoryUtils.wipeBytes(decodedKey);
           return;
@@ -659,29 +715,38 @@ class _DecryptDialogState extends ConsumerState<DecryptDialog> {
         // 调用成功回调，传入 DecryptResult
         cancellationToken.throwIfCancelled();
         if (mounted) {
-          widget.onDecryptSuccess(decryptResult);
-          // 关闭对话框
+          // 先关闭对话框/BottomSheet，再在下一帧执行成功回调。
+          // 关键：在 pop 之前重置 _isLoading，否则 PopScope.canPop 仍为 false，
+          // 会导致 Navigator.pop 被 PopScope 拦截，BottomSheet/Dialog 卡在
+          // "校验中..."状态无法关闭。
+          // 之后再用 addPostFrameCallback 在下一帧执行回调，避免与
+          // ReaderScreen 的 setState 重建在同一帧发生。
+          final callback = widget.onDecryptSuccess;
+          setState(() {
+            _isLoading = false;
+          });
           Navigator.pop(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            callback(decryptResult);
+          });
         }
       } on OperationCancelledException {
         if (mounted && !_isCancelling) {
           Navigator.pop(context);
         }
-      } on CryptoException {
+      } on CryptoException catch (e) {
         if (!mounted || cancellationToken.isCancelled) return;
-        // 加密服务抛出的异常（密钥错误、解密失败等）
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = l10n.keyError;
+          _errorMessage = _mapCryptoExceptionToMessage(e, l10n, isPassphraseMode: false);
         });
-      } on Exception catch (e) {
+      } on Exception {
         if (!mounted || cancellationToken.isCancelled) return;
-        // 其他已知异常
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = '解密过程中发生错误：$e';
+          _errorMessage = l10n.errDecryptGeneric;
         });
       } finally {
         // 确保密钥字节被清理（即使发生异常）
@@ -1219,6 +1284,8 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
     // ========== 完整性校验 ==========
     // v2.1 使用 HMAC-SHA256（带密钥），v2.0 使用无密钥 SHA-256
+    // 重置节流时间戳，确保完整性校验阶段的首次进度更新能通过节流
+    _lastProgressUpdateTime = null;
     final strawFileForHash = StrawFile(
       formatVersion: widget.strawFile.formatVersion,
       meta: widget.strawFile.meta,
@@ -1267,6 +1334,8 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         );
       }
       cancellationToken.throwIfCancelled();
+      // 哈希计算完成，进入比对阶段，触发节流逃生通道（progress >= 1.0）
+      _throttledSetProgress(1);
     } on Exception {
       if (decryptResult.decryptedFilePath != null) {
         await TempFileManager.deleteTempFile(decryptResult.decryptedFilePath!);
@@ -1322,7 +1391,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = l10n.passphraseDecryptFailed;
+            _errorMessage = l10n.errInvalidFileFormat;
           });
           return;
         }
@@ -1334,7 +1403,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = l10n.passphraseDecryptFailed;
+            _errorMessage = l10n.errInvalidSaltLength;
           });
           return;
         }
@@ -1364,53 +1433,73 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
         keyBytes = null;
         cryptoService.clearSensitiveData();
 
-        if (selectedEntryId != null) {
-          try {
-            await ref
-                .read(passphraseVaultServiceProvider)
-                .markUsed(selectedEntryId);
-            ref.invalidate(passphraseEntriesProvider);
-          } on Exception {
-            // A statistics write must not invalidate successful decryption.
-          }
-        }
-
         _passphraseInputKey.currentState?.clear();
 
-        // 如果用户勾选了"保存此暗号"，弹出保存对话框
-        if (_savePassphrase && mounted) {
-          cancellationToken.throwIfCancelled();
-          final saved = await AddPassphraseDialog.show(
-            context,
-            initialPassphrase: passphrase,
-          );
-          if (saved ?? false) {
-            ref.invalidate(passphraseEntriesProvider);
+        // 立即调用成功回调并关闭对话框，避免后续异步操作（markUsed /
+        // AddPassphraseDialog）导致 UI 卡在"校验中..."状态
+        final shouldSavePassphrase = _savePassphrase;
+        final passphraseToSave = passphrase;
+        final entryIdToMark = selectedEntryId;
+        final vaultService = entryIdToMark != null
+            ? ref.read(passphraseVaultServiceProvider)
+            : null;
+        // 捕获根 Navigator，用于对话框关闭后显示 AddPassphraseDialog
+        // ignore: use_build_context_synchronously
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+
+        if (mounted) {
+          // 先关闭对话框/BottomSheet，再在下一帧执行成功回调。
+          // 关键：在 pop 之前重置 _isLoading，否则 PopScope.canPop 仍为 false，
+          // 会导致 Navigator.pop 被 PopScope 拦截，BottomSheet/Dialog 卡在
+          // "校验中..."状态无法关闭。
+          // 之后再用 addPostFrameCallback 在下一帧执行回调，避免与
+          // ReaderScreen 的 setState 重建在同一帧发生。
+          final callback = widget.onDecryptSuccess;
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.pop(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            callback(decryptResult);
+          });
+        }
+
+        // ========== 对话框关闭后的后置操作 ==========
+        // 这些操作不再阻塞对话框关闭，避免 UI 卡在"校验中..."状态
+
+        // 更新保险库使用计数
+        if (vaultService != null && entryIdToMark != null) {
+          try {
+            await vaultService.markUsed(entryIdToMark);
+          } on Exception {
+            // 使用统计失败不应影响解密成功
           }
         }
 
-        cancellationToken.throwIfCancelled();
-        if (mounted) {
-          widget.onDecryptSuccess(decryptResult);
-          Navigator.pop(context);
+        // 弹出保存暗号对话框（使用根 Navigator 的 context）
+        if (shouldSavePassphrase && rootNavigator.mounted) {
+          await AddPassphraseDialog.show(
+            rootNavigator.context,
+            initialPassphrase: passphraseToSave,
+          );
         }
       } on OperationCancelledException {
         if (mounted && !_isCancelling) {
           Navigator.pop(context);
         }
-      } on CryptoException {
+      } on CryptoException catch (e) {
         if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = l10n.passphraseDecryptFailed;
+          _errorMessage = _mapCryptoExceptionToMessage(e, l10n, isPassphraseMode: true);
         });
-      } on Exception catch (e) {
+      } on Exception {
         if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = '解密过程中发生错误：$e';
+          _errorMessage = l10n.errDecryptGeneric;
         });
       } finally {
         if (keyBytes != null) {
@@ -1424,7 +1513,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
     } else {
       if (_currentKey == null || _currentKey!.isEmpty) {
         setState(() {
-          _errorMessage = '请输入密钥或上传 .key 文件';
+          _errorMessage = l10n.errKeyRequired;
         });
         return;
       }
@@ -1449,7 +1538,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = '密钥格式不正确，无法解析为有效的 Base64 数据';
+            _errorMessage = l10n.errInvalidKeyFormat;
           });
           return;
         }
@@ -1458,8 +1547,7 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
           setState(() {
             _isLoading = false;
             _decryptProgress = 0.0;
-            _errorMessage = '密钥长度不正确：期望 $KEY_LENGTH_BYTES '
-                '字节，实际 ${decodedKey.length} 字节';
+            _errorMessage = l10n.errInvalidKeyLength;
           });
           MemoryUtils.wipeBytes(decodedKey);
           return;
@@ -1489,26 +1577,38 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
 
         cancellationToken.throwIfCancelled();
         if (mounted) {
-          widget.onDecryptSuccess(decryptResult);
+          // 先关闭对话框/BottomSheet，再在下一帧执行成功回调。
+          // 关键：在 pop 之前重置 _isLoading，否则 PopScope.canPop 仍为 false，
+          // 会导致 Navigator.pop 被 PopScope 拦截，BottomSheet/Dialog 卡在
+          // "校验中..."状态无法关闭。
+          // 之后再用 addPostFrameCallback 在下一帧执行回调，避免与
+          // ReaderScreen 的 setState 重建在同一帧发生。
+          final callback = widget.onDecryptSuccess;
+          setState(() {
+            _isLoading = false;
+          });
           Navigator.pop(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            callback(decryptResult);
+          });
         }
       } on OperationCancelledException {
         if (mounted && !_isCancelling) {
           Navigator.pop(context);
         }
-      } on CryptoException {
+      } on CryptoException catch (e) {
         if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = l10n.keyError;
+          _errorMessage = _mapCryptoExceptionToMessage(e, l10n, isPassphraseMode: false);
         });
-      } on Exception catch (e) {
+      } on Exception {
         if (!mounted || cancellationToken.isCancelled) return;
         setState(() {
           _isLoading = false;
           _decryptProgress = 0.0;
-          _errorMessage = '解密过程中发生错误：$e';
+          _errorMessage = l10n.errDecryptGeneric;
         });
       } finally {
         if (keyBytes != null) {
@@ -1686,9 +1786,11 @@ class _DecryptDialogMobileState extends ConsumerState<_DecryptDialogMobile> {
                     label: _isLoading
                         ? (_isCancelling
                             ? '${l10n.cancel}...'
-                            : _decryptProgress > 0
-                                ? '${(_decryptProgress * 100).toInt()}%'
-                                : '解密中...')
+                            : _decryptProgress >= 1.0
+                                ? l10n.verifying
+                                : _decryptProgress > 0
+                                    ? '${(_decryptProgress * 100).toInt()}%'
+                                    : '解密中...')
                         : l10n.decrypt,
                     style: NeumorphicButtonStyle.primary,
                     icon: _isLoading ? null : StrawIcons.unlock,
