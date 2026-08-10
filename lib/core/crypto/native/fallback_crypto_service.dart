@@ -101,9 +101,10 @@ class FallbackCryptoService implements ICryptoService {
     int iterations = KDF_ITERATIONS,
     CancellationToken? cancellationToken,
   }) async {
-    // Native PBKDF2 is synchronous on the Android platform thread and through
-    // Windows FFI. For user-cancellable decrypt flows, keep derivation in a
-    // Dart worker isolate so the UI can process the cancellation request.
+    cancellationToken?.throwIfCancelled();
+
+    // 当存在 cancellationToken 时，跳过原生 PBKDF2（原生调用不可取消），
+    // 直接使用纯 Dart 实现，确保派生过程可被取消。
     if (cancellationToken != null) {
       final dartService = CryptoService(integrityService);
       return dartService.deriveKeyFromPassphrase(
@@ -116,11 +117,10 @@ class FallbackCryptoService implements ICryptoService {
 
     final delegate = await _getDelegate();
     try {
-      return delegate.deriveKeyFromPassphrase(
+      return await delegate.deriveKeyFromPassphrase(
         passphrase: passphrase,
         salt: salt,
         iterations: iterations,
-        cancellationToken: cancellationToken,
       );
     } on UnsupportedError { // ignore: avoid_catching_errors, Windows 平台不支持原生 PBKDF2 需要捕获 UnsupportedError 向上抛出
       // 原生 PBKDF2 不支持（Windows 版本过低），回退到纯 Dart 实现
@@ -129,7 +129,6 @@ class FallbackCryptoService implements ICryptoService {
         passphrase: passphrase,
         salt: salt,
         iterations: iterations,
-        cancellationToken: cancellationToken,
       );
     }
   }

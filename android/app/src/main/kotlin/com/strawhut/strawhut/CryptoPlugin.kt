@@ -31,13 +31,11 @@ class CryptoPlugin : FlutterPlugin, MethodCallHandler {
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, CHANNEL_NAME)
         channel?.setMethodCallHandler(this)
-        Log.d(TAG, "CryptoPlugin attached to engine")
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel?.setMethodCallHandler(null)
         channel = null
-        Log.d(TAG, "CryptoPlugin detached from engine")
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
@@ -187,7 +185,7 @@ class CryptoPlugin : FlutterPlugin, MethodCallHandler {
                 256 // 256-bit key
             )
 
-            // 优先使用 AndroidOpenSSL Provider
+            // 优先使用 AndroidOpenSSL Provider，不可用时回退到默认 Provider
             val keyFactory = try {
                 SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256", "AndroidOpenSSL")
             } catch (e: Exception) {
