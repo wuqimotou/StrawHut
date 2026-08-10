@@ -115,6 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final screenWidth = MediaQuery.sizeOf(context).width;
     final horizontalPadding = getHorizontalPadding(screenWidth);
     final tokens = NeumorphicTokens.ofContext(context);
+    final usePinnedActions = screenWidth <= 600;
 
     return PopScope(
       canPop: !isAndroid(),
@@ -136,6 +137,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Scaffold(
         backgroundColor: tokens.surface,
         appBar: _buildSoftAppBar(context, tokens),
+        bottomNavigationBar: usePinnedActions
+            ? SafeArea(
+                top: false,
+                child: Container(
+                  key: const ValueKey('home_pinned_actions'),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    tokens.spaceSm,
+                    horizontalPadding,
+                    tokens.spaceSm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: tokens.surface,
+                    border: Border(top: BorderSide(color: tokens.divider)),
+                  ),
+                  child: const ActionButtons(),
+                ),
+              )
+            : null,
         body: LayoutBuilder(
           builder: (context, constraints) {
             return Center(
@@ -170,10 +190,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: tokens.spaceXxl),
-                      // 核心操作按钮组
-                      const ActionButtons(),
-                      SizedBox(height: tokens.spaceXl),
+                      SizedBox(
+                        height: usePinnedActions
+                            ? tokens.spaceLg
+                            : tokens.spaceXxl,
+                      ),
+                      // 窄屏上的核心操作固定在底部，避免用户滚动后才能发布或解密。
+                      if (!usePinnedActions) ...[
+                        const ActionButtons(),
+                        SizedBox(height: tokens.spaceXl),
+                      ],
                       // 桌面端拖拽区域
                       const DropZone(),
                       // Android 分享提示

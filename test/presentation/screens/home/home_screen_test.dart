@@ -190,6 +190,35 @@ void main() {
       expect(find.byType(ConstrainedBox), findsWidgets);
     });
 
+    testWidgets('Android 窄屏无需滚动即可点击发布和解密', (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      try {
+        await tester.pumpWidget(createTestableWidget());
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('home_pinned_actions')),
+          findsOneWidget,
+        );
+
+        final publishButton = find.text('发布知识卡片');
+        final decryptButton = find.text('解密知识卡片');
+        expect(publishButton.hitTestable(), findsOneWidget);
+        expect(decryptButton.hitTestable(), findsOneWidget);
+
+        final publishRect = tester.getRect(publishButton);
+        final decryptRect = tester.getRect(decryptButton);
+        expect(publishRect.top, greaterThanOrEqualTo(0));
+        expect(decryptRect.bottom, lessThanOrEqualTo(568));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      }
+    });
+
     testWidgets('页面组件排列顺序应为：图标 -> 标题 -> 副标题 -> 按钮 -> 拖拽区域',
         (WidgetTester tester) async {
       // 此测试需要在桌面平台下运行，因为 DropZone 在移动端返回 SizedBox.shrink()
