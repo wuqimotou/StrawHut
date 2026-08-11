@@ -7,6 +7,7 @@ import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:strawhut/app/neumorphic_tokens.dart';
 import 'package:strawhut/presentation/providers/editor_provider.dart';
+import 'package:strawhut/presentation/widgets/quill_content_styles.dart';
 
 /// Quill 富文本编辑器组件
 ///
@@ -35,7 +36,8 @@ class QuillEditor extends ConsumerStatefulWidget {
   ///
   /// 参数 [controller] - 外部传入的 QuillController，与工具栏共享
   const QuillEditor({
-    required this.controller, super.key,
+    required this.controller,
+    super.key,
   });
 
   /// Quill 编辑器控制器，与工具栏共享同一个实例
@@ -60,7 +62,7 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
       final deltaJson =
           jsonEncode(widget.controller.document.toDelta().toJson());
       ref.read(editorContentProvider.notifier).updateContent(deltaJson);
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('编辑器内容序列化失败：$e');
     }
   }
@@ -101,98 +103,7 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
           // 最小高度
           minHeight: 400,
           // 自定义样式
-          customStyles: quill.DefaultStyles(
-            paragraph: quill.DefaultTextBlockStyle(
-              theme.textTheme.bodyLarge ?? const TextStyle(fontSize: 16),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(8, 8),
-              const quill.VerticalSpacing(0, 0),
-              null,
-            ),
-            h1: quill.DefaultTextBlockStyle(
-              theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 28,
-                  ) ??
-                  const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(16, 8),
-              const quill.VerticalSpacing(0, 0),
-              null,
-            ),
-            h2: quill.DefaultTextBlockStyle(
-              theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ) ??
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(12, 6),
-              const quill.VerticalSpacing(0, 0),
-              null,
-            ),
-            h3: quill.DefaultTextBlockStyle(
-              theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 18,
-                  ) ??
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(10, 4),
-              const quill.VerticalSpacing(0, 0),
-              null,
-            ),
-            lists: quill.DefaultListBlockStyle(
-              theme.textTheme.bodyLarge ?? const TextStyle(fontSize: 16),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(4, 4),
-              const quill.VerticalSpacing(0, 0),
-              null,
-              null,
-            ),
-            quote: quill.DefaultTextBlockStyle(
-              theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7),
-                  ) ??
-                  const TextStyle(fontSize: 14),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(8, 8),
-              const quill.VerticalSpacing(0, 0),
-              null,
-            ),
-            code: quill.DefaultTextBlockStyle(
-              TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 14,
-                color: isDark ? Colors.green[300] : Colors.green[800],
-              ),
-              const quill.HorizontalSpacing(0, 0),
-              const quill.VerticalSpacing(8, 8),
-              const quill.VerticalSpacing(0, 0),
-              BoxDecoration(
-                color: isDark ? Colors.grey[800] : Colors.grey[100],
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            sizeSmall: const TextStyle(fontSize: 12),
-            sizeLarge: const TextStyle(fontSize: 18),
-            sizeHuge: const TextStyle(fontSize: 24),
-            // 斜体使用等宽字体，避免斜体字形向右倾斜超出边界侵入后续字符
-            // 默认字体的斜体是算法倾斜，字形会向右超出原字符边界；
-            // 等宽字体（如 Consolas）有独立的斜体字形，倾斜后不超界。
-            italic: TextStyle(
-              fontStyle: FontStyle.italic,
-              fontFamily: 'Consolas',
-              fontFamilyFallback: const [
-                'Courier New',
-                'Menlo',
-                'Monaco',
-                'Droid Sans Mono',
-                'monospace',
-              ],
-              height: 1.2,
-            ),
-          ),
+          customStyles: buildQuillContentStyles(theme),
         ),
       ),
     );
@@ -219,7 +130,7 @@ class QuillEditorState extends ConsumerState<QuillEditor> {
           final document = quill.Document.fromJson(ops);
           widget.controller.document = document;
         }
-      } catch (e) {
+      } on Object catch (e) {
         // JSON 解析失败时忽略，使用空白文档
         debugPrint('草稿内容解析失败：$e');
       }

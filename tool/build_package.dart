@@ -67,8 +67,8 @@ Future<int> _runCommand(String executable, List<String> arguments) async {
     arguments,
     runInShell: true,
   );
-  process.stdout.transform(SystemEncoding().decoder).listen(stdout.write);
-  process.stderr.transform(SystemEncoding().decoder).listen(stderr.write);
+  process.stdout.transform(const SystemEncoding().decoder).listen(stdout.write);
+  process.stderr.transform(const SystemEncoding().decoder).listen(stderr.write);
   final exitCode = await process.exitCode;
 
   if (exitCode != 0) {
@@ -78,10 +78,15 @@ Future<int> _runCommand(String executable, List<String> arguments) async {
 }
 
 /// 构建并打包 Windows
-Future<void> _buildAndPackageWindows(String version, String desktop, bool skipBuild) async {
+Future<void> _buildAndPackageWindows(
+  String version,
+  String desktop,
+  bool skipBuild,
+) async {
   if (!skipBuild) {
     stdout.writeln('\n========== 构建 Windows ==========');
-    final exitCode = await _runCommand('flutter', ['build', 'windows', '--release']);
+    final exitCode =
+        await _runCommand('flutter', ['build', 'windows', '--release']);
     if (exitCode != 0) {
       stderr.writeln('[错误] flutter build windows 失败');
       exit(1);
@@ -89,7 +94,7 @@ Future<void> _buildAndPackageWindows(String version, String desktop, bool skipBu
   }
 
   stdout.writeln('\n========== 打包 Windows ==========');
-  const releaseDir = 'build\\windows\\x64\\runner\\Release';
+  const releaseDir = r'build\windows\x64\runner\Release';
   final releaseDirectory = Directory(releaseDir);
   if (!releaseDirectory.existsSync()) {
     stderr.writeln('[错误] 未找到 Windows Release 目录: $releaseDir');
@@ -115,7 +120,10 @@ Future<void> _buildAndPackageWindows(String version, String desktop, bool skipBu
   stdout.writeln('压缩 → $zipPath ...');
   final compressResult = Process.runSync(
     'powershell',
-    ['-Command', "Compress-Archive -Path '$folderName' -DestinationPath '$zipPath' -Force"],
+    [
+      '-Command',
+      "Compress-Archive -Path '$folderName' -DestinationPath '$zipPath' -Force",
+    ],
   );
   if (compressResult.exitCode != 0) {
     stderr.writeln('[错误] 压缩失败: ${compressResult.stderr}');
@@ -125,15 +133,21 @@ Future<void> _buildAndPackageWindows(String version, String desktop, bool skipBu
   // 清理临时文件夹
   tempDir.deleteSync(recursive: true);
 
-  stdout.writeln('Windows 包已生成: $zipPath' );
+  stdout.writeln('Windows 包已生成: $zipPath');
 }
 
 /// 构建并打包 Android
-Future<void> _buildAndPackageAndroid(String version, String desktop, bool skipBuild) async {
+Future<void> _buildAndPackageAndroid(
+  String version,
+  String desktop,
+  bool skipBuild,
+) async {
   if (!skipBuild) {
     stdout.writeln('\n========== 构建 Android (所有架构) ==========');
-    final exitCode =
-        await _runCommand('flutter', ['build', 'apk', '--split-per-abi', '--release']);
+    final exitCode = await _runCommand(
+      'flutter',
+      ['build', 'apk', '--split-per-abi', '--release'],
+    );
     if (exitCode != 0) {
       stderr.writeln('[错误] flutter build apk 失败');
       exit(1);
@@ -141,7 +155,7 @@ Future<void> _buildAndPackageAndroid(String version, String desktop, bool skipBu
   }
 
   stdout.writeln('\n========== 打包 Android ==========');
-  const apkDir = 'build\\app\\outputs\\flutter-apk';
+  const apkDir = r'build\app\outputs\flutter-apk';
   final apkDirectory = Directory(apkDir);
   if (!apkDirectory.existsSync()) {
     stderr.writeln('[错误] 未找到 APK 输出目录: $apkDir');
@@ -181,7 +195,7 @@ Future<void> _buildAndPackageAndroid(String version, String desktop, bool skipBu
 void _copyDirectory(Directory source, Directory destination) {
   destination.createSync(recursive: true);
   for (final entity in source.listSync()) {
-    final newPath = '${destination.path}\\${entity.path.split('\\').last}';
+    final newPath = '${destination.path}\\${entity.path.split(r'\').last}';
     if (entity is File) {
       entity.copySync(newPath);
     } else if (entity is Directory) {
@@ -204,7 +218,9 @@ Future<void> main(List<String> args) async {
   final doAndroid = config.platform == 'all' || config.platform == 'android';
 
   if (!doWindows && !doAndroid) {
-    stderr.writeln('[错误] 无效的 platform: ${config.platform} (可选: all, windows, android)');
+    stderr.writeln(
+      '[错误] 无效的 platform: ${config.platform} (可选: all, windows, android)',
+    );
     exit(1);
   }
 

@@ -176,12 +176,6 @@ abstract class AppLocalizations {
   /// **'导出 .key 文件'**
   String get exportKeyFile;
 
-  /// 解密失败提示
-  ///
-  /// In zh, this message translates to:
-  /// **'密钥错误或文件已损坏'**
-  String get keyError;
-
   /// 完整性校验失败提示
   ///
   /// In zh, this message translates to:
@@ -343,12 +337,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'此知识卡片通过暗号加密'**
   String get decryptPassphraseInfo;
-
-  /// 暗号解密失败提示
-  ///
-  /// In zh, this message translates to:
-  /// **'暗号错误或文件已损坏'**
-  String get passphraseDecryptFailed;
 
   /// 暗号安全提示
   ///
@@ -955,6 +943,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'上传文件'**
   String get fileUploadLabel;
+
+  /// 暗号不匹配提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暗号不正确'**
+  String get wrongPassphrase;
+
+  /// 密钥不匹配提示
+  ///
+  /// In zh, this message translates to:
+  /// **'密钥不正确'**
+  String get wrongKey;
+
+  /// 加密文件不存在提示
+  ///
+  /// In zh, this message translates to:
+  /// **'找不到加密文件'**
+  String get errFileNotFound;
+
+  /// 加密文件格式错误提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件格式无效'**
+  String get errInvalidFileFormat;
+
+  /// 加密分块为空提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件不包含数据分块'**
+  String get errEmptyChunks;
+
+  /// 元数据截断提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件的元数据不完整'**
+  String get errMetadataTruncated;
+
+  /// 首分块过小提示
+  ///
+  /// In zh, this message translates to:
+  /// **'首个加密数据分块不完整'**
+  String get errFirstChunkTooSmall;
+
+  /// 密钥派生盐值无效提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件中的盐值长度无效'**
+  String get errInvalidSaltLength;
+
+  /// 流式解密失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'无法解密此加密文件'**
+  String get errDecryptStreamFailed;
+
+  /// 元数据过大提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件的元数据过大'**
+  String get errMetadataTooLarge;
+
+  /// 加密分块大小无效提示
+  ///
+  /// In zh, this message translates to:
+  /// **'加密文件使用了无效的分块大小'**
+  String get errChunkSizeTooSmall;
+
+  /// 暗号密钥派生失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'无法使用此暗号派生解密密钥'**
+  String get errKeyDerivationFailed;
+
+  /// 解密密钥长度错误提示
+  ///
+  /// In zh, this message translates to:
+  /// **'解密密钥长度无效'**
+  String get errInvalidKeyLength;
+
+  /// 未知解密错误提示
+  ///
+  /// In zh, this message translates to:
+  /// **'发生未知解密错误'**
+  String get errUnknown;
+
+  /// 通用解密失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'解密失败，请检查文件和凭据后重试'**
+  String get errDecryptGeneric;
+
+  /// 未提供解密密钥提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入密钥或上传 .key 文件'**
+  String get errKeyRequired;
+
+  /// Base64 密钥格式错误提示
+  ///
+  /// In zh, this message translates to:
+  /// **'密钥不是有效的 Base64 数据'**
+  String get errInvalidKeyFormat;
+
+  /// 完整性校验进度提示
+  ///
+  /// In zh, this message translates to:
+  /// **'校验中...'**
+  String get verifying;
 }
 
 class _AppLocalizationsDelegate

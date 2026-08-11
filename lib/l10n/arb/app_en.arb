@@ -52,10 +52,6 @@
   "@exportKeyFile": {
     "description": "Export key file option"
   },
-  "keyError": "Wrong key or corrupted file",
-  "@keyError": {
-    "description": "Decryption failure message"
-  },
   "integrityError": "File may have been tampered with",
   "@integrityError": {
     "description": "Integrity check failure message"
@@ -112,8 +108,6 @@
   "@decryptPassphraseHint": { "description": "Decrypt passphrase input hint" },
   "decryptPassphraseInfo": "This knowledge card is encrypted with a passphrase",
   "@decryptPassphraseInfo": { "description": "Decrypt passphrase info" },
-  "passphraseDecryptFailed": "Wrong passphrase or corrupted file",
-  "@passphraseDecryptFailed": { "description": "Passphrase decryption failure message" },
   "passphraseSecurityNote": "Keep your passphrase safe. Content cannot be recovered if forgotten",
   "@passphraseSecurityNote": { "description": "Passphrase security note" },
   "passphraseStrengthRequirement": "We recommend 12+ characters including letters, numbers, and symbols for better security",
@@ -315,5 +309,41 @@
   "editorContentLabel": "Editor",
   "@editorContentLabel": { "description": "Editor content option label" },
   "fileUploadLabel": "Upload File",
-  "@fileUploadLabel": { "description": "Upload file option label" }
+  "@fileUploadLabel": { "description": "Upload file option label" },
+  "wrongPassphrase": "Incorrect passphrase",
+  "@wrongPassphrase": { "description": "Passphrase mismatch error" },
+  "wrongKey": "Incorrect key",
+  "@wrongKey": { "description": "Key mismatch error" },
+  "errFileNotFound": "The encrypted file could not be found",
+  "@errFileNotFound": { "description": "Encrypted file not found error" },
+  "errInvalidFileFormat": "The encrypted file format is invalid",
+  "@errInvalidFileFormat": { "description": "Invalid encrypted file format error" },
+  "errEmptyChunks": "The encrypted file contains no data chunks",
+  "@errEmptyChunks": { "description": "Empty encrypted chunks error" },
+  "errMetadataTruncated": "The encrypted file metadata is incomplete",
+  "@errMetadataTruncated": { "description": "Truncated metadata error" },
+  "errFirstChunkTooSmall": "The first encrypted data chunk is incomplete",
+  "@errFirstChunkTooSmall": { "description": "First encrypted chunk too small error" },
+  "errInvalidSaltLength": "The encrypted file contains an invalid salt",
+  "@errInvalidSaltLength": { "description": "Invalid key derivation salt error" },
+  "errDecryptStreamFailed": "The encrypted file could not be decrypted",
+  "@errDecryptStreamFailed": { "description": "Streaming decryption failure" },
+  "errMetadataTooLarge": "The encrypted file metadata is too large",
+  "@errMetadataTooLarge": { "description": "Oversized encrypted metadata error" },
+  "errChunkSizeTooSmall": "The encrypted file uses an invalid chunk size",
+  "@errChunkSizeTooSmall": { "description": "Invalid encrypted chunk size error" },
+  "errKeyDerivationFailed": "The decryption key could not be derived from this passphrase",
+  "@errKeyDerivationFailed": { "description": "Passphrase key derivation failure" },
+  "errInvalidKeyLength": "The decryption key has an invalid length",
+  "@errInvalidKeyLength": { "description": "Invalid decryption key length error" },
+  "errUnknown": "An unknown decryption error occurred",
+  "@errUnknown": { "description": "Unknown decryption error" },
+  "errDecryptGeneric": "Decryption failed. Please verify the file and credentials, then try again.",
+  "@errDecryptGeneric": { "description": "Generic decryption failure" },
+  "errKeyRequired": "Enter a key or upload a .key file",
+  "@errKeyRequired": { "description": "Missing decryption key error" },
+  "errInvalidKeyFormat": "The key is not valid Base64 data",
+  "@errInvalidKeyFormat": { "description": "Invalid Base64 key format error" },
+  "verifying": "Verifying...",
+  "@verifying": { "description": "Integrity verification progress label" }
 }

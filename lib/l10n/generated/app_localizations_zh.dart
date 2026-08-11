@@ -48,9 +48,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportKeyFile => '导出 .key 文件';
 
   @override
-  String get keyError => '密钥错误或文件已损坏';
-
-  @override
   String get integrityError => '文件可能被篡改';
 
   @override
@@ -130,9 +127,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get decryptPassphraseInfo => '此知识卡片通过暗号加密';
-
-  @override
-  String get passphraseDecryptFailed => '暗号错误或文件已损坏';
 
   @override
   String get passphraseSecurityNote => '请妥善保管暗号，遗忘后无法找回内容';
@@ -466,4 +460,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fileUploadLabel => '上传文件';
+
+  @override
+  String get wrongPassphrase => '暗号不正确';
+
+  @override
+  String get wrongKey => '密钥不正确';
+
+  @override
+  String get errFileNotFound => '找不到加密文件';
+
+  @override
+  String get errInvalidFileFormat => '加密文件格式无效';
+
+  @override
+  String get errEmptyChunks => '加密文件不包含数据分块';
+
+  @override
+  String get errMetadataTruncated => '加密文件的元数据不完整';
+
+  @override
+  String get errFirstChunkTooSmall => '首个加密数据分块不完整';
+
+  @override
+  String get errInvalidSaltLength => '加密文件中的盐值长度无效';
+
+  @override
+  String get errDecryptStreamFailed => '无法解密此加密文件';
+
+  @override
+  String get errMetadataTooLarge => '加密文件的元数据过大';
+
+  @override
+  String get errChunkSizeTooSmall => '加密文件使用了无效的分块大小';
+
+  @override
+  String get errKeyDerivationFailed => '无法使用此暗号派生解密密钥';
+
+  @override
+  String get errInvalidKeyLength => '解密密钥长度无效';
+
+  @override
+  String get errUnknown => '发生未知解密错误';
+
+  @override
+  String get errDecryptGeneric => '解密失败，请检查文件和凭据后重试';
+
+  @override
+  String get errKeyRequired => '请输入密钥或上传 .key 文件';
+
+  @override
+  String get errInvalidKeyFormat => '密钥不是有效的 Base64 数据';
+
+  @override
+  String get verifying => '校验中...';
 }
