@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart' as file_picker;
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:strawhut/app/neumorphic_tokens.dart';
@@ -28,7 +29,8 @@ class QuillToolbar extends StatefulWidget {
   ///
   /// 参数 [controller] - Quill 编辑器控制器，用于与编辑器同步状态
   const QuillToolbar({
-    required this.controller, super.key,
+    required this.controller,
+    super.key,
   });
 
   /// Quill 编辑器控制器，用于操作编辑器内容和读取当前选区格式状态
@@ -248,7 +250,7 @@ class _QuillToolbarState extends State<QuillToolbar> {
   /// 构建撤销/重做按钮（浮空样式）
   ///
   /// 通过 childBuilder 将 flutter_quill 原生按钮渲染为 Neumorphism 浮空风格。
-  /// [canPressed] 控制禁用态（无操作可撤销/重做时按钮禁用）。
+  /// `canPressed` 控制禁用态（无操作可撤销/重做时按钮禁用）。
   Widget _buildHistoryButton({required bool isUndo}) {
     return quill.QuillToolbarHistoryButton(
       isUndo: isUndo,
@@ -258,7 +260,8 @@ class _QuillToolbarState extends State<QuillToolbar> {
         tooltip: isUndo ? '撤销' : '重做',
         childBuilder: (dynamic options, dynamic extraOptions) {
           final opts = options as quill.QuillToolbarHistoryButtonOptions;
-          final extra = extraOptions as quill.QuillToolbarHistoryButtonExtraOptions;
+          final extra =
+              extraOptions as quill.QuillToolbarHistoryButtonExtraOptions;
           return _ToolbarIconButton(
             icon: opts.iconData ?? (isUndo ? Icons.undo : Icons.redo),
             tooltip: opts.tooltip ?? (isUndo ? '撤销' : '重做'),
@@ -441,7 +444,7 @@ class _QuillToolbarState extends State<QuillToolbar> {
       ),
     );
 
-    if (source == null) return;
+    if (source == null || !context.mounted) return;
 
     if (source == ImageSource.url) {
       await _insertImageFromUrl(context);
@@ -486,18 +489,15 @@ class _QuillToolbarState extends State<QuillToolbar> {
                     filled: true,
                     fillColor: tokens.surfaceAlt,
                     border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(tokens.radiusSmall),
+                      borderRadius: BorderRadius.circular(tokens.radiusSmall),
                       borderSide: BorderSide(color: tokens.divider),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(tokens.radiusSmall),
+                      borderRadius: BorderRadius.circular(tokens.radiusSmall),
                       borderSide: BorderSide(color: tokens.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(tokens.radiusSmall),
+                      borderRadius: BorderRadius.circular(tokens.radiusSmall),
                       borderSide: BorderSide(color: tokens.inkSecondary),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
@@ -558,7 +558,7 @@ class _QuillToolbarState extends State<QuillToolbar> {
         }
         _insertImageEmbed(base64DataUrl);
       }
-    } catch (e) {
+    } on Exception catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('选择图片失败：$e')),
@@ -648,14 +648,12 @@ class _ToolbarIconButtonState extends State<_ToolbarIconButton> {
       intensity = NeumorphicIntensity.strong;
     } else {
       shape = NeumorphicShape.convex;
-      intensity = _isMobile
-          ? NeumorphicIntensity.subtle
-          : NeumorphicIntensity.normal;
+      intensity =
+          _isMobile ? NeumorphicIntensity.subtle : NeumorphicIntensity.normal;
     }
 
     // 选中态：墨色填充，图标反白
-    final surfaceColor =
-        widget.isSelected ? tokens.inkPrimary : tokens.surface;
+    final surfaceColor = widget.isSelected ? tokens.inkPrimary : tokens.surface;
     final effectiveIconColor = widget.iconColor ??
         (widget.isSelected
             ? (tokens.brightness == Brightness.dark
@@ -678,13 +676,12 @@ class _ToolbarIconButtonState extends State<_ToolbarIconButton> {
     );
 
     if (widget.tooltip != null) {
-      button = Tooltip(message: widget.tooltip!, child: button);
+      button = Tooltip(message: widget.tooltip, child: button);
     }
 
     return MouseRegion(
-      cursor: _isDisabled
-          ? SystemMouseCursors.forbidden
-          : SystemMouseCursors.click,
+      cursor:
+          _isDisabled ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
       onEnter: (_) {
         if (!_isDisabled && !_isMobile) {
           setState(() => _isHovering = true);
@@ -765,7 +762,8 @@ class _HeaderStyleDropdownState extends State<_HeaderStyleDropdown> {
   }
 
   void _didChange() {
-    final attr = widget.controller.toolbarButtonToggler[quill.Attribute.header.key];
+    final attr =
+        widget.controller.toolbarButtonToggler[quill.Attribute.header.key];
     quill.Attribute<dynamic> newSelected;
     if (attr != null) {
       widget.controller.toolbarButtonToggler.remove(quill.Attribute.header.key);
@@ -811,8 +809,11 @@ class _HeaderStyleDropdownState extends State<_HeaderStyleDropdown> {
                 _label(attr),
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: attr == _selected ? FontWeight.w600 : FontWeight.w400,
-                  color: attr == _selected ? tokens.inkPrimary : tokens.textPrimary,
+                  fontWeight:
+                      attr == _selected ? FontWeight.w600 : FontWeight.w400,
+                  color: attr == _selected
+                      ? tokens.inkPrimary
+                      : tokens.textPrimary,
                 ),
               ),
             ),
@@ -945,11 +946,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   }
 
   String _colorToHex(Color color) {
-    return color
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0')
-        .toUpperCase();
+    return color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase();
   }
 
   Color _hexToColor(String hex) {
@@ -989,7 +986,8 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _presetColors.map((color) {
-                  final isSelected = _selectedColor.toARGB32() == color.toARGB32();
+                  final isSelected =
+                      _selectedColor.toARGB32() == color.toARGB32();
                   return GestureDetector(
                     onTap: () {
                       setState(() {
@@ -1005,9 +1003,8 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                         color: color,
                         borderRadius: BorderRadius.circular(tokens.radiusSmall),
                         border: Border.all(
-                          color: isSelected
-                              ? tokens.inkPrimary
-                              : tokens.divider,
+                          color:
+                              isSelected ? tokens.inkPrimary : tokens.divider,
                           width: isSelected ? 2.5 : 1,
                         ),
                       ),
@@ -1068,7 +1065,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                           final color = _hexToColor(value);
                           setState(() => _selectedColor = color);
                           _applyColor(color);
-                        } catch (_) {
+                        } on FormatException {
                           // 忽略无效输入
                         }
                       },

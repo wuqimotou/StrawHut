@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:strawhut/presentation/screens/editor/widgets/quill_editor.dart';
+import 'package:strawhut/presentation/widgets/quill_content_styles.dart';
 
 /// Quill 内容查看器组件
 ///
@@ -193,106 +194,7 @@ class _QuillViewerState extends State<QuillViewer> {
               // 最大内容宽度，保证阅读体验
               maxContentWidth: 800,
               // 自定义样式，适配主题
-              customStyles: quill.DefaultStyles(
-                paragraph: quill.DefaultTextBlockStyle(
-                  theme.textTheme.bodyLarge ?? const TextStyle(fontSize: 16),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(8, 8),
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-                h1: quill.DefaultTextBlockStyle(
-                  theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 28,
-                  ) ??
-                      const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(16, 8),
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-                h2: quill.DefaultTextBlockStyle(
-                  theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ) ??
-                      const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(12, 6),
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-                h3: quill.DefaultTextBlockStyle(
-                  theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 18,
-                  ) ??
-                      const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(10, 4),
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-                lists: quill.DefaultListBlockStyle(
-                  theme.textTheme.bodyLarge ?? const TextStyle(fontSize: 16),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(4, 4),
-                  quill.VerticalSpacing.zero,
-                  null,
-                  null,
-                ),
-                quote: quill.DefaultTextBlockStyle(
-                  theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyLarge?.color?.withValues(
-                      alpha: 0.7,
-                    ),
-                  ) ?? const TextStyle(fontSize: 14),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(8, 8),
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-                code: quill.DefaultTextBlockStyle(
-                  TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 14,
-                    color: isDark ? Colors.green[300] : Colors.green[800],
-                  ),
-                  quill.HorizontalSpacing.zero,
-                  const quill.VerticalSpacing(8, 8),
-                  quill.VerticalSpacing.zero,
-                  BoxDecoration(
-                    color: isDark ? Colors.grey[800] : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                sizeSmall: const TextStyle(fontSize: 12),
-                sizeLarge: const TextStyle(fontSize: 18),
-                sizeHuge: const TextStyle(fontSize: 24),
-                // 斜体使用等宽字体，避免斜体字形向右倾斜超出边界侵入后续字符
-                italic: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  fontFamily: 'Consolas',
-                  fontFamilyFallback: const [
-                    'Courier New',
-                    'Menlo',
-                    'Monaco',
-                    'Droid Sans Mono',
-                    'monospace',
-                  ],
-                  height: 1.2,
-                ),
-              ),
+              customStyles: buildQuillContentStyles(theme),
             ),
           ),
         ),

@@ -22,4 +22,5 @@
 /// - generated/ 目录下的文件为自动生成，不应手动修改
 /// - 翻译内容应编辑 .arb 文件后重新生成
 library;
+
 export 'generated/app_localizations.dart';

@@ -52,10 +52,6 @@
   "@exportKeyFile": {
     "description": "导出密钥文件选项"
   },
-  "keyError": "密钥错误或文件已损坏",
-  "@keyError": {
-    "description": "解密失败提示"
-  },
   "integrityError": "文件可能被篡改",
   "@integrityError": {
     "description": "完整性校验失败提示"
@@ -112,8 +108,6 @@
   "@decryptPassphraseHint": { "description": "解密时暗号输入提示" },
   "decryptPassphraseInfo": "此知识卡片通过暗号加密",
   "@decryptPassphraseInfo": { "description": "解密时暗号加密提示" },
-  "passphraseDecryptFailed": "暗号错误或文件已损坏",
-  "@passphraseDecryptFailed": { "description": "暗号解密失败提示" },
   "passphraseSecurityNote": "请妥善保管暗号，遗忘后无法找回内容",
   "@passphraseSecurityNote": { "description": "暗号安全提示" },
   "passphraseStrengthRequirement": "建议使用 12 个以上字符，包含字母、数字和符号，以提高安全性",
@@ -315,5 +309,41 @@
   "editorContentLabel": "编辑器内容",
   "@editorContentLabel": { "description": "编辑器内容选项标签" },
   "fileUploadLabel": "上传文件",
-  "@fileUploadLabel": { "description": "上传文件选项标签" }
+  "@fileUploadLabel": { "description": "上传文件选项标签" },
+  "wrongPassphrase": "暗号不正确",
+  "@wrongPassphrase": { "description": "暗号不匹配提示" },
+  "wrongKey": "密钥不正确",
+  "@wrongKey": { "description": "密钥不匹配提示" },
+  "errFileNotFound": "找不到加密文件",
+  "@errFileNotFound": { "description": "加密文件不存在提示" },
+  "errInvalidFileFormat": "加密文件格式无效",
+  "@errInvalidFileFormat": { "description": "加密文件格式错误提示" },
+  "errEmptyChunks": "加密文件不包含数据分块",
+  "@errEmptyChunks": { "description": "加密分块为空提示" },
+  "errMetadataTruncated": "加密文件的元数据不完整",
+  "@errMetadataTruncated": { "description": "元数据截断提示" },
+  "errFirstChunkTooSmall": "首个加密数据分块不完整",
+  "@errFirstChunkTooSmall": { "description": "首分块过小提示" },
+  "errInvalidSaltLength": "加密文件中的盐值长度无效",
+  "@errInvalidSaltLength": { "description": "密钥派生盐值无效提示" },
+  "errDecryptStreamFailed": "无法解密此加密文件",
+  "@errDecryptStreamFailed": { "description": "流式解密失败提示" },
+  "errMetadataTooLarge": "加密文件的元数据过大",
+  "@errMetadataTooLarge": { "description": "元数据过大提示" },
+  "errChunkSizeTooSmall": "加密文件使用了无效的分块大小",
+  "@errChunkSizeTooSmall": { "description": "加密分块大小无效提示" },
+  "errKeyDerivationFailed": "无法使用此暗号派生解密密钥",
+  "@errKeyDerivationFailed": { "description": "暗号密钥派生失败提示" },
+  "errInvalidKeyLength": "解密密钥长度无效",
+  "@errInvalidKeyLength": { "description": "解密密钥长度错误提示" },
+  "errUnknown": "发生未知解密错误",
+  "@errUnknown": { "description": "未知解密错误提示" },
+  "errDecryptGeneric": "解密失败，请检查文件和凭据后重试",
+  "@errDecryptGeneric": { "description": "通用解密失败提示" },
+  "errKeyRequired": "请输入密钥或上传 .key 文件",
+  "@errKeyRequired": { "description": "未提供解密密钥提示" },
+  "errInvalidKeyFormat": "密钥不是有效的 Base64 数据",
+  "@errInvalidKeyFormat": { "description": "Base64 密钥格式错误提示" },
+  "verifying": "校验中...",
+  "@verifying": { "description": "完整性校验进度提示" }
 }

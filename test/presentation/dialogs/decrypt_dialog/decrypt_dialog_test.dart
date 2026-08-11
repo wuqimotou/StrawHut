@@ -14,7 +14,7 @@
 // 测试范围：
 // - 对话框显示元数据预览（标题、发布者、标签等）
 // - 未输入密钥点击解密显示提示
-// - 错误密钥解密时显示"密钥错误或文件已损坏"
+// - 错误密钥解密时显示精确的密钥不匹配提示
 // - 完整性校验失败时显示"文件可能被篡改"
 // - 解密成功后调用 onDecryptSuccess 回调
 // - 解密成功后关闭对话框
@@ -123,7 +123,8 @@ Widget _buildDecryptDialog({
           builder: (context) {
             return DecryptDialog(
               strawFile: strawFile,
-              parsedFile: ParsedStrawFile(strawFile: strawFile, chunks: const []),
+              parsedFile:
+                  ParsedStrawFile(strawFile: strawFile, chunks: const []),
               onDecryptSuccess: onDecryptSuccess,
               strawFilePath: strawFilePath,
             );
@@ -494,7 +495,10 @@ void main() {
           useV21Security: any(named: 'useV21Security'),
         ),
       ).thenThrow(
-        const CryptoException('解密失败：密钥错误或密文损坏', code: 'DECRYPTION_FAILED'),
+        const CryptoException(
+          '解密失败：密钥错误或密文损坏',
+          code: 'CHUNK_DECRYPTION_FAILED',
+        ),
       );
     });
 
@@ -502,7 +506,7 @@ void main() {
       container.dispose();
     });
 
-    testWidgets('错误密钥解密时应该显示"密钥错误或文件已损坏"', (WidgetTester tester) async {
+    testWidgets('错误密钥解密时应该显示"密钥不正确"', (WidgetTester tester) async {
       await tester.pumpWidget(
         _buildDialogTestHarness(
           dialog: _buildDecryptDialog(
@@ -530,7 +534,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 应该显示错误提示
-      expect(find.text('密钥错误或文件已损坏'), findsOneWidget);
+      expect(find.text('密钥不正确'), findsOneWidget);
     });
 
     testWidgets('解密失败后按钮应该重新可用', (WidgetTester tester) async {
@@ -1227,7 +1231,10 @@ void main() {
       final cancelFinder = find.byKey(
         const ValueKey('decrypt_cancel_button'),
       );
-      expect(tester.widget<NeumorphicButton>(cancelFinder).onPressed, isNotNull);
+      expect(
+        tester.widget<NeumorphicButton>(cancelFinder).onPressed,
+        isNotNull,
+      );
 
       await tester.tap(cancelFinder);
       await tester.pumpAndSettle();

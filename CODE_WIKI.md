@@ -103,6 +103,7 @@ lib/
 ├── main.dart                        # 应用入口
 ├── app/
 │   ├── app.dart                     # MaterialApp 根组件配置
+│   ├── neumorphic_tokens.dart       # 跨组件视觉令牌
 │   ├── routes.dart                  # go_router 路由定义
 │   └── theme.dart                   # 亮色/暗色主题配置
 ├── core/
@@ -182,10 +183,6 @@ lib/
 │   │   └── app_zh.arb
 │   ├── generated/
 │   └── l10n.dart
-├── p2p/                             # P2P模块（预留）
-│   ├── p2p_interface.dart
-│   ├── p2p_models.dart
-│   └── p2p_stub.dart
 └── presentation/
     ├── dialogs/
     │   ├── decrypt_dialog/          # 解密对话框
@@ -206,10 +203,13 @@ lib/
     │   ├── home/                    # 首页
     │   └── reader/                  # 阅读器页面
     └── widgets/                     # 通用组件
-        ├── app_bar.dart
         ├── error_banner.dart
         ├── loading_indicator.dart
+        ├── neumorphic_button.dart
+        ├── neumorphic_container.dart
+        ├── neumorphic_icon.dart
         ├── platform_adaptive_button.dart
+        ├── quill_content_styles.dart # 编辑/预览/阅读共享富文本样式
         └── responsive_utils.dart
 ```
 

@@ -48,9 +48,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportKeyFile => 'Export .key file';
 
   @override
-  String get keyError => 'Wrong key or corrupted file';
-
-  @override
   String get integrityError => 'File may have been tampered with';
 
   @override
@@ -137,9 +134,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get decryptPassphraseInfo =>
       'This knowledge card is encrypted with a passphrase';
-
-  @override
-  String get passphraseDecryptFailed => 'Wrong passphrase or corrupted file';
 
   @override
   String get passphraseSecurityNote =>
@@ -495,4 +489,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fileUploadLabel => 'Upload File';
+
+  @override
+  String get wrongPassphrase => 'Incorrect passphrase';
+
+  @override
+  String get wrongKey => 'Incorrect key';
+
+  @override
+  String get errFileNotFound => 'The encrypted file could not be found';
+
+  @override
+  String get errInvalidFileFormat => 'The encrypted file format is invalid';
+
+  @override
+  String get errEmptyChunks => 'The encrypted file contains no data chunks';
+
+  @override
+  String get errMetadataTruncated =>
+      'The encrypted file metadata is incomplete';
+
+  @override
+  String get errFirstChunkTooSmall =>
+      'The first encrypted data chunk is incomplete';
+
+  @override
+  String get errInvalidSaltLength =>
+      'The encrypted file contains an invalid salt';
+
+  @override
+  String get errDecryptStreamFailed =>
+      'The encrypted file could not be decrypted';
+
+  @override
+  String get errMetadataTooLarge => 'The encrypted file metadata is too large';
+
+  @override
+  String get errChunkSizeTooSmall =>
+      'The encrypted file uses an invalid chunk size';
+
+  @override
+  String get errKeyDerivationFailed =>
+      'The decryption key could not be derived from this passphrase';
+
+  @override
+  String get errInvalidKeyLength => 'The decryption key has an invalid length';
+
+  @override
+  String get errUnknown => 'An unknown decryption error occurred';
+
+  @override
+  String get errDecryptGeneric =>
+      'Decryption failed. Please verify the file and credentials, then try again.';
+
+  @override
+  String get errKeyRequired => 'Enter a key or upload a .key file';
+
+  @override
+  String get errInvalidKeyFormat => 'The key is not valid Base64 data';
+
+  @override
+  String get verifying => 'Verifying...';
 }
